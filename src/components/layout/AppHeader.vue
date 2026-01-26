@@ -73,15 +73,15 @@ const logout = () => {
             >
               Orders
             </RouterLink>
-            <div class="hidden md:flex items-center gap-2">
-              <span class="text-sm text-gray-600">Hi, {{ userName }}</span>
-              <button
-                class="text-sm text-red-600 hover:text-red-700"
-                @click="logout"
-              >
-                Logout
-              </button>
-            </div>
+            <RouterLink
+              to="/profile"
+              class="hidden md:flex items-center gap-2 text-gray-600 hover:text-primary-700 transition-colors"
+            >
+              <div class="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center text-primary-900 text-sm font-bold">
+                {{ userName.charAt(0).toUpperCase() }}
+              </div>
+              <span class="text-sm font-medium">{{ userName }}</span>
+            </RouterLink>
           </template>
           <template v-else>
             <RouterLink
@@ -131,6 +131,13 @@ const logout = () => {
             Products
           </RouterLink>
           <template v-if="isLoggedIn">
+            <RouterLink
+              to="/profile"
+              class="block py-2 text-gray-600 hover:text-primary-700"
+              @click="closeMobileMenu"
+            >
+              My Profile
+            </RouterLink>
             <RouterLink
               to="/orders"
               class="block py-2 text-gray-600 hover:text-primary-700"
