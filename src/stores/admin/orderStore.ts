@@ -7,6 +7,24 @@ interface OrderFilters {
   channel?: string
 }
 
+interface OrderItem {
+  productId: number
+  productName: string
+  quantity: number
+  price: number
+  variant?: string
+}
+
+interface NewOrder {
+  customerId: number
+  customerName: string
+  customerEmail: string
+  channel: string
+  items: OrderItem[]
+  shippingAddress: string
+  notes?: string
+}
+
 export const useOrderStore = defineStore('adminOrders', () => {
   const orders = ref([...mockAdminOrders])
   const loading = ref(false)
@@ -48,6 +66,34 @@ export const useOrderStore = defineStore('adminOrders', () => {
     return result
   }
 
+  function addOrder(data: NewOrder) {
+    const orderNum = orders.value.length + 1
+    const subtotal = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const shipping = subtotal > 100 ? 0 : 5.99
+    const tax = subtotal * 0.08
+    const total = subtotal + shipping + tax
+
+    const newOrder = {
+      id: `ORD-${String(orderNum).padStart(4, '0')}`,
+      customerId: data.customerId,
+      customerName: data.customerName,
+      customerEmail: data.customerEmail,
+      channel: data.channel,
+      status: 'pending',
+      items: data.items,
+      subtotal,
+      shipping,
+      tax,
+      total,
+      shippingAddress: data.shippingAddress,
+      notes: data.notes || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    orders.value.unshift(newOrder)
+    return newOrder
+  }
+
   return {
     orders,
     loading,
@@ -58,6 +104,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
     ordersByStatus,
     getOrderById,
     updateOrderStatus,
-    filterOrders
+    filterOrders,
+    addOrder
   }
 })

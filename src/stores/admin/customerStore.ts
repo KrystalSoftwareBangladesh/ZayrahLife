@@ -2,6 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { mockCustomers } from '@/mock/admin/customers'
 
+interface NewCustomer {
+  name: string
+  email: string
+  phone: string
+  address?: string
+}
+
 export const useCustomerStore = defineStore('adminCustomers', () => {
   const customers = ref([...mockCustomers])
   const loading = ref(false)
@@ -21,6 +28,25 @@ export const useCustomerStore = defineStore('adminCustomers', () => {
     }
   }
 
+  function addCustomer(data: NewCustomer) {
+    const newId = Math.max(...customers.value.map(c => c.id)) + 1
+    const newCustomer = {
+      id: newId,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      address: data.address || '',
+      totalOrders: 0,
+      totalSpent: 0,
+      status: 'active',
+      lastOrderDate: null,
+      notes: '',
+      createdAt: new Date().toISOString()
+    }
+    customers.value.unshift(newCustomer)
+    return newCustomer
+  }
+
   return {
     customers,
     loading,
@@ -28,6 +54,7 @@ export const useCustomerStore = defineStore('adminCustomers', () => {
     totalCustomers,
     totalRevenue,
     getCustomerById,
-    updateCustomerNotes
+    updateCustomerNotes,
+    addCustomer
   }
 })

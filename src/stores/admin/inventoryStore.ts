@@ -13,6 +13,21 @@ interface LowStockItem {
   productId: number
 }
 
+interface ProductVariant {
+  color: string
+  size: string
+  sku: string
+  stock: number
+}
+
+interface NewProduct {
+  productName: string
+  category: string
+  price: number
+  cost: number
+  variants: ProductVariant[]
+}
+
 export const useInventoryStore = defineStore('adminInventory', () => {
   const inventory = ref([...mockInventory])
   const loading = ref(false)
@@ -54,6 +69,30 @@ export const useInventoryStore = defineStore('adminInventory', () => {
     }
   }
 
+  function addProduct(data: NewProduct) {
+    const newProductId = Math.max(...inventory.value.map(p => p.productId)) + 1
+    const variants = data.variants.map((v, idx) => ({
+      id: newProductId * 100 + idx + 1,
+      color: v.color,
+      size: v.size,
+      sku: v.sku || `SKU-${newProductId}-${idx + 1}`,
+      stock: v.stock || 0,
+      lowStockThreshold: 5
+    }))
+    
+    const newProduct = {
+      productId: newProductId,
+      productName: data.productName,
+      category: data.category,
+      price: data.price,
+      cost: data.cost,
+      totalStock: variants.reduce((sum, v) => sum + v.stock, 0),
+      variants
+    }
+    inventory.value.unshift(newProduct)
+    return newProduct
+  }
+
   return {
     inventory,
     loading,
@@ -62,6 +101,7 @@ export const useInventoryStore = defineStore('adminInventory', () => {
     lowStockItems,
     inventoryValue,
     getProductById,
-    adjustStock
+    adjustStock,
+    addProduct
   }
 })
