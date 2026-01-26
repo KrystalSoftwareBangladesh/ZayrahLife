@@ -1,0 +1,184 @@
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useProductStore } from '@/stores/products'
+import { useCartStore } from '@/stores/cart'
+import BaseButton from '@/components/common/BaseButton.vue'
+import PriceDisplay from '@/components/common/PriceDisplay.vue'
+import QuantitySelector from '@/components/common/QuantitySelector.vue'
+
+const route = useRoute()
+const router = useRouter()
+const productStore = useProductStore()
+const cartStore = useCartStore()
+
+const product = ref(null)
+const selectedImage = ref(0)
+const selectedColor = ref(null)
+const selectedSize = ref(null)
+const quantity = ref(1)
+const addedToCart = ref(false)
+
+onMounted(() => {
+  product.value = productStore.getProductById(route.params.id)
+  if (product.value) {
+    if (product.value.colors?.length) {
+      selectedColor.value = product.value.colors[0]
+    }
+    if (product.value.sizes?.length) {
+      selectedSize.value = product.value.sizes[0]
+    }
+  }
+})
+
+const isInStock = computed(() => product.value?.stock > 0)
+const isLowStock = computed(() => product.value?.stock <= 5 && product.value?.stock > 0)
+
+const addToCart = () => {
+  if (product.value && isInStock.value) {
+    cartStore.addItem(product.value, quantity.value, selectedColor.value, selectedSize.value)
+    addedToCart.value = true
+    setTimeout(() => {
+      addedToCart.value = false
+    }, 2000)
+  }
+}
+
+const buyNow = () => {
+  addToCart()
+  router.push({ name: 'cart' })
+}
+</script>
+
+<template>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div v-if="product" class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div>
+        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 mb-4">
+          <img
+            :src="product.images[selectedImage]"
+            :alt="product.name"
+            class="w-full h-full object-cover"
+          />
+        </div>
+        <div class="flex gap-3">
+          <button
+            v-for="(image, index) in product.images"
+            :key="index"
+            :class="[
+              'w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors',
+              selectedImage === index ? 'border-primary-600' : 'border-transparent hover:border-gray-300'
+            ]"
+            @click="selectedImage = index"
+          >
+            <img :src="image" :alt="`${product.name} ${index + 1}`" class="w-full h-full object-cover" />
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-primary-600 font-medium mb-2">{{ product.categoryName }}</p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">{{ product.name }}</h1>
+
+        <div class="flex items-center gap-4 mb-6">
+          <div class="flex items-center">
+            <div class="flex">
+              <svg
+                v-for="i in 5"
+                :key="i"
+                class="w-5 h-5"
+                :class="i <= Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-200'"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </div>
+            <span class="ml-2 text-gray-600">{{ product.rating }} ({{ product.reviews }} reviews)</span>
+          </div>
+        </div>
+
+        <PriceDisplay :price="product.price" :original-price="product.originalPrice" size="xl" class="mb-6" />
+
+        <p class="text-gray-600 mb-8">{{ product.description }}</p>
+
+        <div v-if="product.colors?.length" class="mb-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-3">Color</h3>
+          <div class="flex gap-2">
+            <button
+              v-for="color in product.colors"
+              :key="color"
+              :class="[
+                'px-4 py-2 rounded-lg border-2 text-sm font-medium transition-colors',
+                selectedColor === color
+                  ? 'border-primary-600 bg-primary-50 text-primary-700'
+                  : 'border-gray-200 hover:border-gray-300'
+              ]"
+              @click="selectedColor = color"
+            >
+              {{ color }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="product.sizes?.length" class="mb-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-3">Size</h3>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="size in product.sizes"
+              :key="size"
+              :class="[
+                'w-12 h-12 rounded-lg border-2 text-sm font-medium transition-colors',
+                selectedSize === size
+                  ? 'border-primary-600 bg-primary-50 text-primary-700'
+                  : 'border-gray-200 hover:border-gray-300'
+              ]"
+              @click="selectedSize = size"
+            >
+              {{ size }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h3 class="text-sm font-medium text-gray-900 mb-3">Quantity</h3>
+          <QuantitySelector v-model="quantity" :max="product.stock" />
+        </div>
+
+        <div class="mb-6">
+          <p v-if="isInStock" :class="isLowStock ? 'text-orange-600' : 'text-green-600'" class="font-medium">
+            {{ isLowStock ? `Only ${product.stock} left in stock!` : 'In Stock' }}
+          </p>
+          <p v-else class="text-red-600 font-medium">Out of Stock</p>
+        </div>
+
+        <div class="flex gap-4">
+          <BaseButton
+            size="lg"
+            :disabled="!isInStock"
+            class="flex-1"
+            @click="addToCart"
+          >
+            {{ addedToCart ? 'Added to Cart!' : 'Add to Cart' }}
+          </BaseButton>
+          <BaseButton
+            size="lg"
+            variant="outline"
+            :disabled="!isInStock"
+            class="flex-1"
+            @click="buyNow"
+          >
+            Buy Now
+          </BaseButton>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="text-center py-16">
+      <p class="text-gray-500">Product not found.</p>
+      <RouterLink to="/products" class="text-primary-600 hover:text-primary-700 mt-4 inline-block">
+        Back to Products
+      </RouterLink>
+    </div>
+  </div>
+</template>

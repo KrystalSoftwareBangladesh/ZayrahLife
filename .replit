@@ -1,5 +1,46 @@
+modules = ["nodejs-22"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.development]
+VITE_APP_NAME = "ZayrahLife Dev"
+VITE_ENV = "development"
+VITE_API_BASE_URL = "http://localhost:8000/api"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Vue E-Commerce"
+
+[[workflows.workflow]]
+name = "Vue E-Commerce"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "static"
+build = ["pnpm", "build"]
+publicDir = "dist"

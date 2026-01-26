@@ -1,0 +1,200 @@
+You are a senior frontend architect and Vue 3 expert.
+
+Your task is to DESIGN AND IMPLEMENT a COMPLETE E-COMMERCE WEBSITE FRONTEND using Vue 3 (Composition API) with strict production-grade standards.
+
+================================
+ENVIRONMENT & TOOLING (MANDATORY)
+================================
+
+- Node.js version: 22.17.1
+- Package manager: pnpm 10.13.1
+- Use Vite as the build tool
+- Configure scripts and environment handling for:
+  - development
+  - staging
+  - production
+
+Use environment variables via:
+- .env.development
+- .env.staging
+- .env.production
+
+Ensure:
+- `pnpm dev` runs development
+- `pnpm build:staging` builds staging
+- `pnpm build:prod` builds production
+- Environment variables are accessed via import.meta.env
+
+================================
+CORE REQUIREMENTS (NON-NEGOTIABLE)
+================================
+
+1. Technology
+- Vue 3 (Composition API)
+- Vite
+- Vue Router
+- Pinia
+- Plain CSS or Tailwind (choose ONE and use consistently)
+- NO backend or API integration (use mock/static data only)
+- NO external UI frameworks (Vuetify, Quasar, Bootstrap, etc.)
+
+2. Architecture Rules
+- NO duplicate code
+- EVERYTHING must be component-based
+- Reusable components must be extracted properly
+- Pages must be thin (logic in composables + stores)
+- Clean, scalable folder structure
+- Meaningful naming (no temp/test/demo)
+
+3. Project Goal
+This frontend must be production-ready and designed to connect later to a Django backend without refactoring.
+
+================================
+WEBSITE FEATURES (FULL SCOPE)
+================================
+
+A) PUBLIC PAGES
+1. Landing Page
+   - Hero section
+   - Featured products
+   - Categories preview
+   - Call-to-action blocks
+
+2. Product Listing Page
+   - Category-wise listing
+   - Filters (category, price)
+   - Reusable ProductCard
+
+3. Product Details Page
+   - Image gallery
+   - Variant selection (color)
+   - Price display
+   - Stock indicator
+   - Add to cart
+
+B) CART & CHECKOUT
+4. Cart Page
+   - Item list
+   - Quantity selector
+   - Remove item
+   - Price summary
+
+5. Checkout Page
+   - Shipping form
+   - Billing form
+   - Order summary
+   - Place order (mock)
+
+6. Invoice Page (UI-only)
+   - Printable invoice layout
+   - Order + customer details
+   - Line-item breakdown
+   - Totals calculation
+
+C) AUTHENTICATION (UI ONLY)
+7. Login Page
+8. Registration Page
+   - Client-side validation
+   - Simulated auth state using Pinia
+
+D) USER DASHBOARD
+9. My Orders Page
+   - Order list
+   - Order status
+   - Order details view
+
+================================
+STATE MANAGEMENT
+================================
+
+Use Pinia stores for:
+- Products
+- Categories
+- Cart
+- Auth (mocked)
+- Orders (mocked)
+
+Mock data must live in /src/mock and be structured EXACTLY like real backend API responses.
+
+================================
+REUSABLE COMPONENTS (MANDATORY)
+================================
+
+You MUST create reusable components for:
+- Button
+- Input
+- Modal
+- ProductCard
+- PriceDisplay
+- QuantitySelector
+- OrderSummary
+- PageLayout (Header + Footer)
+
+Pages must NOT contain hardcoded UI blocks.
+
+================================
+FOLDER STRUCTURE (MANDATORY)
+================================
+
+src/
+├── assets/
+├── components/
+│   ├── common/
+│   ├── product/
+│   ├── cart/
+│   ├── auth/
+│   └── layout/
+├── pages/
+├── router/
+├── stores/
+├── composables/
+├── mock/
+├── utils/
+├── App.vue
+└── main.js
+
+================================
+ENVIRONMENT CONFIGURATION
+================================
+
+- Create .env.development, .env.staging, .env.production
+- Include sample variables like:
+  - VITE_APP_NAME
+  - VITE_ENV
+- Ensure different build outputs per environment if needed
+- Add clear comments explaining environment usage
+
+================================
+DESIGN PRINCIPLES
+================================
+
+- Clean
+- Minimal
+- Conversion-focused
+- Mobile responsive
+- Admin-friendly (clarity > decoration)
+
+================================
+DELIVERABLE
+================================
+
+Generate:
+- Full Vue 3 project
+- pnpm-based scripts
+- Environment-aware config
+- Complete routing
+- Stores & composables
+- Mock data
+- Reusable components
+- Clean basic styling
+- Clear inline comments explaining architectural decisions
+
+DO NOT:
+- Integrate APIs
+- Leave TODOs
+- Skip any listed page
+- Use duplicate components
+
+This project must run immediately after install using pnpm.
+
+START IMPLEMENTING NOW.
