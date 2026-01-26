@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import adminRoutes, { setupAdminGuard } from '@/admin/router'
 
 const routes = [
   {
@@ -55,12 +56,18 @@ const routes = [
     path: '/profile',
     name: 'profile',
     component: () => import('@/pages/ProfilePage.vue')
-  }
+  },
+  ...adminRoutes
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior() {
+    return { top: 0 }
+  }
 })
+
+setupAdminGuard(router)
 
 export default router

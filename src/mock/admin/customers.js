@@ -1,0 +1,80 @@
+export const mockCustomers = [
+  {
+    id: 1,
+    name: 'Sarah Johnson',
+    email: 'sarah.j@email.com',
+    phone: '+1 (555) 123-4567',
+    totalOrders: 12,
+    totalSpent: 2450.00,
+    lastOrderDate: '2026-01-20',
+    status: 'active',
+    joinedDate: '2024-06-15',
+    address: '123 Main St, New York, NY 10001',
+    notes: 'VIP customer, prefers express shipping'
+  },
+  {
+    id: 2,
+    name: 'Michael Chen',
+    email: 'mchen@email.com',
+    phone: '+1 (555) 234-5678',
+    totalOrders: 8,
+    totalSpent: 1890.50,
+    lastOrderDate: '2026-01-18',
+    status: 'active',
+    joinedDate: '2024-08-22',
+    address: '456 Oak Ave, Los Angeles, CA 90001',
+    notes: 'Interested in electronics category'
+  },
+  {
+    id: 3,
+    name: 'Emily Davis',
+    email: 'emily.d@email.com',
+    phone: '+1 (555) 345-6789',
+    totalOrders: 5,
+    totalSpent: 875.00,
+    lastOrderDate: '2026-01-10',
+    status: 'active',
+    joinedDate: '2025-01-05',
+    address: '789 Pine Rd, Chicago, IL 60601',
+    notes: ''
+  },
+  {
+    id: 4,
+    name: 'James Wilson',
+    email: 'jwilson@email.com',
+    phone: '+1 (555) 456-7890',
+    totalOrders: 3,
+    totalSpent: 425.00,
+    lastOrderDate: '2025-12-28',
+    status: 'inactive',
+    joinedDate: '2025-03-10',
+    address: '321 Elm St, Houston, TX 77001',
+    notes: 'Requested product recommendations'
+  },
+  {
+    id: 5,
+    name: 'Maria Garcia',
+    email: 'mgarcia@email.com',
+    phone: '+1 (555) 567-8901',
+    totalOrders: 15,
+    totalSpent: 3200.00,
+    lastOrderDate: '2026-01-22',
+    status: 'active',
+    joinedDate: '2024-02-28',
+    address: '654 Birch Ln, Miami, FL 33101',
+    notes: 'Loyal customer, always pays on time'
+  },
+  {
+    id: 6,
+    name: 'David Brown',
+    email: 'dbrown@email.com',
+    phone: '+1 (555) 678-9012',
+    totalOrders: 2,
+    totalSpent: 199.99,
+    lastOrderDate: '2025-11-15',
+    status: 'inactive',
+    joinedDate: '2025-09-01',
+    address: '987 Cedar Dr, Seattle, WA 98101',
+    notes: ''
+  }
+]

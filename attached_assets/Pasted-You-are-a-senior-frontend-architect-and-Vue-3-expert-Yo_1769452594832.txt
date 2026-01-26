@@ -1,0 +1,198 @@
+You are a senior frontend architect and Vue 3 expert.
+
+You are working inside an EXISTING Vue 3 + Vite + Pinia project that already contains a public e-commerce website.
+
+Your task is to DESIGN AND IMPLEMENT the INTERNAL BUSINESS SOFTWARE (ERP / CRM MVP) under a dedicated route prefix:
+
+    /admin
+
+This internal system must be COMPLETELY SEPARATED from the public website by routing, layout, state usage, and UI structure — while remaining in the same codebase.
+
+================================
+GLOBAL CONSTRAINTS (MANDATORY)
+================================
+
+- Node.js: 22.17.1
+- pnpm: 10.13.1
+- Vue 3 (Composition API)
+- Vue Router
+- Pinia
+- NO backend or API integration
+- Use existing project setup
+- Use mock/static data only
+- NO duplicate components
+- Maximum reusability
+- Clean, scalable architecture
+
+================================
+ROUTING RULES (CRITICAL)
+================================
+
+1. Public website routes remain untouched:
+   - /
+   - /products
+   - /product/:id
+   - /cart
+   - /checkout
+   - etc.
+
+2. Internal software routes MUST live under:
+   - /admin/*
+   - Example: /admin/dashboard, /admin/orders
+
+3. /admin routes must:
+   - Use a completely separate layout
+   - Be protected by a mock admin auth guard
+   - NEVER share public UI components directly
+
+================================
+ADMIN SOFTWARE SCOPE (MVP ONLY)
+================================
+
+A) AUTH (UI + STATE ONLY)
+1. Admin Login Page
+   - Route: /admin/login
+   - Mock authentication via Pinia
+   - Role-based state (ADMIN, STAFF)
+
+B) DASHBOARD
+2. Admin Dashboard
+   - Route: /admin/dashboard
+   - KPI cards:
+     - Total orders
+     - Total revenue
+     - Total expenses
+     - Current stock count
+   - Data from mock stores
+
+C) CUSTOMER MANAGEMENT
+3. Customers
+   - List customers
+   - View customer details
+   - Notes section
+   - Route: /admin/customers
+
+D) PRODUCT & INVENTORY
+4. Products
+   - Product list
+   - Variants (color)
+   - Stock quantity display
+   - Manual stock adjustment (UI only)
+   - Route: /admin/products
+
+E) ORDER MANAGEMENT
+5. Orders
+   - Order list
+   - Filter by status
+   - Order detail view
+   - Channel indicator (FACEBOOK / WEBSITE)
+   - Route: /admin/orders
+
+F) ACCOUNTS & FINANCE
+6. Accounts
+   - Account list (Investment, Expense, Income)
+   - Transactions list
+   - Route: /admin/accounts
+
+G) CAMPAIGN TRACKING
+7. Campaigns
+   - Campaign list
+   - Budget
+   - Spend
+   - Orders linked
+   - ROI calculation (mock)
+   - Route: /admin/campaigns
+
+================================
+STATE MANAGEMENT (PINIA)
+================================
+
+Create separate stores for admin software:
+- adminAuthStore
+- customerStore
+- productStore
+- inventoryStore
+- orderStore
+- accountStore
+- campaignStore
+
+Mock data must simulate REAL backend responses.
+
+================================
+ADMIN REUSABLE COMPONENTS (MANDATORY)
+================================
+
+Create reusable admin-only components:
+- AdminLayout (sidebar + header)
+- AdminSidebar
+- AdminHeader
+- DataTable
+- StatCard
+- FormInput
+- FormSelect
+- StatusBadge
+- ConfirmModal
+
+These MUST live under:
+src/components/admin/
+
+================================
+FOLDER STRUCTURE (EXTENSION)
+================================
+
+Extend the existing structure like this:
+
+src/
+├── admin/
+│   ├── pages/
+│   ├── router/
+│   └── guards/
+├── components/
+│   └── admin/
+├── stores/
+│   └── admin/
+└── mock/
+    └── admin/
+
+DO NOT mix public and admin code.
+
+================================
+DESIGN PRINCIPLES (ADMIN)
+================================
+
+- Utility-focused
+- Information dense
+- No marketing visuals
+- Desktop-first
+- Clear tables and actions
+
+================================
+SECURITY SIMULATION
+================================
+
+- Use route guards for /admin
+- Redirect unauthenticated users to /admin/login
+- Persist mock auth state in localStorage
+
+================================
+DELIVERABLE
+================================
+
+Implement:
+- Full admin routing under /admin
+- Separate layouts
+- Mock authentication
+- All admin pages listed above
+- Pinia stores with mock data
+- Reusable admin components
+- Clean navigation
+
+DO NOT:
+- Integrate APIs
+- Change public website behavior
+- Duplicate logic
+- Leave TODOs
+
+Everything must work immediately after `pnpm dev`.
+
+START IMPLEMENTING NOW.
