@@ -68,7 +68,7 @@ const adminRoutes = [
 
 export function setupAdminGuard(router) {
   router.beforeEach((to, from, next) => {
-    if (to.path.startsWith('/admin') && to.meta.requiresAuth !== false) {
+    if (to.path.startsWith('/admin') && to.path !== '/admin/login') {
       const adminAuth = useAdminAuthStore()
       if (!adminAuth.isAuthenticated) {
         next({ name: 'admin-login' })

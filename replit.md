@@ -19,23 +19,31 @@ A complete Vue 3 e-commerce frontend built with Vite, Vue Router, and Pinia. Thi
 ## Project Structure
 ```
 src/
+├── admin/           # Admin panel (separate from public website)
+│   ├── pages/       # Admin page components
+│   └── router/      # Admin routing configuration
 ├── assets/          # CSS and static assets
 ├── components/      # Reusable Vue components
+│   ├── admin/       # Admin-only components (DataTable, StatCard, etc.)
 │   ├── common/      # Button, Input, Modal, etc.
 │   ├── product/     # ProductCard
 │   ├── cart/        # OrderSummary
 │   └── layout/      # PageLayout, Header, Footer
-├── pages/           # Page components
+├── pages/           # Public page components
 ├── router/          # Vue Router configuration
-├── stores/          # Pinia stores (products, cart, auth, orders)
+├── stores/          # Pinia stores
+│   └── admin/       # Admin-specific stores
+├── mock/            # Mock data
+│   └── admin/       # Admin mock data (customers, orders, inventory, etc.)
 ├── composables/     # Reusable composition functions
-├── mock/            # Mock data (products, orders)
 ├── utils/           # Utility functions
 ├── App.vue          # Root component
 └── main.js          # Application entry point
 ```
 
 ## Features
+
+### Public Website
 - Landing page with hero, categories, and featured products
 - Product listing with category/price filters
 - Product detail page with variant selection
@@ -44,6 +52,21 @@ src/
 - Invoice page (printable)
 - Authentication UI (login/register with mock state)
 - Order history and order details
+- User profile page
+
+### Admin Panel (ERP/CRM MVP)
+- **Dashboard**: KPI cards (orders, revenue, expenses, stock count)
+- **Customers**: Customer list, details, notes management
+- **Products & Inventory**: Product catalog, variant stock levels, manual stock adjustment
+- **Orders**: Order list with status/channel filters, order details, status updates
+- **Accounts & Finance**: Account management, transaction tracking
+- **Campaigns**: Marketing campaign tracking with ROI calculations
+
+### Admin Access
+- URL: `/admin/login`
+- Demo credentials:
+  - Admin: `admin@zayrahlife.com` / `admin123`
+  - Staff: `staff@zayrahlife.com` / `staff123`
 
 ## Running the Project
 ```bash
