@@ -15,7 +15,7 @@ interface NewTransaction {
   description: string
   amount: number
   type: 'income' | 'expense'
-  category: string
+  category?: string
   reference?: string
 }
 
@@ -55,14 +55,15 @@ export const useAccountStore = defineStore('adminAccounts', () => {
 
   function addAccount(data: NewAccount) {
     const newId = Math.max(...accounts.value.map(a => a.id)) + 1
+    const typePrefix = data.type.toUpperCase().slice(0, 3)
     const newAccount = {
       id: newId,
       name: data.name,
+      code: data.code || `${typePrefix}-${String(newId).padStart(3, '0')}`,
       type: data.type,
-      code: data.code || `${data.type.toUpperCase().slice(0, 3)}-${String(newId).padStart(3, '0')}`,
-      description: data.description || '',
       balance: 0,
-      createdAt: new Date().toISOString()
+      currency: 'USD',
+      description: data.description || ''
     }
     accounts.value.push(newAccount)
     return newAccount
@@ -71,21 +72,21 @@ export const useAccountStore = defineStore('adminAccounts', () => {
   function addTransaction(data: NewTransaction) {
     const newId = Math.max(...transactions.value.map(t => t.id)) + 1
     const amount = data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount)
+    const account = accounts.value.find(a => a.id === data.accountId)
     
     const newTransaction = {
       id: newId,
       accountId: data.accountId,
-      date: data.date,
-      description: data.description,
-      amount,
+      accountName: account?.name || 'Unknown',
       type: data.type,
-      category: data.category,
-      reference: data.reference || `TXN-${String(newId).padStart(6, '0')}`,
-      createdAt: new Date().toISOString()
+      amount,
+      description: data.description,
+      category: data.category || 'Other',
+      date: data.date,
+      reference: data.reference || `TXN-${String(newId).padStart(6, '0')}`
     }
     transactions.value.unshift(newTransaction)
     
-    const account = accounts.value.find(a => a.id === data.accountId)
     if (account) {
       account.balance += amount
     }

@@ -5,7 +5,7 @@ import { mockCustomers } from '@/mock/admin/customers'
 interface NewCustomer {
   name: string
   email: string
-  phone: string
+  phone?: string
   address?: string
 }
 
@@ -30,18 +30,19 @@ export const useCustomerStore = defineStore('adminCustomers', () => {
 
   function addCustomer(data: NewCustomer) {
     const newId = Math.max(...customers.value.map(c => c.id)) + 1
+    const today = new Date().toISOString().split('T')[0]
     const newCustomer = {
       id: newId,
       name: data.name,
       email: data.email,
-      phone: data.phone,
+      phone: data.phone || '',
       address: data.address || '',
       totalOrders: 0,
       totalSpent: 0,
       status: 'active',
-      lastOrderDate: null,
-      notes: '',
-      createdAt: new Date().toISOString()
+      lastOrderDate: today,
+      joinedDate: today,
+      notes: ''
     }
     customers.value.unshift(newCustomer)
     return newCustomer

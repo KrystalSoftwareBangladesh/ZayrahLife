@@ -59,10 +59,10 @@ src/
 
 ### Admin Panel (ERP/CRM MVP)
 - **Dashboard**: KPI cards (orders, revenue, expenses, stock count)
-- **Customers**: Customer list, details, notes management
-- **Products & Inventory**: Product catalog, variant stock levels, manual stock adjustment
-- **Orders**: Order list with status/channel filters, order details, status updates
-- **Accounts & Finance**: Account management, transaction tracking
+- **Customers**: Customer list, details, notes management, **add new customers**
+- **Products & Inventory**: Product catalog, variant stock levels, manual stock adjustment, **add new products with variants**
+- **Orders**: Order list with status/channel filters, order details, status updates, **create new orders**
+- **Accounts & Finance**: Chart of Accounts with tabs, **add accounts and transactions**, transaction tracking
 - **Campaigns**: Marketing campaign tracking with ROI calculations
 
 ### Admin Access

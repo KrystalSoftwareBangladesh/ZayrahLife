@@ -70,9 +70,12 @@ export const useInventoryStore = defineStore('adminInventory', () => {
   }
 
   function addProduct(data: NewProduct) {
+    const newId = Math.max(...inventory.value.map(p => p.id)) + 1
     const newProductId = Math.max(...inventory.value.map(p => p.productId)) + 1
+    const baseVariantId = Math.max(...inventory.value.flatMap(p => p.variants.map(v => v.id))) + 1
+    
     const variants = data.variants.map((v, idx) => ({
-      id: newProductId * 100 + idx + 1,
+      id: baseVariantId + idx,
       color: v.color,
       size: v.size,
       sku: v.sku || `SKU-${newProductId}-${idx + 1}`,
@@ -81,6 +84,7 @@ export const useInventoryStore = defineStore('adminInventory', () => {
     }))
     
     const newProduct = {
+      id: newId,
       productId: newProductId,
       productName: data.productName,
       category: data.category,

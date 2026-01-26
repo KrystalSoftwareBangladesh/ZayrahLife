@@ -9,10 +9,10 @@ interface OrderFilters {
 
 interface OrderItem {
   productId: number
-  productName: string
+  name: string
+  variant: string
   quantity: number
   price: number
-  variant?: string
 }
 
 interface NewOrder {
@@ -20,8 +20,9 @@ interface NewOrder {
   customerName: string
   customerEmail: string
   channel: string
-  items: OrderItem[]
+  items: { productId: number; productName: string; quantity: number; price: number; variant?: string }[]
   shippingAddress: string
+  paymentMethod?: string
   notes?: string
 }
 
@@ -68,25 +69,33 @@ export const useOrderStore = defineStore('adminOrders', () => {
 
   function addOrder(data: NewOrder) {
     const orderNum = orders.value.length + 1
+    const year = new Date().getFullYear()
     const subtotal = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    const shipping = subtotal > 100 ? 0 : 5.99
+    const shipping = subtotal > 100 ? 0 : 9.99
     const tax = subtotal * 0.08
-    const total = subtotal + shipping + tax
+
+    const orderItems: OrderItem[] = data.items.map(item => ({
+      productId: item.productId,
+      name: item.productName,
+      variant: item.variant || '',
+      quantity: item.quantity,
+      price: item.price
+    }))
 
     const newOrder = {
-      id: `ORD-${String(orderNum).padStart(4, '0')}`,
+      id: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
       customerId: data.customerId,
       customerName: data.customerName,
       customerEmail: data.customerEmail,
-      channel: data.channel,
-      status: 'pending',
-      items: data.items,
+      items: orderItems,
       subtotal,
       shipping,
       tax,
-      total,
+      total: subtotal + shipping + tax,
+      status: 'pending',
+      channel: data.channel,
+      paymentMethod: data.paymentMethod || 'Credit Card',
       shippingAddress: data.shippingAddress,
-      notes: data.notes || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
