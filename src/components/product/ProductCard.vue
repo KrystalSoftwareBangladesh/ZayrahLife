@@ -67,7 +67,7 @@ const addToCart = (e) => {
             v-for="i in 5"
             :key="i"
             class="w-4 h-4"
-            :class="i <= Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-200'"
+            :class="i <= Math.floor(product.rating) ? 'text-gold-500' : 'text-gray-200'"
             fill="currentColor"
             viewBox="0 0 20 20"
           >

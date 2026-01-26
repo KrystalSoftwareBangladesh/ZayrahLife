@@ -32,9 +32,9 @@ defineEmits(['click'])
     :class="[
       'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
       {
-        'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500': variant === 'primary',
+        'bg-primary-700 text-white hover:bg-primary-800 focus:ring-primary-600': variant === 'primary',
         'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-500': variant === 'secondary',
-        'border-2 border-primary-600 text-primary-600 hover:bg-primary-50 focus:ring-primary-500': variant === 'outline',
+        'border-2 border-primary-700 text-primary-700 hover:bg-primary-50 focus:ring-primary-600': variant === 'outline',
         'text-gray-700 hover:bg-gray-100 focus:ring-gray-500': variant === 'ghost',
         'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500': variant === 'danger',
         'px-3 py-1.5 text-sm': size === 'sm',

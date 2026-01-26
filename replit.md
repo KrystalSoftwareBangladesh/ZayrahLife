@@ -11,6 +11,11 @@ A complete Vue 3 e-commerce frontend built with Vite, Vue Router, and Pinia. Thi
 - **State Management**: Pinia
 - **Styling**: Tailwind CSS
 
+## Theme Colors
+- **Primary**: Dark green/teal (#1a5c4e to #143d35)
+- **Accent**: Gold (#d9982d to #c17a22)
+- Logo: `/public/logo.png`
+
 ## Project Structure
 ```
 src/

@@ -32,7 +32,7 @@ const printInvoice = () => {
       <div class="p-8 print:p-4">
         <div class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8">
           <div>
-            <h1 class="text-3xl font-bold text-primary-600 mb-2">ZayrahLife</h1>
+            <img src="/logo.png" alt="ZayrahLife" class="h-16 w-auto mb-2" />
             <p class="text-gray-500">Invoice</p>
           </div>
           <div class="text-right">

@@ -32,19 +32,19 @@ const logout = () => {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <RouterLink to="/" class="flex items-center gap-2" @click="closeMobileMenu">
-          <span class="text-2xl font-bold text-primary-600">ZayrahLife</span>
+          <img src="/logo.png" alt="ZayrahLife" class="h-12 w-auto" />
         </RouterLink>
         
         <nav class="hidden md:flex items-center gap-8">
           <RouterLink
             to="/"
-            class="text-gray-600 hover:text-primary-600 transition-colors font-medium"
+            class="text-gray-600 hover:text-primary-700 transition-colors font-medium"
           >
             Home
           </RouterLink>
           <RouterLink
             to="/products"
-            class="text-gray-600 hover:text-primary-600 transition-colors font-medium"
+            class="text-gray-600 hover:text-primary-700 transition-colors font-medium"
           >
             Products
           </RouterLink>
@@ -53,14 +53,14 @@ const logout = () => {
         <div class="flex items-center gap-4">
           <RouterLink
             to="/cart"
-            class="relative p-2 text-gray-600 hover:text-primary-600 transition-colors"
+            class="relative p-2 text-gray-600 hover:text-primary-700 transition-colors"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
             <span
               v-if="cartCount > 0"
-              class="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-xs font-bold text-white bg-primary-600 rounded-full"
+              class="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-xs font-bold text-white bg-gold-500 rounded-full"
             >
               {{ cartCount > 99 ? '99+' : cartCount }}
             </span>
@@ -69,7 +69,7 @@ const logout = () => {
           <template v-if="isLoggedIn">
             <RouterLink
               to="/orders"
-              class="hidden md:block text-gray-600 hover:text-primary-600 transition-colors font-medium"
+              class="hidden md:block text-gray-600 hover:text-primary-700 transition-colors font-medium"
             >
               Orders
             </RouterLink>
@@ -86,13 +86,13 @@ const logout = () => {
           <template v-else>
             <RouterLink
               to="/login"
-              class="hidden md:block px-4 py-2 text-primary-600 hover:text-primary-700 font-medium"
+              class="hidden md:block px-4 py-2 text-primary-700 hover:text-primary-800 font-medium"
             >
               Login
             </RouterLink>
             <RouterLink
               to="/register"
-              class="hidden md:block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
+              class="hidden md:block px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800 font-medium"
             >
               Sign Up
             </RouterLink>
@@ -118,14 +118,14 @@ const logout = () => {
         <div class="px-4 py-4 space-y-3">
           <RouterLink
             to="/"
-            class="block py-2 text-gray-600 hover:text-primary-600"
+            class="block py-2 text-gray-600 hover:text-primary-700"
             @click="closeMobileMenu"
           >
             Home
           </RouterLink>
           <RouterLink
             to="/products"
-            class="block py-2 text-gray-600 hover:text-primary-600"
+            class="block py-2 text-gray-600 hover:text-primary-700"
             @click="closeMobileMenu"
           >
             Products
@@ -133,7 +133,7 @@ const logout = () => {
           <template v-if="isLoggedIn">
             <RouterLink
               to="/orders"
-              class="block py-2 text-gray-600 hover:text-primary-600"
+              class="block py-2 text-gray-600 hover:text-primary-700"
               @click="closeMobileMenu"
             >
               My Orders
@@ -148,14 +148,14 @@ const logout = () => {
           <template v-else>
             <RouterLink
               to="/login"
-              class="block py-2 text-primary-600"
+              class="block py-2 text-primary-700"
               @click="closeMobileMenu"
             >
               Login
             </RouterLink>
             <RouterLink
               to="/register"
-              class="block py-2 text-primary-600"
+              class="block py-2 text-primary-700"
               @click="closeMobileMenu"
             >
               Sign Up
