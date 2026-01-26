@@ -1,4 +1,3 @@
-import { createRouter, createWebHistory } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/admin/adminAuth'
 
 const adminRoutes = [

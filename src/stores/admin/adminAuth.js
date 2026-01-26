@@ -17,7 +17,8 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
   function login(email, password) {
     const foundUser = mockUsers.find(u => u.email === email && u.password === password)
     if (foundUser) {
-      const { password: _, ...userData } = foundUser
+      const { password: _password, ...userData } = foundUser
+void _password
       user.value = userData
       token.value = `mock-token-${Date.now()}`
       localStorage.setItem('adminUser', JSON.stringify(userData))

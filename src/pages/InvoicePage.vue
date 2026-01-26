@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { useOrderStore } from '@/stores/orders'
 import BaseButton from '@/components/common/BaseButton.vue'

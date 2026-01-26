@@ -26,7 +26,7 @@ defineEmits(['update:modelValue'])
         error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300',
         disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
       ]"
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      @input="$emit('update:modelValue', $event.target.value)"
     />
     <p v-if="error" class="mt-1 text-sm text-red-600">{{ error }}</p>
   </div>
