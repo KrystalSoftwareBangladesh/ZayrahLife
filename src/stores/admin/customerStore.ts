@@ -10,12 +10,12 @@ export const useCustomerStore = defineStore('adminCustomers', () => {
   const totalCustomers = computed(() => customers.value.length)
   const totalRevenue = computed(() => customers.value.reduce((sum, c) => sum + c.totalSpent, 0))
 
-  function getCustomerById(id) {
-    return customers.value.find(c => c.id === parseInt(id))
+  function getCustomerById(id: string | number) {
+    return customers.value.find(c => c.id === parseInt(String(id)))
   }
 
-  function updateCustomerNotes(id, notes) {
-    const customer = customers.value.find(c => c.id === parseInt(id))
+  function updateCustomerNotes(id: string | number, notes: string) {
+    const customer = customers.value.find(c => c.id === parseInt(String(id)))
     if (customer) {
       customer.notes = notes
     }

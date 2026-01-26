@@ -2,6 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { mockAdminOrders } from '@/mock/admin/orders'
 
+interface OrderFilters {
+  status?: string
+  channel?: string
+}
+
 export const useOrderStore = defineStore('adminOrders', () => {
   const orders = ref([...mockAdminOrders])
   const loading = ref(false)
@@ -12,7 +17,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
   const processingOrders = computed(() => orders.value.filter(o => o.status === 'processing').length)
 
   const ordersByStatus = computed(() => {
-    const grouped = {}
+    const grouped: Record<string, typeof orders.value> = {}
     orders.value.forEach(order => {
       if (!grouped[order.status]) grouped[order.status] = []
       grouped[order.status].push(order)
@@ -20,11 +25,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
     return grouped
   })
 
-  function getOrderById(id) {
+  function getOrderById(id: string) {
     return orders.value.find(o => o.id === id)
   }
 
-  function updateOrderStatus(id, status) {
+  function updateOrderStatus(id: string, status: string) {
     const order = orders.value.find(o => o.id === id)
     if (order) {
       order.status = status
@@ -32,7 +37,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
-  function filterOrders(filters) {
+  function filterOrders(filters: OrderFilters) {
     let result = [...orders.value]
     if (filters.status) {
       result = result.filter(o => o.status === filters.status)

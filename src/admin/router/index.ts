@@ -1,3 +1,4 @@
+import type { Router, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/admin/adminAuth'
 
 const adminRoutes = [
@@ -65,8 +66,8 @@ const adminRoutes = [
   }
 ]
 
-export function setupAdminGuard(router) {
-  router.beforeEach((to, from, next) => {
+export function setupAdminGuard(router: Router) {
+  router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
     if (to.path.startsWith('/admin') && to.path !== '/admin/login') {
       const adminAuth = useAdminAuthStore()
       if (!adminAuth.isAuthenticated) {

@@ -1,13 +1,20 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+interface User {
+  id: number
+  email: string
+  name: string
+  createdAt: string
+}
+
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
+  const user = ref<User | null>(null)
   const isLoading = ref(false)
 
   const isAuthenticated = computed(() => !!user.value)
 
-  const login = async (email, password) => {
+  const login = async (email: string, password: string) => {
     isLoading.value = true
     
     await new Promise(resolve => setTimeout(resolve, 800))
@@ -27,7 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
     return { success: false, error: 'Invalid credentials' }
   }
 
-  const register = async (name, email, password) => {
+  const register = async (name: string, email: string, password: string) => {
     isLoading.value = true
     
     await new Promise(resolve => setTimeout(resolve, 800))

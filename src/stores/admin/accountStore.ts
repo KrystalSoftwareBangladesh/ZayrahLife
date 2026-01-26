@@ -25,7 +25,7 @@ export const useAccountStore = defineStore('adminAccounts', () => {
   const expenseAccounts = computed(() => accounts.value.filter(a => a.type === 'expense'))
   const investmentAccounts = computed(() => accounts.value.filter(a => a.type === 'investment'))
 
-  function getTransactionsByAccount(accountId) {
+  function getTransactionsByAccount(accountId: number) {
     return transactions.value.filter(t => t.accountId === accountId)
   }
 

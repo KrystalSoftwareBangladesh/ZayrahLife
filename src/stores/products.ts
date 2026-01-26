@@ -5,7 +5,7 @@ import { products as mockProducts, categories as mockCategories } from '@/mock/p
 export const useProductStore = defineStore('products', () => {
   const products = ref(mockProducts)
   const categories = ref(mockCategories)
-  const selectedCategory = ref(null)
+  const selectedCategory = ref<string | null>(null)
   const priceRange = ref({ min: 0, max: 500 })
 
   const featuredProducts = computed(() => {
@@ -26,19 +26,19 @@ export const useProductStore = defineStore('products', () => {
     return result
   })
 
-  const getProductById = (id) => {
-    return products.value.find(p => p.id === parseInt(id))
+  const getProductById = (id: string | number) => {
+    return products.value.find(p => p.id === parseInt(String(id)))
   }
 
-  const getProductsByCategory = (categoryId) => {
+  const getProductsByCategory = (categoryId: string) => {
     return products.value.filter(p => p.category === categoryId)
   }
 
-  const setCategory = (categoryId) => {
+  const setCategory = (categoryId: string | null) => {
     selectedCategory.value = categoryId
   }
 
-  const setPriceRange = (min, max) => {
+  const setPriceRange = (min: number, max: number) => {
     priceRange.value = { min, max }
   }
 

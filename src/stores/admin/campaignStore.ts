@@ -18,12 +18,12 @@ export const useCampaignStore = defineStore('adminCampaigns', () => {
 
   const activeCampaigns = computed(() => campaigns.value.filter(c => c.status === 'running'))
 
-  function getCampaignById(id) {
-    return campaigns.value.find(c => c.id === parseInt(id))
+  function getCampaignById(id: string | number) {
+    return campaigns.value.find(c => c.id === parseInt(String(id)))
   }
 
-  function updateCampaignStatus(id, status) {
-    const campaign = campaigns.value.find(c => c.id === parseInt(id))
+  function updateCampaignStatus(id: string | number, status: string) {
+    const campaign = campaigns.value.find(c => c.id === parseInt(String(id)))
     if (campaign) {
       campaign.status = status
     }

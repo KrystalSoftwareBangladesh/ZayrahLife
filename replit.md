@@ -5,11 +5,14 @@ A complete Vue 3 e-commerce frontend built with Vite, Vue Router, and Pinia. Thi
 
 ## Tech Stack
 - **Framework**: Vue 3 (Composition API)
+- **Language**: TypeScript (strict mode)
 - **Build Tool**: Vite
 - **Package Manager**: pnpm
 - **Routing**: Vue Router
 - **State Management**: Pinia
 - **Styling**: Tailwind CSS
+- **Linting**: ESLint with TypeScript and Vue support
+- **Type Checking**: vue-tsc
 
 ## Theme Colors
 - **Primary**: Dark green/teal (#1a5c4e to #143d35)

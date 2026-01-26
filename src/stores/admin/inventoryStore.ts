@@ -2,6 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { mockInventory } from '@/mock/admin/inventory'
 
+interface LowStockItem {
+  id: number
+  color: string
+  size: string
+  sku: string
+  stock: number
+  lowStockThreshold: number
+  productName: string
+  productId: number
+}
+
 export const useInventoryStore = defineStore('adminInventory', () => {
   const inventory = ref([...mockInventory])
   const loading = ref(false)
@@ -9,7 +20,7 @@ export const useInventoryStore = defineStore('adminInventory', () => {
   const totalProducts = computed(() => inventory.value.length)
   const totalStockCount = computed(() => inventory.value.reduce((sum, p) => sum + p.totalStock, 0))
   const lowStockItems = computed(() => {
-    const items = []
+    const items: LowStockItem[] = []
     inventory.value.forEach(product => {
       product.variants.forEach(variant => {
         if (variant.stock <= variant.lowStockThreshold) {
@@ -28,11 +39,11 @@ export const useInventoryStore = defineStore('adminInventory', () => {
     return inventory.value.reduce((sum, p) => sum + (p.totalStock * p.cost), 0)
   })
 
-  function getProductById(id) {
-    return inventory.value.find(p => p.productId === parseInt(id))
+  function getProductById(id: string | number) {
+    return inventory.value.find(p => p.productId === parseInt(String(id)))
   }
 
-  function adjustStock(productId, variantId, adjustment) {
+  function adjustStock(productId: number, variantId: number, adjustment: number) {
     const product = inventory.value.find(p => p.productId === productId)
     if (product) {
       const variant = product.variants.find(v => v.id === variantId)
