@@ -61,7 +61,7 @@ src/
 - **Dashboard**: KPI cards (orders, revenue, expenses, stock count)
 - **Customers**: Customer list, details, notes management, **add new customers**
 - **Products & Inventory**: Product catalog, variant stock levels, manual stock adjustment, **add new products with variants**
-- **Orders**: Order list with status/channel filters, order details, status updates, **create new orders**
+- **Orders/Billing (POS)**: Full POS-style interface with product grid, cart sidebar, multiple sales channels (Walk-in, Facebook, Instagram, WhatsApp, Phone, Website), customer selection with quick-add, payment methods (Cash, Card, bKash, Nagad, Bank), order history with filters
 - **Accounts & Finance**: Chart of Accounts with tabs, **add accounts and transactions**, transaction tracking
 - **Campaigns**: Marketing campaign tracking with ROI calculations
 

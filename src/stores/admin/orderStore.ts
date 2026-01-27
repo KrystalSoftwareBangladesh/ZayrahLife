@@ -24,6 +24,10 @@ interface NewOrder {
   shippingAddress: string
   paymentMethod?: string
   notes?: string
+  subtotal?: number
+  tax?: number
+  shipping?: number
+  total?: number
 }
 
 export const useOrderStore = defineStore('adminOrders', () => {
@@ -70,9 +74,10 @@ export const useOrderStore = defineStore('adminOrders', () => {
   function addOrder(data: NewOrder) {
     const orderNum = orders.value.length + 1
     const year = new Date().getFullYear()
-    const subtotal = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    const shipping = subtotal > 100 ? 0 : 9.99
-    const tax = subtotal * 0.08
+    const subtotal = data.subtotal ?? data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const tax = data.tax ?? subtotal * 0.05
+    const shipping = data.shipping ?? 0
+    const total = data.total ?? (subtotal + tax + shipping)
 
     const orderItems: OrderItem[] = data.items.map(item => ({
       productId: item.productId,
@@ -91,7 +96,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
       subtotal,
       shipping,
       tax,
-      total: subtotal + shipping + tax,
+      total,
       status: 'pending',
       channel: data.channel,
       paymentMethod: data.paymentMethod || 'Credit Card',
