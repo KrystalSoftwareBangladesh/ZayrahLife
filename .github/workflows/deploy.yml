@@ -41,7 +41,7 @@ jobs:
 
       # 4️⃣ Build
       - name: Build project
-        run: pnpm build:stage
+        run: pnpm build:staging
 
       # 5️⃣ Deploy
       - name: Deploy dist to server
