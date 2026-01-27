@@ -58,11 +58,14 @@ src/
 - User profile page
 
 ### Admin Panel (ERP/CRM MVP)
-- **Dashboard**: KPI cards (orders, revenue, expenses, stock count)
+- **Dashboard**: KPI cards (orders, revenue, expenses, stock count), low stock alerts, recent orders, financial overview
+- **Billing / POS**: Full POS-style interface with product grid, cart sidebar, multiple sales channels (Walk-in, Facebook, Instagram, WhatsApp, Phone, Website), customer selection with quick-add, payment methods (Cash, Card, bKash, Nagad, Bank), order history with filters
 - **Customers**: Customer list, details, notes management, **add new customers**
 - **Products & Inventory**: Product catalog, variant stock levels, manual stock adjustment, **add new products with variants**
-- **Orders/Billing (POS)**: Full POS-style interface with product grid, cart sidebar, multiple sales channels (Walk-in, Facebook, Instagram, WhatsApp, Phone, Website), customer selection with quick-add, payment methods (Cash, Card, bKash, Nagad, Bank), order history with filters
+- **Suppliers**: Vendor management with contact info, payment terms, order history, **add new suppliers**
+- **Purchase Orders**: Create and track purchase orders from suppliers, status updates (pending/ordered/received), payment tracking (unpaid/partial/paid), stock replenishment
 - **Accounts & Finance**: Chart of Accounts with tabs, **add accounts and transactions**, transaction tracking
+- **Reports & Analytics**: Overview dashboard, sales reports by channel, top products, inventory reports by category, low stock alerts, financial reports (profit/loss, income vs expenses)
 - **Campaigns**: Marketing campaign tracking with ROI calculations
 
 ### Admin Access

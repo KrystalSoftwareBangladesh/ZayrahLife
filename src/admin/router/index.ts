@@ -58,6 +58,21 @@ const adminRoutes = [
         component: () => import('@/admin/pages/AdminAccountsPage.vue')
       },
       {
+        path: 'suppliers',
+        name: 'admin-suppliers',
+        component: () => import('@/admin/pages/AdminSuppliersPage.vue')
+      },
+      {
+        path: 'purchases',
+        name: 'admin-purchases',
+        component: () => import('@/admin/pages/AdminPurchasesPage.vue')
+      },
+      {
+        path: 'reports',
+        name: 'admin-reports',
+        component: () => import('@/admin/pages/AdminReportsPage.vue')
+      },
+      {
         path: 'campaigns',
         name: 'admin-campaigns',
         component: () => import('@/admin/pages/AdminCampaignsPage.vue')
