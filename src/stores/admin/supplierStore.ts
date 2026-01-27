@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { mockSuppliers, mockPurchaseOrders } from '@/mock/admin/suppliers'
+import { useInventoryStore } from '@/stores/admin/inventoryStore'
 
 interface NewSupplier {
   name: string
@@ -16,6 +17,9 @@ interface NewSupplier {
 interface PurchaseOrderItem {
   productId: number
   productName: string
+  variantId: number
+  variantLabel: string
+  sku: string
   quantity: number
   unitCost: number
   total: number
@@ -119,9 +123,16 @@ export const useSupplierStore = defineStore('adminSuppliers', () => {
   function updatePurchaseOrderStatus(id: string, status: string) {
     const po = purchaseOrders.value.find(p => p.id === id)
     if (po) {
+      const previousStatus = po.status
       po.status = status
-      if (status === 'received') {
+      if (status === 'received' && previousStatus !== 'received') {
         po.receivedDate = new Date().toISOString().split('T')[0]
+        const inventoryStore = useInventoryStore()
+        po.items.forEach(item => {
+          if (item.variantId && item.productId) {
+            inventoryStore.adjustStock(item.productId, item.variantId, item.quantity)
+          }
+        })
       }
     }
   }

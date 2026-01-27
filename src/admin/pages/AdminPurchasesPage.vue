@@ -21,6 +21,9 @@ const selectedPO = ref<typeof supplierStore.purchaseOrders[0] | null>(null)
 interface POItem {
   productId: number
   productName: string
+  variantId: number
+  variantLabel: string
+  sku: string
   quantity: number
   unitCost: number
   total: number
@@ -31,7 +34,7 @@ const newPO = ref({
   supplierName: '',
   expectedDate: '',
   notes: '',
-  items: [{ productId: 0, productName: '', quantity: 1, unitCost: 0, total: 0 }] as POItem[]
+  items: [{ productId: 0, productName: '', variantId: 0, variantLabel: '', sku: '', quantity: 1, unitCost: 0, total: 0 }] as POItem[]
 })
 
 const columns = [
@@ -97,13 +100,26 @@ const unpaidValue = computed(() => {
   return supplierStore.unpaidPurchaseOrders.reduce((sum, po) => sum + po.total, 0)
 })
 
+const getVariantOptions = (productId: number) => {
+  const product = inventoryStore.inventory.find(p => p.productId === productId)
+  if (!product) return []
+  return product.variants.map(v => ({
+    value: v.id,
+    label: `${v.color} / ${v.size} (${v.sku}) - ${v.stock} in stock`,
+    color: v.color,
+    size: v.size,
+    sku: v.sku,
+    stock: v.stock
+  }))
+}
+
 const openAddModal = () => {
   newPO.value = {
     supplierId: 0,
     supplierName: '',
     expectedDate: '',
     notes: '',
-    items: [{ productId: 0, productName: '', quantity: 1, unitCost: 0, total: 0 }]
+    items: [{ productId: 0, productName: '', variantId: 0, variantLabel: '', sku: '', quantity: 1, unitCost: 0, total: 0 }]
   }
   showAddModal.value = true
 }
@@ -120,7 +136,22 @@ const onProductSelect = (index: number) => {
   if (product) {
     newPO.value.items[index].productName = product.productName
     newPO.value.items[index].unitCost = product.cost
+    newPO.value.items[index].variantId = 0
+    newPO.value.items[index].variantLabel = ''
+    newPO.value.items[index].sku = ''
     updateItemTotal(index)
+  }
+}
+
+const onVariantSelect = (index: number) => {
+  const item = newPO.value.items[index]
+  const product = inventoryStore.inventory.find(p => p.productId === item.productId)
+  if (product) {
+    const variant = product.variants.find(v => v.id === item.variantId)
+    if (variant) {
+      item.variantLabel = `${variant.color} / ${variant.size}`
+      item.sku = variant.sku
+    }
   }
 }
 
@@ -130,7 +161,7 @@ const updateItemTotal = (index: number) => {
 }
 
 const addPOItem = () => {
-  newPO.value.items.push({ productId: 0, productName: '', quantity: 1, unitCost: 0, total: 0 })
+  newPO.value.items.push({ productId: 0, productName: '', variantId: 0, variantLabel: '', sku: '', quantity: 1, unitCost: 0, total: 0 })
 }
 
 const removePOItem = (index: number) => {
@@ -141,7 +172,7 @@ const removePOItem = (index: number) => {
 
 const handleAddPO = () => {
   if (!newPO.value.supplierId) return
-  const validItems = newPO.value.items.filter(item => item.productId > 0 && item.quantity > 0)
+  const validItems = newPO.value.items.filter(item => item.productId > 0 && item.variantId > 0 && item.quantity > 0)
   if (validItems.length === 0) return
   
   supplierStore.addPurchaseOrder({
@@ -315,29 +346,41 @@ const getPaymentStatusColor = (status: string) => {
           </div>
           <div v-for="(item, index) in newPO.items" :key="index" class="p-3 bg-gray-50 rounded-lg mb-2">
             <div class="flex items-start gap-3">
-              <div class="flex-1 grid grid-cols-4 gap-3">
-                <div class="col-span-2">
+              <div class="flex-1 space-y-2">
+                <div class="grid grid-cols-2 gap-3">
                   <FormSelect
                     v-model="item.productId"
                     :options="productOptions"
                     placeholder="Select product"
                     @update:model-value="onProductSelect(index)"
                   />
+                  <FormSelect
+                    v-model="item.variantId"
+                    :options="getVariantOptions(item.productId)"
+                    placeholder="Select variant (color/size)"
+                    :disabled="!item.productId"
+                    @update:model-value="onVariantSelect(index)"
+                  />
                 </div>
-                <FormInput
-                  v-model.number="item.quantity"
-                  type="number"
-                  placeholder="Qty"
-                  min="1"
-                  @update:model-value="updateItemTotal(index)"
-                />
-                <FormInput
-                  v-model.number="item.unitCost"
-                  type="number"
-                  step="0.01"
-                  placeholder="Cost"
-                  @update:model-value="updateItemTotal(index)"
-                />
+                <div class="grid grid-cols-3 gap-3">
+                  <div class="text-xs text-gray-500 pt-1">
+                    <span v-if="item.sku">SKU: {{ item.sku }}</span>
+                  </div>
+                  <FormInput
+                    v-model.number="item.quantity"
+                    type="number"
+                    placeholder="Qty"
+                    min="1"
+                    @update:model-value="updateItemTotal(index)"
+                  />
+                  <FormInput
+                    v-model.number="item.unitCost"
+                    type="number"
+                    step="0.01"
+                    placeholder="Cost"
+                    @update:model-value="updateItemTotal(index)"
+                  />
+                </div>
               </div>
               <div class="text-right min-w-[80px] pt-2">
                 <span class="font-medium">${{ item.total.toFixed(2) }}</span>
@@ -425,14 +468,19 @@ const getPaymentStatusColor = (status: string) => {
               <thead class="bg-gray-100">
                 <tr>
                   <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Variant</th>
                   <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
                   <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
                   <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in selectedPO.items" :key="item.productId" class="border-t border-gray-200">
+                <tr v-for="(item, idx) in selectedPO.items" :key="idx" class="border-t border-gray-200">
                   <td class="px-4 py-2">{{ item.productName }}</td>
+                  <td class="px-4 py-2">
+                    <div>{{ item.variantLabel || '-' }}</div>
+                    <div v-if="item.sku" class="text-xs text-gray-500">{{ item.sku }}</div>
+                  </td>
                   <td class="px-4 py-2 text-right">{{ item.quantity }}</td>
                   <td class="px-4 py-2 text-right">${{ item.unitCost.toFixed(2) }}</td>
                   <td class="px-4 py-2 text-right font-medium">${{ item.total.toFixed(2) }}</td>
@@ -440,15 +488,15 @@ const getPaymentStatusColor = (status: string) => {
               </tbody>
               <tfoot class="bg-gray-100">
                 <tr>
-                  <td colspan="3" class="px-4 py-2 text-right text-gray-500">Subtotal</td>
+                  <td colspan="4" class="px-4 py-2 text-right text-gray-500">Subtotal</td>
                   <td class="px-4 py-2 text-right font-medium">${{ selectedPO.subtotal.toFixed(2) }}</td>
                 </tr>
                 <tr>
-                  <td colspan="3" class="px-4 py-2 text-right text-gray-500">Tax</td>
+                  <td colspan="4" class="px-4 py-2 text-right text-gray-500">Tax</td>
                   <td class="px-4 py-2 text-right">${{ selectedPO.tax.toFixed(2) }}</td>
                 </tr>
                 <tr>
-                  <td colspan="3" class="px-4 py-2 text-right font-bold">Total</td>
+                  <td colspan="4" class="px-4 py-2 text-right font-bold">Total</td>
                   <td class="px-4 py-2 text-right font-bold text-primary-600">${{ selectedPO.total.toFixed(2) }}</td>
                 </tr>
               </tfoot>

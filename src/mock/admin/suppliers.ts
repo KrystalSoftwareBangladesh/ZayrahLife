@@ -67,8 +67,8 @@ export const mockPurchaseOrders = [
     supplierId: 1,
     supplierName: 'Fashion Wholesale Ltd',
     items: [
-      { productId: 1, productName: 'Classic White T-Shirt', quantity: 100, unitCost: 12.00, total: 1200 },
-      { productId: 7, productName: 'Organic Cotton Hoodie', quantity: 50, unitCost: 32.00, total: 1600 }
+      { productId: 1, productName: 'Classic White T-Shirt', variantId: 1, variantLabel: 'White / M', sku: 'TSH-001-WHT-M', quantity: 100, unitCost: 12.00, total: 1200 },
+      { productId: 7, productName: 'Organic Cotton Hoodie', variantId: 25, variantLabel: 'Navy / L', sku: 'HOD-007-NAV-L', quantity: 50, unitCost: 32.00, total: 1600 }
     ],
     subtotal: 2800,
     tax: 140,
@@ -86,8 +86,8 @@ export const mockPurchaseOrders = [
     supplierId: 2,
     supplierName: 'Tech Gadgets International',
     items: [
-      { productId: 3, productName: 'Wireless Bluetooth Headphones', quantity: 30, unitCost: 65.00, total: 1950 },
-      { productId: 5, productName: 'Smart Fitness Watch', quantity: 20, unitCost: 85.00, total: 1700 }
+      { productId: 3, productName: 'Wireless Bluetooth Headphones', variantId: 9, variantLabel: 'Black / One Size', sku: 'HPH-003-BLK-OS', quantity: 30, unitCost: 65.00, total: 1950 },
+      { productId: 5, productName: 'Smart Fitness Watch', variantId: 17, variantLabel: 'Black / One Size', sku: 'WTC-005-BLK-OS', quantity: 20, unitCost: 85.00, total: 1700 }
     ],
     subtotal: 3650,
     tax: 182.50,
@@ -105,8 +105,8 @@ export const mockPurchaseOrders = [
     supplierId: 3,
     supplierName: 'Leather Craft Co',
     items: [
-      { productId: 2, productName: 'Leather Crossbody Bag', quantity: 25, unitCost: 35.00, total: 875 },
-      { productId: 4, productName: 'Classic Leather Wallet', quantity: 40, unitCost: 18.00, total: 720 }
+      { productId: 2, productName: 'Leather Crossbody Bag', variantId: 5, variantLabel: 'Brown / One Size', sku: 'BAG-002-BRN-OS', quantity: 25, unitCost: 35.00, total: 875 },
+      { productId: 4, productName: 'Classic Leather Wallet', variantId: 13, variantLabel: 'Black / One Size', sku: 'WLT-004-BLK-OS', quantity: 40, unitCost: 18.00, total: 720 }
     ],
     subtotal: 1595,
     tax: 79.75,
