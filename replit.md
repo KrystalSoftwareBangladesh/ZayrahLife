@@ -86,7 +86,11 @@ pnpm build        # Production build
 - `VITE_ENV`: Environment (development/staging/production)
 - `VITE_API_BASE_URL`: Backend API URL (for future integration)
 
+## Composables
+- `useProductVariants`: Reusable composable for variant-aware product logic (price, stock, availability)
+
 ## Notes
 - All data is mocked - no backend integration yet
 - Designed to easily connect to Django REST API
 - Mobile responsive design
+- Product data now includes variants with per-variant pricing and stock

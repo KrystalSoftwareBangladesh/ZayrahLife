@@ -1,0 +1,103 @@
+You are a senior Vue 3 frontend engineer working inside an EXISTING Vue 3 + Vite + Pinia e-commerce project.
+
+Your task is to REFACTOR and IMPROVE the Product Details page to make it BACKEND-READY, without changing the overall UI design or visual style.
+
+================================
+STRICT CONSTRAINTS
+================================
+
+- Do NOT redesign the page
+- Do NOT introduce new libraries
+- Do NOT duplicate code
+- Do NOT hardcode values that should come from data
+- Preserve existing routing and layout
+- Use Composition API only
+- Use existing components wherever possible
+
+================================
+CORE FIXES (MANDATORY)
+================================
+
+1. VARIANT-AWARE PRICING
+- Price must be derived from the selected product variant
+- When color/variant changes, price updates reactively
+- If all variants share the same price, still implement variant-based logic
+
+2. VARIANT-AWARE STOCK
+- Stock must be tracked per variant
+- Stock indicator must update when variant changes:
+  - "In stock (X left)"
+  - "Out of stock"
+- Disable Add to Cart / Buy Now when stock = 0
+
+3. QUANTITY GUARDRAILS
+- Quantity selector must respect available stock
+- Prevent selecting quantity > stock
+- Disable "+" button when quantity reaches stock
+- Reset quantity to 1 when variant changes
+
+4. RATING & REVIEW INTEGRITY
+- Make rating section clickable ("View reviews")
+- OR remove review count entirely if no review section exists
+- Do NOT show unverifiable numbers
+
+5. CATEGORY NAVIGATION
+- Category label must be clickable
+- Clicking it navigates to the category product listing page
+- Use existing router setup
+
+================================
+ARCHITECTURAL REQUIREMENTS
+================================
+
+- Extract variant logic into a reusable composable:
+  - useProductVariants()
+- ProductDetails page must remain thin
+- No business logic inside template
+- Stock, price, availability come from computed properties
+
+================================
+MOCK DATA REQUIREMENTS
+================================
+
+Ensure mock product data structure supports:
+
+{
+  id,
+  name,
+  category,
+  variants: [
+    {
+      id,
+      color,
+      price,
+      stock
+    }
+  ],
+  rating,
+  review_count
+}
+
+Do NOT hardcode fallback values.
+
+================================
+DELIVERABLE
+================================
+
+- Updated Product Details page
+- New composable (if needed)
+- Updated mock data structure (minimal change)
+- Clear inline comments explaining decisions
+
+DO NOT:
+- Touch cart logic outside what is required
+- Modify unrelated pages
+- Add backend calls
+
+After implementation:
+- Changing variant updates price & stock
+- Quantity respects stock
+- CTA buttons correctly enable/disable
+- Page remains visually unchanged
+
+IMPLEMENT NOW.

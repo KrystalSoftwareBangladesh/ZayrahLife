@@ -43,7 +43,7 @@ export const useCartStore = defineStore('cart', () => {
     return subtotal.value + shipping.value + tax.value
   })
 
-  const addItem = (product: Product, quantity = 1, selectedColor: string | null = null, selectedSize: string | null = null) => {
+  const addItem = (product: Product, quantity = 1, selectedColor: string | null = null, selectedSize: string | null = null, variantPrice?: number) => {
     const existingItem = items.value.find(
       item => item.id === product.id && 
               item.selectedColor === selectedColor && 
@@ -56,7 +56,7 @@ export const useCartStore = defineStore('cart', () => {
       items.value.push({
         id: product.id,
         name: product.name,
-        price: product.price,
+        price: variantPrice ?? product.price,
         image: product.images[0],
         quantity,
         selectedColor,
