@@ -1,0 +1,93 @@
+You are a senior Vue 3 frontend engineer working inside an EXISTING Vue 3 + Vite + Pinia e-commerce project.
+
+Your task is to COMPLETE the Product Details page by implementing FULL VARIANT-LEVEL STOCK AWARENESS, without changing the current UI layout or design.
+
+================================
+STRICT CONSTRAINTS
+================================
+
+- Do NOT redesign the page
+- Do NOT change styles unless required for clarity
+- Do NOT introduce new libraries
+- Do NOT duplicate code
+- Preserve existing components and routing
+- Use Composition API only
+
+================================
+REQUIRED FIX (MANDATORY)
+================================
+
+1. VARIANT-LEVEL STOCK DISPLAY
+- Stock must be derived from the currently selected product variant
+- Replace generic “In Stock” text with dynamic messages:
+  - "In stock (X left)"
+  - "Only X left"
+  - "Out of stock"
+- Stock message MUST update immediately when variant changes
+
+2. CTA BEHAVIOR BASED ON STOCK
+- Disable “Add to Cart” and “Buy Now” buttons when selected variant stock = 0
+- Visually indicate disabled state (existing button styles only)
+- Prevent cart actions programmatically when stock = 0
+
+3. QUANTITY + STOCK SYNCHRONIZATION
+- Quantity selector must:
+  - Never exceed selected variant stock
+  - Disable “+” button when quantity === stock
+- When variant changes:
+  - Reset quantity to 1
+  - Re-evaluate stock limits
+
+================================
+ARCHITECTURE REQUIREMENTS
+================================
+
+- Variant stock logic must live in:
+  - a composable OR
+  - computed properties
+- ProductDetails page must remain thin
+- No stock logic directly inside the template
+
+================================
+MOCK DATA REQUIREMENTS
+================================
+
+Ensure mock product data follows this structure:
+
+{
+  id,
+  name,
+  category,
+  variants: [
+    {
+      id,
+      color,
+      price,
+      stock
+    }
+  ]
+}
+
+No hardcoded stock fallbacks allowed.
+
+================================
+DELIVERABLE
+================================
+
+- Updated Product Details logic
+- Reactive stock display per variant
+- CTA buttons correctly enabled/disabled
+- Quantity synchronized with stock
+- Clear inline comments for reasoning
+
+DO NOT:
+- Touch cart or checkout logic beyond stock protection
+- Modify unrelated components or pages
+- Add backend calls
+
+After completion:
+- Selecting different variants MUST update stock text
+- Out-of-stock variants MUST block purchase actions
+- UI must remain visually identical
+
+IMPLEMENT NOW.
