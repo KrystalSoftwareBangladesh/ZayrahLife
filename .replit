@@ -1,4 +1,4 @@
-modules = ["nodejs-22"]
+modules = ["vue-node-20", "nodejs-20", "web"]
 [agent]
 expertMode = true
 
