@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import { useCustomerStore } from '@/stores/admin/customerStore'
@@ -8,18 +8,33 @@ const route = useRoute()
 const router = useRouter()
 const customerStore = useCustomerStore()
 
-const customer = computed(() => customerStore.getCustomerById(route.params.id))
-
 const isEditingNotes = ref(false)
 const editedNotes = ref('')
 
+onMounted(() => {
+  const id = Number(route.params.id)
+  if (id) {
+    customerStore.getCustomerById(id)
+  }
+})
+
+watch(() => route.params.id, (newId) => {
+  if (newId) {
+    customerStore.getCustomerById(Number(newId))
+  }
+})
+
 const startEditNotes = () => {
-  editedNotes.value = customer.value?.notes || ''
+  editedNotes.value = customerStore.currentCustomer?.notes || ''
   isEditingNotes.value = true
 }
 
-const saveNotes = () => {
-  customerStore.updateCustomerNotes(customer.value.id, editedNotes.value)
+const saveNotes = async () => {
+  if (!customerStore.currentCustomer) return
+  
+  await customerStore.updateCustomer(customerStore.currentCustomer.id, {
+    notes: editedNotes.value
+  })
   isEditingNotes.value = false
 }
 
@@ -42,7 +57,17 @@ const cancelEditNotes = () => {
       </div>
     </div>
 
-    <div v-if="!customer" class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+    <div v-if="customerStore.loading" class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+      <div class="animate-spin h-8 w-8 border-4 border-primary-600 border-t-transparent rounded-full mx-auto"></div>
+      <p class="text-gray-500 mt-4">Loading customer...</p>
+    </div>
+
+    <div v-else-if="customerStore.error" class="bg-white rounded-lg shadow-sm border border-red-200 p-12 text-center">
+      <p class="text-red-500">{{ customerStore.error }}</p>
+      <button @click="router.back()" class="mt-4 text-primary-600 hover:underline">Go back</button>
+    </div>
+
+    <div v-else-if="!customerStore.currentCustomer" class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
       <p class="text-gray-500">Customer not found</p>
     </div>
 
@@ -52,15 +77,15 @@ const cancelEditNotes = () => {
           <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div class="flex items-start gap-4">
               <div class="w-16 h-16 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-2xl">
-                {{ customer.name.charAt(0) }}
+                {{ customerStore.currentCustomer.full_name?.charAt(0) || '?' }}
               </div>
               <div class="flex-1">
                 <div class="flex items-center gap-3">
-                  <h2 class="text-xl font-bold text-gray-900">{{ customer.name }}</h2>
-                  <StatusBadge :status="customer.status" />
+                  <h2 class="text-xl font-bold text-gray-900">{{ customerStore.currentCustomer.full_name }}</h2>
+                  <StatusBadge :status="customerStore.currentCustomer.is_active ? 'active' : 'inactive'" />
                 </div>
-                <p class="text-gray-500 mt-1">{{ customer.email }}</p>
-                <p class="text-gray-500">{{ customer.phone }}</p>
+                <p class="text-gray-500 mt-1">{{ customerStore.currentCustomer.email }}</p>
+                <p class="text-gray-500">{{ customerStore.currentCustomer.phone || 'No phone' }}</p>
               </div>
             </div>
           </div>
@@ -69,28 +94,38 @@ const cancelEditNotes = () => {
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Customer Information</h3>
             <div class="grid grid-cols-2 gap-6">
               <div>
-                <p class="text-sm text-gray-500">Address</p>
-                <p class="font-medium text-gray-900">{{ customer.address }}</p>
+                <p class="text-sm text-gray-500">First Name</p>
+                <p class="font-medium text-gray-900">{{ customerStore.currentCustomer.first_name }}</p>
               </div>
               <div>
-                <p class="text-sm text-gray-500">Member Since</p>
-                <p class="font-medium text-gray-900">{{ new Date(customer.joinedDate).toLocaleDateString() }}</p>
+                <p class="text-sm text-gray-500">Middle Name</p>
+                <p class="font-medium text-gray-900">{{ customerStore.currentCustomer.middle_name || '-' }}</p>
               </div>
               <div>
-                <p class="text-sm text-gray-500">Total Orders</p>
-                <p class="font-medium text-gray-900">{{ customer.totalOrders }}</p>
+                <p class="text-sm text-gray-500">Last Name</p>
+                <p class="font-medium text-gray-900">{{ customerStore.currentCustomer.last_name || '-' }}</p>
               </div>
               <div>
-                <p class="text-sm text-gray-500">Total Spent</p>
-                <p class="font-medium text-gray-900">${{ customer.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</p>
+                <p class="text-sm text-gray-500">Customer Type</p>
+                <p class="font-medium text-gray-900">{{ customerStore.currentCustomer.customer_type }}</p>
               </div>
               <div>
-                <p class="text-sm text-gray-500">Last Order</p>
-                <p class="font-medium text-gray-900">{{ new Date(customer.lastOrderDate).toLocaleDateString() }}</p>
+                <p class="text-sm text-gray-500">Created At</p>
+                <p class="font-medium text-gray-900">{{ new Date(customerStore.currentCustomer.created_at).toLocaleDateString() }}</p>
               </div>
               <div>
-                <p class="text-sm text-gray-500">Average Order Value</p>
-                <p class="font-medium text-gray-900">${{ (customer.totalSpent / customer.totalOrders).toFixed(2) }}</p>
+                <p class="text-sm text-gray-500">Last Updated</p>
+                <p class="font-medium text-gray-900">{{ new Date(customerStore.currentCustomer.updated_at).toLocaleDateString() }}</p>
+              </div>
+              <div v-if="customerStore.currentCustomer.facebook_profile_url" class="col-span-2">
+                <p class="text-sm text-gray-500">Facebook Profile</p>
+                <a 
+                  :href="customerStore.currentCustomer.facebook_profile_url" 
+                  target="_blank"
+                  class="font-medium text-primary-600 hover:underline"
+                >
+                  {{ customerStore.currentCustomer.facebook_profile_url }}
+                </a>
               </div>
             </div>
           </div>
@@ -116,9 +151,10 @@ const cancelEditNotes = () => {
               <div class="flex gap-2 mt-3">
                 <button
                   @click="saveNotes"
-                  class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700"
+                  :disabled="customerStore.loading"
+                  class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 disabled:opacity-50"
                 >
-                  Save
+                  {{ customerStore.loading ? 'Saving...' : 'Save' }}
                 </button>
                 <button
                   @click="cancelEditNotes"
@@ -129,28 +165,26 @@ const cancelEditNotes = () => {
               </div>
             </div>
             <p v-else class="text-gray-600">
-              {{ customer.notes || 'No notes added yet.' }}
+              {{ customerStore.currentCustomer.notes || 'No notes added yet.' }}
             </p>
           </div>
         </div>
 
         <div class="space-y-6">
           <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Info</h3>
             <div class="space-y-4">
               <div class="flex justify-between items-center">
-                <span class="text-gray-500">Lifetime Value</span>
-                <span class="font-bold text-lg text-green-600">
-                  ${{ customer.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
-                </span>
+                <span class="text-gray-500">Status</span>
+                <StatusBadge :status="customerStore.currentCustomer.is_active ? 'active' : 'inactive'" />
               </div>
               <div class="flex justify-between items-center">
-                <span class="text-gray-500">Orders</span>
-                <span class="font-semibold">{{ customer.totalOrders }}</span>
+                <span class="text-gray-500">Type</span>
+                <span class="font-semibold">{{ customerStore.currentCustomer.customer_type }}</span>
               </div>
               <div class="flex justify-between items-center">
-                <span class="text-gray-500">Avg. Order</span>
-                <span class="font-semibold">${{ (customer.totalSpent / customer.totalOrders).toFixed(2) }}</span>
+                <span class="text-gray-500">ID</span>
+                <span class="font-mono text-sm">#{{ customerStore.currentCustomer.id }}</span>
               </div>
             </div>
           </div>

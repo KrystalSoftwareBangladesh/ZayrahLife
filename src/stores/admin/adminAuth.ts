@@ -1,58 +1,80 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-
-interface AdminUser {
-  id: number
-  email: string
-  name: string
-  role: 'ADMIN' | 'STAFF'
-}
-
-interface MockUser extends AdminUser {
-  password: string
-}
+import { authApi } from '@/api/auth'
+import type { UserProfile, ApiError } from '@/api/types'
 
 export const useAdminAuthStore = defineStore('adminAuth', () => {
-  const user = ref<AdminUser | null>(JSON.parse(localStorage.getItem('adminUser') || 'null'))
-  const token = ref<string | null>(localStorage.getItem('adminToken') || null)
+  const user = ref<UserProfile | null>(JSON.parse(localStorage.getItem('adminUser') || 'null'))
+  const loading = ref(false)
+  const error = ref<string | null>(null)
 
-  const isAuthenticated = computed(() => !!token.value && !!user.value)
-  const isAdmin = computed(() => user.value?.role === 'ADMIN')
-  const isStaff = computed(() => user.value?.role === 'STAFF')
+  const isAuthenticated = computed(() => !!localStorage.getItem('accessToken') && !!user.value)
+  const isAdmin = computed(() => user.value?.groups?.includes(1) ?? false)
 
-  const mockUsers: MockUser[] = [
-    { id: 1, email: 'admin@zayrahlife.com', password: 'admin123', name: 'Admin User', role: 'ADMIN' },
-    { id: 2, email: 'staff@zayrahlife.com', password: 'staff123', name: 'Staff User', role: 'STAFF' }
-  ]
+  async function login(credential: string, password: string): Promise<{ success: boolean; error?: string }> {
+    loading.value = true
+    error.value = null
 
-  function login(email: string, password: string) {
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password)
-    if (foundUser) {
-      const { password: _password, ...userData } = foundUser
-      void _password
-      user.value = userData
-      token.value = `mock-token-${Date.now()}`
-      localStorage.setItem('adminUser', JSON.stringify(userData))
-      localStorage.setItem('adminToken', token.value)
+    try {
+      await authApi.login({ credential, password })
+      const profile = await authApi.getProfile()
+      user.value = profile
+      localStorage.setItem('adminUser', JSON.stringify(profile))
       return { success: true }
+    } catch (err) {
+      const apiError = err as ApiError
+      const errorMessage = apiError.message || 'Invalid credentials'
+      error.value = errorMessage
+      return { success: false, error: errorMessage }
+    } finally {
+      loading.value = false
     }
-    return { success: false, error: 'Invalid credentials' }
   }
 
-  function logout() {
+  async function logout(): Promise<void> {
+    loading.value = true
+    try {
+      await authApi.logout()
+    } catch {
+    } finally {
+      user.value = null
+      loading.value = false
+    }
+  }
+
+  async function fetchProfile(): Promise<void> {
+    if (!localStorage.getItem('accessToken')) return
+    
+    loading.value = true
+    try {
+      const profile = await authApi.getProfile()
+      user.value = profile
+      localStorage.setItem('adminUser', JSON.stringify(profile))
+    } catch {
+      user.value = null
+      localStorage.removeItem('adminUser')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function handleAuthLogout() {
     user.value = null
-    token.value = null
-    localStorage.removeItem('adminUser')
-    localStorage.removeItem('adminToken')
+    error.value = 'Session expired. Please login again.'
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('auth:logout', handleAuthLogout)
   }
 
   return {
     user,
-    token,
+    loading,
+    error,
     isAuthenticated,
     isAdmin,
-    isStaff,
     login,
-    logout
+    logout,
+    fetchProfile
   }
 })

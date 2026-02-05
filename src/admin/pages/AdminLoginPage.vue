@@ -6,7 +6,7 @@ import { useAdminAuthStore } from '@/stores/admin/adminAuth'
 const router = useRouter()
 const adminAuth = useAdminAuthStore()
 
-const email = ref('')
+const credential = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -15,14 +15,12 @@ const handleLogin = async () => {
   error.value = ''
   loading.value = true
   
-  await new Promise(resolve => setTimeout(resolve, 500))
-  
-  const result = adminAuth.login(email.value, password.value)
+  const result = await adminAuth.login(credential.value, password.value)
   
   if (result.success) {
     router.push({ name: 'admin-dashboard' })
   } else {
-    error.value = result.error
+    error.value = result.error || 'Login failed'
   }
   
   loading.value = false
@@ -45,10 +43,10 @@ const handleLogin = async () => {
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email or Username</label>
             <input
-              v-model="email"
-              type="email"
+              v-model="credential"
+              type="text"
               required
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               placeholder="admin@zayrahlife.com"
@@ -78,14 +76,6 @@ const handleLogin = async () => {
             {{ loading ? 'Signing in...' : 'Sign In' }}
           </button>
         </form>
-        
-        <div class="mt-6 pt-6 border-t border-gray-200">
-          <p class="text-sm text-gray-500 text-center">Demo Credentials:</p>
-          <div class="mt-2 text-xs text-gray-400 text-center space-y-1">
-            <p>Admin: admin@zayrahlife.com / admin123</p>
-            <p>Staff: staff@zayrahlife.com / staff123</p>
-          </div>
-        </div>
       </div>
     </div>
   </div>
