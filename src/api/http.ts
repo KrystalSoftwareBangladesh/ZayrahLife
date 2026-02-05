@@ -6,10 +6,15 @@ interface RequestConfig extends RequestInit {
   skipAuth?: boolean
 }
 
+interface QueuedRequest {
+  resolve: (token: string) => void
+  reject: (error: unknown) => void
+}
+
 class HttpClient {
   private baseUrl: string
   private isRefreshing = false
-  private refreshPromise: Promise<string | null> | null = null
+  private refreshQueue: QueuedRequest[] = []
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl
@@ -27,36 +32,41 @@ class HttpClient {
     localStorage.setItem('accessToken', token)
   }
 
-  private clearTokens(): void {
+  clearTokens(): void {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('adminUser')
   }
 
-  private async refreshAccessToken(): Promise<string | null> {
-    if (this.isRefreshing && this.refreshPromise) {
-      return this.refreshPromise
-    }
+  private processQueue(token: string | null, error: unknown = null): void {
+    this.refreshQueue.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error)
+      } else if (token) {
+        resolve(token)
+      } else {
+        reject(new Error('Token refresh failed'))
+      }
+    })
+    this.refreshQueue = []
+  }
 
+  private async refreshAccessToken(): Promise<string | null> {
     const refreshToken = this.getRefreshToken()
     if (!refreshToken) {
       this.clearTokens()
+      window.dispatchEvent(new CustomEvent('auth:logout'))
       return null
     }
 
-    this.isRefreshing = true
-    this.refreshPromise = this.performTokenRefresh(refreshToken)
-
-    try {
-      const newToken = await this.refreshPromise
-      return newToken
-    } finally {
-      this.isRefreshing = false
-      this.refreshPromise = null
+    if (this.isRefreshing) {
+      return new Promise<string>((resolve, reject) => {
+        this.refreshQueue.push({ resolve, reject })
+      })
     }
-  }
 
-  private async performTokenRefresh(refreshToken: string): Promise<string | null> {
+    this.isRefreshing = true
+
     try {
       const response = await fetch(`${this.baseUrl}/api/v1/auth/refresh/`, {
         method: 'POST',
@@ -67,16 +77,21 @@ class HttpClient {
       if (!response.ok) {
         this.clearTokens()
         window.dispatchEvent(new CustomEvent('auth:logout'))
+        this.processQueue(null, new Error('Refresh failed'))
         return null
       }
 
       const data: TokenRefreshResponse = await response.json()
       this.setAccessToken(data.access)
+      this.processQueue(data.access)
       return data.access
-    } catch {
+    } catch (err) {
       this.clearTokens()
       window.dispatchEvent(new CustomEvent('auth:logout'))
+      this.processQueue(null, err)
       return null
+    } finally {
+      this.isRefreshing = false
     }
   }
 

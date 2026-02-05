@@ -89,8 +89,43 @@ pnpm build        # Production build
 ## Composables
 - `useProductVariants`: Reusable composable for variant-aware product logic (price, stock, availability)
 
+## API Layer
+
+### Structure
+```
+src/api/
+├── types.ts      # TypeScript interfaces for all API models
+├── http.ts       # HTTP client with automatic token refresh
+├── auth.ts       # Authentication API (login, logout, profile)
+├── customers.ts  # Customers CRUD API
+└── index.ts      # Barrel export
+```
+
+### HTTP Client Features
+- **Automatic Token Refresh**: When a 401 response is received, the client automatically refreshes the access token using the stored refresh token and retries the request
+- **Request Queue**: Concurrent requests that fail with 401 wait for the token refresh to complete before retrying
+- **Session Expiry Handling**: Dispatches `auth:logout` event when refresh fails, allowing stores to clear state
+
+### Usage Example
+```typescript
+import { authApi, customersApi } from '@/api'
+
+// Login
+await authApi.login({ credential: 'user@example.com', password: 'pass' })
+
+// Fetch customers with pagination and search
+const response = await customersApi.list({ page: 1, page_size: 20, search: 'john' })
+
+// Create customer
+await customersApi.create({ first_name: 'John', email: 'john@example.com' })
+```
+
+### Environment Variables
+- `VITE_API_BASE_URL`: Backend API URL (defaults to https://api.zayrahlife.com)
+
 ## Notes
-- All data is mocked - no backend integration yet
+- Admin panel now integrates with real backend APIs (auth, customers)
+- HTTP client handles JWT token lifecycle automatically
 - Designed to easily connect to Django REST API
 - Mobile responsive design
 - Product data now includes variants with per-variant pricing and stock

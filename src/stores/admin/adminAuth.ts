@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
+import { http } from '@/api/http'
 import type { UserProfile, ApiError } from '@/api/types'
 
 export const useAdminAuthStore = defineStore('adminAuth', () => {
@@ -37,9 +38,14 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
       await authApi.logout()
     } catch {
     } finally {
-      user.value = null
+      clearAuthState()
       loading.value = false
     }
+  }
+
+  function clearAuthState(): void {
+    user.value = null
+    http.clearTokens()
   }
 
   async function fetchProfile(): Promise<void> {
@@ -51,15 +57,14 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
       user.value = profile
       localStorage.setItem('adminUser', JSON.stringify(profile))
     } catch {
-      user.value = null
-      localStorage.removeItem('adminUser')
+      clearAuthState()
     } finally {
       loading.value = false
     }
   }
 
   function handleAuthLogout() {
-    user.value = null
+    clearAuthState()
     error.value = 'Session expired. Please login again.'
   }
 
@@ -75,6 +80,7 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
     isAdmin,
     login,
     logout,
-    fetchProfile
+    fetchProfile,
+    clearAuthState
   }
 })
