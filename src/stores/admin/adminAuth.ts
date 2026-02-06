@@ -36,7 +36,7 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
     loading.value = true
     try {
       await authApi.logout()
-    } catch {
+    } catch { /* logout failure is non-critical */
     } finally {
       clearAuthState()
       loading.value = false

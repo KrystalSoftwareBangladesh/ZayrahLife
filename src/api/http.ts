@@ -2,13 +2,14 @@ import type { TokenRefreshResponse } from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.zayrahlife.com'
 
-interface RequestConfig extends RequestInit {
+interface RequestConfig extends Omit<globalThis.RequestInit, 'headers'> {
   skipAuth?: boolean
+  headers?: Record<string, string>
 }
 
 interface QueuedRequest {
-  resolve: (token: string) => void
-  reject: (error: unknown) => void
+  resolve: (value: string) => void
+  reject: (reason: unknown) => void
 }
 
 class HttpClient {
@@ -98,7 +99,7 @@ class HttpClient {
   private async request<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
     const { skipAuth = false, headers: customHeaders = {}, ...restConfig } = config
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...customHeaders as Record<string, string>
     }
@@ -106,7 +107,7 @@ class HttpClient {
     if (!skipAuth) {
       const token = this.getAccessToken()
       if (token) {
-        (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+        headers['Authorization'] = `Bearer ${token}`
       }
     }
 
@@ -116,7 +117,7 @@ class HttpClient {
     if (response.status === 401 && !skipAuth) {
       const newToken = await this.refreshAccessToken()
       if (newToken) {
-        (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
+        headers['Authorization'] = `Bearer ${newToken}`
         response = await fetch(url, { ...restConfig, headers })
       } else {
         throw { message: 'Session expired', status: 401 }
