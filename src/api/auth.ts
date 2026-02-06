@@ -22,7 +22,8 @@ export const authApi = {
 
   async logout(): Promise<void> {
     try {
-      await http.post('/api/v1/auth/logout/')
+      const refreshToken = localStorage.getItem('refreshToken')
+      await http.post('/api/v1/auth/logout/', { refresh: refreshToken })
     } finally {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
