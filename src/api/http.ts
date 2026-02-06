@@ -1,6 +1,6 @@
 import type { TokenRefreshResponse } from './types'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.zayrahlife.com'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://apizayrahlife.rkshaon.info'
 
 interface RequestConfig extends Omit<globalThis.RequestInit, 'headers'> {
   skipAuth?: boolean
