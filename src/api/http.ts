@@ -8,8 +8,8 @@ interface RequestConfig extends Omit<globalThis.RequestInit, 'headers'> {
 }
 
 interface QueuedRequest {
-  resolve: (value: string) => void
-  reject: (reason: unknown) => void
+  resolve: (_value: string) => void
+  reject: (_reason: unknown) => void
 }
 
 class HttpClient {
