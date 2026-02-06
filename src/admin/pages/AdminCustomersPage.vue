@@ -21,6 +21,7 @@ const newCustomer = ref({
   last_name: '',
   email: '',
   phone: '',
+  facebook_profile_url: '',
   customer_type: 'POS' as 'POS' | 'FACEBOOK' | 'WEBSITE',
   notes: ''
 })
@@ -63,6 +64,7 @@ const openAddModal = () => {
     last_name: '',
     email: '', 
     phone: '',
+    facebook_profile_url: '',
     customer_type: 'POS',
     notes: ''
   }
@@ -78,6 +80,7 @@ const handleAddCustomer = async () => {
     last_name: newCustomer.value.last_name || undefined,
     email: newCustomer.value.email || undefined,
     phone: newCustomer.value.phone || undefined,
+    facebook_profile_url: newCustomer.value.facebook_profile_url || undefined,
     customer_type: newCustomer.value.customer_type,
     notes: newCustomer.value.notes || undefined
   })
@@ -205,6 +208,11 @@ const handlePageChange = (page: number) => {
           v-model="newCustomer.phone"
           label="Phone Number"
           placeholder="+1 (555) 123-4567"
+        />
+        <FormInput
+          v-model="newCustomer.facebook_profile_url"
+          label="Facebook Profile URL"
+          placeholder="https://facebook.com/profile"
         />
         <FormSelect
           v-model="newCustomer.customer_type"

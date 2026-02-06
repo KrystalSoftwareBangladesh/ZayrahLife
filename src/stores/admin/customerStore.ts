@@ -25,6 +25,7 @@ export const useCustomerStore = defineStore('adminCustomers', () => {
   })
 
   const totalCustomers = computed(() => pagination.value.count)
+  const activeCustomers = computed(() => customers.value)
 
   async function fetchCustomers(params: CustomerListParams = {}): Promise<void> {
     loading.value = true
@@ -150,6 +151,7 @@ export const useCustomerStore = defineStore('adminCustomers', () => {
     error,
     pagination,
     totalCustomers,
+    activeCustomers,
     fetchCustomers,
     getCustomerById,
     createCustomer,

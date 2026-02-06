@@ -82,7 +82,7 @@ export default [
     rules: {
       'vue/multi-word-component-names': 'off',
       'vue/no-unused-vars': 'warn',
-      'no-unused-vars': 'warn',
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'vue/require-default-prop': 'off',
       'vue/html-self-closing': 'off',
       'vue/singleline-html-element-content-newline': 'off',
