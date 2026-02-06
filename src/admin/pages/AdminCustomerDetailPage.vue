@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
+import FormInput from '@/components/admin/FormInput.vue'
+import FormSelect from '@/components/admin/FormSelect.vue'
 import { useCustomerStore } from '@/stores/admin/customerStore'
 
 const route = useRoute()
@@ -10,6 +12,21 @@ const customerStore = useCustomerStore()
 
 const isEditingNotes = ref(false)
 const editedNotes = ref('')
+const isEditing = ref(false)
+const editForm = ref({
+  first_name: '',
+  middle_name: '',
+  last_name: '',
+  phone: '',
+  facebook_profile_url: '',
+  customer_type: '' as 'POS' | 'FACEBOOK' | 'WEBSITE'
+})
+
+const customerTypeOptions = [
+  { value: 'POS', label: 'POS' },
+  { value: 'FACEBOOK', label: 'Facebook' },
+  { value: 'WEBSITE', label: 'Website' }
+]
 
 onMounted(() => {
   const id = Number(route.params.id)
@@ -40,6 +57,37 @@ const saveNotes = async () => {
 
 const cancelEditNotes = () => {
   isEditingNotes.value = false
+}
+
+const startEdit = () => {
+  const c = customerStore.currentCustomer
+  if (!c) return
+  editForm.value = {
+    first_name: c.first_name || '',
+    middle_name: c.middle_name || '',
+    last_name: c.last_name || '',
+    phone: c.phone || '',
+    facebook_profile_url: c.facebook_profile_url || '',
+    customer_type: c.customer_type
+  }
+  isEditing.value = true
+}
+
+const saveEdit = async () => {
+  if (!customerStore.currentCustomer) return
+  await customerStore.updateCustomer(customerStore.currentCustomer.id, {
+    first_name: editForm.value.first_name,
+    middle_name: editForm.value.middle_name || undefined,
+    last_name: editForm.value.last_name || undefined,
+    phone: editForm.value.phone || undefined,
+    facebook_profile_url: editForm.value.facebook_profile_url || undefined,
+    customer_type: editForm.value.customer_type
+  })
+  isEditing.value = false
+}
+
+const cancelEdit = () => {
+  isEditing.value = false
 }
 </script>
 
@@ -91,8 +139,42 @@ const cancelEditNotes = () => {
           </div>
 
           <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Customer Information</h3>
-            <div class="grid grid-cols-2 gap-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-gray-900">Customer Information</h3>
+              <button
+                v-if="!isEditing"
+                @click="startEdit"
+                class="text-sm text-primary-600 hover:text-primary-700"
+              >
+                Edit
+              </button>
+            </div>
+
+            <div v-if="isEditing" class="space-y-4">
+              <FormInput v-model="editForm.first_name" label="First Name" placeholder="First name" required />
+              <FormInput v-model="editForm.middle_name" label="Middle Name" placeholder="Middle name" />
+              <FormInput v-model="editForm.last_name" label="Last Name" placeholder="Last name" />
+              <FormInput v-model="editForm.phone" label="Phone" placeholder="Phone number" />
+              <FormInput v-model="editForm.facebook_profile_url" label="Facebook Profile URL" placeholder="https://facebook.com/profile" />
+              <FormSelect v-model="editForm.customer_type" label="Customer Type" :options="customerTypeOptions" />
+              <div class="flex gap-2 pt-2">
+                <button
+                  @click="saveEdit"
+                  :disabled="customerStore.loading"
+                  class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {{ customerStore.loading ? 'Saving...' : 'Save' }}
+                </button>
+                <button
+                  @click="cancelEdit"
+                  class="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <div v-else class="grid grid-cols-2 gap-6">
               <div>
                 <p class="text-sm text-gray-500">First Name</p>
                 <p class="font-medium text-gray-900">{{ customerStore.currentCustomer.first_name }}</p>
@@ -117,15 +199,17 @@ const cancelEditNotes = () => {
                 <p class="text-sm text-gray-500">Last Updated</p>
                 <p class="font-medium text-gray-900">{{ new Date(customerStore.currentCustomer.updated_at).toLocaleDateString() }}</p>
               </div>
-              <div v-if="customerStore.currentCustomer.facebook_profile_url" class="col-span-2">
+              <div class="col-span-2">
                 <p class="text-sm text-gray-500">Facebook Profile</p>
                 <a 
+                  v-if="customerStore.currentCustomer.facebook_profile_url"
                   :href="customerStore.currentCustomer.facebook_profile_url" 
                   target="_blank"
                   class="font-medium text-primary-600 hover:underline"
                 >
                   {{ customerStore.currentCustomer.facebook_profile_url }}
                 </a>
+                <p v-else class="font-medium text-gray-900">-</p>
               </div>
             </div>
           </div>
