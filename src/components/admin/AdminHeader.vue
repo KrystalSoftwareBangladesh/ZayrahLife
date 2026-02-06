@@ -24,11 +24,11 @@ const logout = () => {
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-full bg-primary-700 flex items-center justify-center text-white text-sm font-medium">
-            {{ user?.name?.charAt(0)?.toUpperCase() || 'A' }}
+            {{ user?.full_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || 'A' }}
           </div>
           <div class="text-sm">
-            <div class="font-medium text-gray-900">{{ user?.name }}</div>
-            <div class="text-xs text-gray-500">{{ user?.role }}</div>
+            <div class="font-medium text-gray-900">{{ user?.full_name || user?.username }}</div>
+            <div class="text-xs text-gray-500">{{ user?.email }}</div>
           </div>
         </div>
         
