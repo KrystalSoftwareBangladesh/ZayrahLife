@@ -38,7 +38,7 @@ const shippingAddress = ref('')
 
 const showCustomerModal = ref(false)
 const showCheckoutModal = ref(false)
-const newCustomer = ref({ name: '', email: '', phone: '', address: '' })
+const newCustomer = ref({ first_name: '', email: '', phone: '' })
 
 const categories = computed(() => {
   const cats = new Set(inventoryStore.inventory.map(p => p.category))
@@ -79,7 +79,7 @@ const customerOptions = computed(() => {
     { value: 0, label: 'Walk-in Customer' },
     ...customerStore.customers.map(c => ({
       value: c.id,
-      label: `${c.name} (${c.phone || c.email})`
+      label: `${c.full_name} (${c.phone || c.email})`
     }))
   ]
 })
@@ -143,7 +143,7 @@ const clearCart = () => {
 const openCheckout = () => {
   if (cart.value.length === 0) return
   if (selectedCustomer.value) {
-    shippingAddress.value = selectedCustomer.value.address || ''
+    shippingAddress.value = ''
   }
   showCheckoutModal.value = true
 }
@@ -154,7 +154,7 @@ const completeOrder = () => {
   const customer = selectedCustomer.value
   const orderData = {
     customerId: selectedCustomerId.value || 0,
-    customerName: customer?.name || 'Walk-in Customer',
+    customerName: customer?.full_name || 'Walk-in Customer',
     customerEmail: customer?.email || '',
     channel: selectedChannel.value,
     shippingAddress: shippingAddress.value,
@@ -178,12 +178,14 @@ const completeOrder = () => {
   clearCart()
 }
 
-const handleAddCustomer = () => {
-  if (!newCustomer.value.name) return
-  const customer = customerStore.addCustomer(newCustomer.value)
-  selectedCustomerId.value = customer.id
+const handleAddCustomer = async () => {
+  if (!newCustomer.value.first_name) return
+  const customer = await customerStore.createCustomer(newCustomer.value)
+  if (customer) {
+    selectedCustomerId.value = customer.id
+  }
   showCustomerModal.value = false
-  newCustomer.value = { name: '', email: '', phone: '', address: '' }
+  newCustomer.value = { first_name: '', email: '', phone: '' }
 }
 
 const statusOptions = [
@@ -588,10 +590,9 @@ const getChannelColor = (channel: string) => {
       @submit="handleAddCustomer"
     >
       <div class="space-y-4">
-        <FormInput v-model="newCustomer.name" label="Name" placeholder="Customer name" required />
+        <FormInput v-model="newCustomer.first_name" label="Name" placeholder="Customer name" required />
         <FormInput v-model="newCustomer.phone" label="Phone" placeholder="Phone number" />
         <FormInput v-model="newCustomer.email" label="Email" type="email" placeholder="Email address" />
-        <FormInput v-model="newCustomer.address" label="Address" placeholder="Delivery address" />
       </div>
     </FormModal>
 
@@ -670,7 +671,7 @@ const getChannelColor = (channel: string) => {
           
           <div v-if="selectedCustomer" class="mt-2 p-3 bg-white rounded-lg border border-gray-200">
             <div class="text-xs text-gray-500 mb-1">Customer</div>
-            <div class="font-medium">{{ selectedCustomer.name }}</div>
+            <div class="font-medium">{{ selectedCustomer.full_name }}</div>
             <div class="text-sm text-gray-600">{{ selectedCustomer.phone || selectedCustomer.email }}</div>
           </div>
         </div>
