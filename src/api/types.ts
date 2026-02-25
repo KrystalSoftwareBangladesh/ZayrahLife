@@ -85,6 +85,39 @@ export interface CustomerListParams {
   is_active?: boolean
 }
 
+export interface Category {
+  id: number
+  name: string
+  slug: string
+  description: string | null
+  parent: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CategoryCreateRequest {
+  name: string
+  slug?: string
+  description?: string | null
+  parent?: number | null
+}
+
+export interface CategoryUpdateRequest {
+  name?: string
+  slug?: string
+  description?: string | null
+  parent?: number | null
+}
+
+export interface CategoryListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  ordering?: string
+  parent?: number
+  is_active?: boolean
+}
+
 export interface ApiError {
   message: string
   status: number
