@@ -38,6 +38,11 @@ const adminRoutes = [
         component: () => import('@/admin/pages/AdminProductsPage.vue')
       },
       {
+        path: 'categories',
+        name: 'admin-categories',
+        component: () => import('@/admin/pages/AdminCategoriesPage.vue')
+      },
+      {
         path: 'products/:id',
         name: 'admin-product-detail',
         component: () => import('@/admin/pages/AdminProductDetailPage.vue')
