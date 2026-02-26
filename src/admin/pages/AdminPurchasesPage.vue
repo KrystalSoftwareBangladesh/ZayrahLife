@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import DataTable from '@/components/admin/DataTable.vue'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import FormInput from '@/components/admin/FormInput.vue'
@@ -214,6 +214,10 @@ const getPaymentStatusColor = (status: string) => {
   }
   return colors[status] || 'bg-gray-100 text-gray-800'
 }
+
+onMounted(() => {
+  supplierStore.fetchSuppliers({ page_size: 100 })
+})
 </script>
 
 <template>

@@ -118,6 +118,84 @@ export interface CategoryListParams {
   is_active?: boolean
 }
 
+export type SupplierPaymentType = 'COD' | 'CREDIT' | 'PREPAID'
+
+export interface SupplierList {
+  id: number
+  name: string
+  contact_person: string | null
+  phone: string | null
+  email: string | null
+  payment_type: SupplierPaymentType
+  credit_days: number | null
+  categories: string[]
+}
+
+export interface SupplierDetail {
+  id: number
+  categories: string[]
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+  is_active: boolean
+  deleted_at: string | null
+  name: string
+  contact_person: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  notes: string | null
+  payment_type: SupplierPaymentType
+  credit_days: number | null
+}
+
+export interface SupplierCreateUpdateResponse {
+  id: number
+  name: string
+  contact_person: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  notes: string | null
+  payment_type: SupplierPaymentType
+  credit_days: number | null
+  categories: number[]
+}
+
+export interface SupplierCreateRequest {
+  name: string
+  contact_person?: string | null
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  notes?: string | null
+  payment_type: SupplierPaymentType
+  credit_days?: number | null
+  categories?: number[]
+}
+
+export interface SupplierUpdateRequest {
+  name?: string
+  contact_person?: string | null
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  notes?: string | null
+  payment_type?: SupplierPaymentType
+  credit_days?: number | null
+  categories?: number[]
+}
+
+export interface SupplierListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  ordering?: string
+  payment_type?: SupplierPaymentType
+  category?: number[]
+}
+
 export interface ApiError {
   message: string
   status: number
