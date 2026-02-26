@@ -1,18 +1,17 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { mockSuppliers, mockPurchaseOrders } from '@/mock/admin/suppliers'
+import { computed, ref } from 'vue'
+import { suppliersApi } from '@/api/suppliers'
+import type {
+  ApiError,
+  SupplierCreateRequest,
+  SupplierDetail,
+  SupplierList,
+  SupplierListParams,
+  SupplierPaymentType,
+  SupplierUpdateRequest
+} from '@/api/types'
+import { mockPurchaseOrders } from '@/mock/admin/suppliers'
 import { useInventoryStore } from '@/stores/admin/inventoryStore'
-
-interface NewSupplier {
-  name: string
-  email?: string
-  phone?: string
-  address?: string
-  contactPerson?: string
-  category?: string
-  paymentTerms?: string
-  notes?: string
-}
 
 interface PurchaseOrderItem {
   productId: number
@@ -38,15 +37,28 @@ interface NewPurchaseOrder {
 }
 
 export const useSupplierStore = defineStore('adminSuppliers', () => {
-  const suppliers = ref([...mockSuppliers])
+  const suppliers = ref<SupplierList[]>([])
+  const currentSupplier = ref<SupplierDetail | null>(null)
   const purchaseOrders = ref([...mockPurchaseOrders])
   const loading = ref(false)
+  const error = ref<string | null>(null)
 
-  const activeSuppliers = computed(() => suppliers.value.filter(s => s.status === 'active'))
-  const totalSuppliers = computed(() => suppliers.value.length)
+  const pagination = ref({
+    count: 0,
+    page: 1,
+    pageSize: 20,
+    hasNext: false,
+    hasPrevious: false
+  })
+
+  const activeSuppliers = computed(() => suppliers.value)
+  const totalSuppliers = computed(() => pagination.value.count)
   const totalPurchaseValue = computed(() => purchaseOrders.value.reduce((sum, po) => sum + po.total, 0))
-  
-  const pendingPurchaseOrders = computed(() => 
+  const codSuppliers = computed(() => suppliers.value.filter(supplier => supplier.payment_type === 'COD').length)
+  const creditSuppliers = computed(() => suppliers.value.filter(supplier => supplier.payment_type === 'CREDIT').length)
+  const prepaidSuppliers = computed(() => suppliers.value.filter(supplier => supplier.payment_type === 'PREPAID').length)
+
+  const pendingPurchaseOrders = computed(() =>
     purchaseOrders.value.filter(po => po.status === 'pending' || po.status === 'ordered')
   )
 
@@ -54,44 +66,124 @@ export const useSupplierStore = defineStore('adminSuppliers', () => {
     purchaseOrders.value.filter(po => po.paymentStatus === 'unpaid' || po.paymentStatus === 'partial')
   )
 
-  function getSupplierById(id: number) {
-    return suppliers.value.find(s => s.id === id)
+  async function fetchSuppliers(params: SupplierListParams = {}): Promise<void> {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await suppliersApi.list({
+        page: params.page || pagination.value.page,
+        page_size: params.page_size || pagination.value.pageSize,
+        ...params
+      })
+
+      suppliers.value = response.results
+      pagination.value = {
+        count: response.count,
+        page: params.page || pagination.value.page,
+        pageSize: params.page_size || pagination.value.pageSize,
+        hasNext: !!response.next,
+        hasPrevious: !!response.previous
+      }
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to fetch suppliers'
+      suppliers.value = []
+    } finally {
+      loading.value = false
+    }
   }
 
-  function addSupplier(data: NewSupplier) {
-    const newId = Math.max(...suppliers.value.map(s => s.id)) + 1
-    const today = new Date().toISOString().split('T')[0]
-    const newSupplier = {
-      id: newId,
-      name: data.name,
-      email: data.email || '',
-      phone: data.phone || '',
-      address: data.address || '',
-      contactPerson: data.contactPerson || '',
-      category: data.category || 'General',
-      status: 'active',
-      totalOrders: 0,
-      totalSpent: 0,
-      lastOrderDate: today,
-      paymentTerms: data.paymentTerms || 'COD',
-      notes: data.notes || ''
+  async function getSupplierById(id: number): Promise<SupplierDetail | null> {
+    loading.value = true
+    error.value = null
+
+    try {
+      const supplier = await suppliersApi.getById(id)
+      currentSupplier.value = supplier
+      return supplier
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to fetch supplier'
+      return null
+    } finally {
+      loading.value = false
     }
-    suppliers.value.unshift(newSupplier)
-    return newSupplier
   }
 
-  function updateSupplierNotes(id: number, notes: string) {
-    const supplier = suppliers.value.find(s => s.id === id)
-    if (supplier) {
-      supplier.notes = notes
+  async function createSupplier(data: SupplierCreateRequest): Promise<boolean> {
+    loading.value = true
+    error.value = null
+
+    try {
+      await suppliersApi.create(data)
+      await fetchSuppliers({ page: 1 })
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to create supplier'
+      return false
+    } finally {
+      loading.value = false
     }
+  }
+
+  async function updateSupplier(id: number, data: SupplierUpdateRequest): Promise<boolean> {
+    loading.value = true
+    error.value = null
+
+    try {
+      await suppliersApi.update(id, data)
+      await fetchSuppliers()
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to update supplier'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteSupplier(id: number): Promise<boolean> {
+    loading.value = true
+    error.value = null
+
+    try {
+      await suppliersApi.delete(id)
+      await fetchSuppliers()
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to delete supplier'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateSupplierNotes(id: number, notes: string): Promise<boolean> {
+    return updateSupplier(id, { notes })
+  }
+
+  function setPage(page: number): void {
+    pagination.value.page = page
+    fetchSuppliers({ page })
+  }
+
+  function setPaymentTypeFilter(paymentType: SupplierPaymentType | ''): void {
+    fetchSuppliers({ payment_type: paymentType || undefined, page: 1 })
+  }
+
+  function clearError(): void {
+    error.value = null
   }
 
   function addPurchaseOrder(data: NewPurchaseOrder) {
     const orderNum = purchaseOrders.value.length + 1
     const year = new Date().getFullYear()
     const today = new Date().toISOString().split('T')[0]
-    
+
     const newPO = {
       id: `PO-${year}-${String(orderNum).padStart(3, '0')}`,
       supplierId: data.supplierId,
@@ -109,14 +201,7 @@ export const useSupplierStore = defineStore('adminSuppliers', () => {
       notes: data.notes || ''
     }
     purchaseOrders.value.unshift(newPO)
-    
-    const supplier = suppliers.value.find(s => s.id === data.supplierId)
-    if (supplier) {
-      supplier.totalOrders++
-      supplier.totalSpent += data.total
-      supplier.lastOrderDate = today
-    }
-    
+
     return newPO
   }
 
@@ -146,16 +231,28 @@ export const useSupplierStore = defineStore('adminSuppliers', () => {
 
   return {
     suppliers,
+    currentSupplier,
     purchaseOrders,
     loading,
+    error,
+    pagination,
     activeSuppliers,
     totalSuppliers,
     totalPurchaseValue,
+    codSuppliers,
+    creditSuppliers,
+    prepaidSuppliers,
     pendingPurchaseOrders,
     unpaidPurchaseOrders,
+    fetchSuppliers,
     getSupplierById,
-    addSupplier,
+    createSupplier,
+    updateSupplier,
+    deleteSupplier,
     updateSupplierNotes,
+    setPage,
+    setPaymentTypeFilter,
+    clearError,
     addPurchaseOrder,
     updatePurchaseOrderStatus,
     updatePaymentStatus
