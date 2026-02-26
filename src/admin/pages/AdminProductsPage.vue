@@ -1,104 +1,255 @@
-<script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import DataTable from '@/components/admin/DataTable.vue'
-import StatusBadge from '@/components/admin/StatusBadge.vue'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormSelect from '@/components/admin/FormSelect.vue'
 import FormModal from '@/components/admin/FormModal.vue'
-import { useInventoryStore } from '@/stores/admin/inventoryStore'
+import ConfirmModal from '@/components/admin/ConfirmModal.vue'
+import { useAdminProductStore } from '@/stores/admin/productStore'
+import { useCategoryStore } from '@/stores/admin/categoryStore'
+import type { ProductList, ProductUpdateRequest } from '@/api/types'
 
-const router = useRouter()
-const inventoryStore = useInventoryStore()
+interface VariantForm {
+  sku: string
+  color: string
+  size: string
+}
+
+interface ProductForm {
+  name: string
+  category_id: string
+  current_selling_price: string
+  variants: VariantForm[]
+}
+
+const productStore = useAdminProductStore()
+const categoryStore = useCategoryStore()
 
 const searchQuery = ref('')
 const categoryFilter = ref('')
-const showAddModal = ref(false)
+const searchTimeout = ref<number | null>(null)
 
-const newProduct = ref({
-  productName: '',
-  category: '',
-  price: 0,
-  cost: 0,
-  variants: [{ color: '', size: '', sku: '', stock: 0 }]
+const showCreateModal = ref(false)
+const showEditModal = ref(false)
+const showDeleteModal = ref(false)
+const showDeleteVariantModal = ref(false)
+
+const selectedProduct = ref<ProductList | null>(null)
+const selectedVariantId = ref<number | null>(null)
+
+const createForm = ref<ProductForm>({
+  name: '',
+  category_id: 'none',
+  current_selling_price: '',
+  variants: [{ sku: '', color: '', size: '' }]
+})
+
+const editForm = ref<Omit<ProductForm, 'variants'>>({
+  name: '',
+  category_id: 'none',
+  current_selling_price: ''
+})
+
+const newVariant = ref<VariantForm>({
+  sku: '',
+  color: '',
+  size: ''
 })
 
 const columns = [
-  { key: 'productName', label: 'Product' },
-  { key: 'category', label: 'Category', width: '120px' },
-  { key: 'variants', label: 'Variants', width: '100px' },
-  { key: 'totalStock', label: 'Total Stock', width: '120px' },
-  { key: 'price', label: 'Price', width: '100px' },
-  { key: 'status', label: 'Status', width: '120px' }
+  { key: 'name', label: 'Product' },
+  { key: 'category', label: 'Category', width: '160px' },
+  { key: 'current_selling_price', label: 'Price', width: '120px' },
+  { key: 'actions', label: 'Actions', width: '150px' }
 ]
 
-const categoryOptions = [
+const categoryFilterOptions = computed(() => [
   { value: '', label: 'All Categories' },
-  { value: 'Clothing', label: 'Clothing' },
-  { value: 'Accessories', label: 'Accessories' },
-  { value: 'Electronics', label: 'Electronics' },
-  { value: 'Footwear', label: 'Footwear' }
-]
+  ...categoryStore.categoryOptions.map(category => ({
+    value: String(category.id),
+    label: category.name
+  }))
+])
 
-const productCategoryOptions = [
-  { value: 'Clothing', label: 'Clothing' },
-  { value: 'Accessories', label: 'Accessories' },
-  { value: 'Electronics', label: 'Electronics' },
-  { value: 'Footwear', label: 'Footwear' }
-]
+const productCategoryOptions = computed(() => [
+  { value: 'none', label: 'No Category' },
+  ...categoryStore.categoryOptions.map(category => ({
+    value: String(category.id),
+    label: category.name
+  }))
+])
 
-const filteredProducts = computed(() => {
-  let result = inventoryStore.inventory
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(p => p.productName.toLowerCase().includes(query))
-  }
-  if (categoryFilter.value) {
-    result = result.filter(p => p.category === categoryFilter.value)
-  }
-  return result
+onMounted(async () => {
+  await Promise.all([
+    categoryStore.fetchCategoryOptions(),
+    productStore.fetchProducts()
+  ])
 })
 
-const getStockStatus = (product) => {
-  if (product.totalStock === 0) return 'out_of_stock'
-  const hasLowStock = product.variants.some(v => v.stock <= v.lowStockThreshold)
-  return hasLowStock ? 'low' : 'in_stock'
+onUnmounted(() => {
+  if (searchTimeout.value) clearTimeout(searchTimeout.value)
+})
+
+const fetchProductList = (page = 1) => {
+  productStore.fetchProducts({
+    page,
+    search: searchQuery.value || undefined,
+    category: categoryFilter.value ? Number(categoryFilter.value) : undefined
+  })
 }
 
-const handleRowClick = (product) => {
-  router.push({ name: 'admin-product-detail', params: { id: product.productId } })
+const handleSearch = () => {
+  if (searchTimeout.value) clearTimeout(searchTimeout.value)
+  searchTimeout.value = window.setTimeout(() => {
+    fetchProductList(1)
+  }, 400)
 }
 
-const openAddModal = () => {
-  newProduct.value = {
-    productName: '',
-    category: '',
-    price: 0,
-    cost: 0,
-    variants: [{ color: '', size: '', sku: '', stock: 0 }]
+const handleFilterChange = () => {
+  fetchProductList(1)
+}
+
+const resetCreateForm = () => {
+  createForm.value = {
+    name: '',
+    category_id: 'none',
+    current_selling_price: '',
+    variants: [{ sku: '', color: '', size: '' }]
   }
-  showAddModal.value = true
 }
 
-const addVariant = () => {
-  newProduct.value.variants.push({ color: '', size: '', sku: '', stock: 0 })
+const openCreateModal = () => {
+  resetCreateForm()
+  showCreateModal.value = true
 }
 
-const removeVariant = (index) => {
-  if (newProduct.value.variants.length > 1) {
-    newProduct.value.variants.splice(index, 1)
+const addVariantToCreate = () => {
+  createForm.value.variants.push({ sku: '', color: '', size: '' })
+}
+
+const removeVariantFromCreate = (index: number) => {
+  if (createForm.value.variants.length > 1) {
+    createForm.value.variants.splice(index, 1)
   }
 }
 
-const handleAddProduct = () => {
-  if (!newProduct.value.productName || !newProduct.value.category) return
-  const validVariants = newProduct.value.variants.filter(v => v.color || v.size)
-  if (validVariants.length === 0) {
-    validVariants.push({ color: 'Default', size: 'One Size', sku: '', stock: 0 })
+const openEditModal = async (product: ProductList) => {
+  selectedProduct.value = product
+  const detail = await productStore.fetchProductDetail(product.id)
+  if (!detail) return
+
+  await productStore.fetchProductVariants(product.id)
+
+  const matchedCategory = categoryStore.categoryOptions.find(
+    category => category.name === detail.category
+  )
+
+  editForm.value = {
+    name: detail.name,
+    category_id: matchedCategory ? String(matchedCategory.id) : 'none',
+    current_selling_price: detail.current_selling_price
   }
-  newProduct.value.variants = validVariants
-  inventoryStore.addProduct(newProduct.value)
-  showAddModal.value = false
+  showEditModal.value = true
+}
+
+const openDeleteModal = (product: ProductList) => {
+  selectedProduct.value = product
+  showDeleteModal.value = true
+}
+
+const handleCreateProduct = async () => {
+  if (!createForm.value.name.trim() || !createForm.value.current_selling_price) return
+
+  const variants = createForm.value.variants
+    .filter(variant => variant.sku.trim())
+    .map(variant => ({
+      sku: variant.sku.trim(),
+      color: variant.color.trim() || null,
+      size: variant.size.trim() || null
+    }))
+
+  const success = await productStore.createProduct({
+    name: createForm.value.name.trim(),
+    category: createForm.value.category_id === 'none' ? null : Number(createForm.value.category_id),
+    current_selling_price: createForm.value.current_selling_price,
+    variants: variants.length ? variants : undefined
+  })
+
+  if (success) {
+    showCreateModal.value = false
+    fetchProductList(1)
+  }
+}
+
+const handleUpdateProduct = async () => {
+  if (!selectedProduct.value || !productStore.currentProduct || !editForm.value.name.trim()) return
+
+  const payload: ProductUpdateRequest = {}
+  const current = productStore.currentProduct
+  const name = editForm.value.name.trim()
+  const price = editForm.value.current_selling_price
+  const categoryId = editForm.value.category_id === 'none' ? null : Number(editForm.value.category_id)
+  const currentCategoryId = categoryStore.categoryOptions.find(
+    category => category.name === current.category
+  )?.id ?? null
+
+  if (name !== current.name) payload.name = name
+  if (price !== current.current_selling_price) payload.current_selling_price = price
+  if (categoryId !== currentCategoryId) payload.category = categoryId
+
+  if (Object.keys(payload).length === 0) {
+    showEditModal.value = false
+    return
+  }
+
+  const success = await productStore.updateProduct(selectedProduct.value.id, payload)
+  if (success) {
+    showEditModal.value = false
+    fetchProductList(productStore.pagination.page)
+  }
+}
+
+const handleDeleteProduct = async () => {
+  if (!selectedProduct.value) return
+  const success = await productStore.deleteProduct(selectedProduct.value.id)
+  if (success) {
+    showDeleteModal.value = false
+    selectedProduct.value = null
+    fetchProductList(productStore.pagination.page)
+  }
+}
+
+const handleAddVariant = async () => {
+  if (!selectedProduct.value || !newVariant.value.sku.trim()) return
+
+  const success = await productStore.createVariant({
+    product: selectedProduct.value.id,
+    sku: newVariant.value.sku.trim(),
+    color: newVariant.value.color.trim() || null,
+    size: newVariant.value.size.trim() || null
+  })
+
+  if (success) {
+    newVariant.value = { sku: '', color: '', size: '' }
+  }
+}
+
+const openDeleteVariantModal = (variantId: number) => {
+  selectedVariantId.value = variantId
+  showDeleteVariantModal.value = true
+}
+
+const handleDeleteVariant = async () => {
+  if (!selectedProduct.value || !selectedVariantId.value) return
+  const success = await productStore.deleteVariant(selectedVariantId.value, selectedProduct.value.id)
+  if (success) {
+    showDeleteVariantModal.value = false
+    selectedVariantId.value = null
+  }
+}
+
+const handlePageChange = (page: number) => {
+  fetchProductList(page)
 }
 </script>
 
@@ -106,11 +257,11 @@ const handleAddProduct = () => {
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Products & Inventory</h1>
-        <p class="text-gray-500 mt-1">Manage your product catalog and stock levels</p>
+        <h1 class="text-2xl font-bold text-gray-900">Products</h1>
+        <p class="text-gray-500 mt-1">Manage product listing and lifecycle</p>
       </div>
       <button
-        @click="openAddModal"
+        @click="openCreateModal"
         class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,128 +271,126 @@ const handleAddProduct = () => {
       </button>
     </div>
 
+    <div v-if="productStore.error" class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
+      {{ productStore.error }}
+      <button @click="productStore.clearError" class="ml-2 underline">Dismiss</button>
+    </div>
+
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <div class="flex items-center gap-4">
         <div class="flex-1 max-w-md">
           <FormInput
             v-model="searchQuery"
             placeholder="Search products..."
+            @input="handleSearch"
           />
         </div>
-        <div class="w-48">
+        <div class="w-52">
           <FormSelect
             v-model="categoryFilter"
-            :options="categoryOptions"
+            :options="categoryFilterOptions"
             placeholder="All Categories"
+            @update:model-value="handleFilterChange"
           />
         </div>
         <div class="text-sm text-gray-500">
-          {{ filteredProducts.length }} products
+          {{ productStore.totalProducts }} products
         </div>
       </div>
     </div>
 
     <DataTable
       :columns="columns"
-      :data="filteredProducts"
-      :loading="inventoryStore.loading"
-      @row-click="handleRowClick"
+      :data="productStore.products"
+      :loading="productStore.loading"
+      @row-click="openEditModal"
     >
-      <template #productName="{ row }">
-        <span class="font-medium">{{ row.productName }}</span>
+      <template #name="{ row }">
+        <span class="font-medium">{{ row.name }}</span>
       </template>
-      <template #variants="{ row }">
-        {{ row.variants.length }}
+      <template #current_selling_price="{ value }">
+        <span class="font-medium">${{ Number(value).toFixed(2) }}</span>
       </template>
-      <template #totalStock="{ row }">
-        <span :class="row.totalStock === 0 ? 'text-red-600 font-bold' : row.totalStock < 20 ? 'text-yellow-600' : 'text-gray-900'">
-          {{ row.totalStock }}
-        </span>
-      </template>
-      <template #price="{ value }">
-        ${{ value.toFixed(2) }}
-      </template>
-      <template #status="{ row }">
-        <StatusBadge :status="getStockStatus(row)" />
+      <template #actions="{ row }">
+        <div class="flex items-center gap-2">
+          <button
+            @click.stop="openEditModal(row)"
+            class="px-2 py-1 text-xs font-medium text-primary-700 bg-primary-50 rounded hover:bg-primary-100 transition-colors"
+          >
+            Edit
+          </button>
+          <button
+            @click.stop="openDeleteModal(row)"
+            class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+          >
+            Delete
+          </button>
+        </div>
       </template>
     </DataTable>
 
+    <div v-if="productStore.pagination.count > productStore.pagination.pageSize" class="flex justify-center gap-2">
+      <button
+        :disabled="!productStore.pagination.hasPrevious"
+        @click="handlePageChange(productStore.pagination.page - 1)"
+        class="px-3 py-1 border rounded disabled:opacity-50"
+      >
+        Previous
+      </button>
+      <span class="px-3 py-1">
+        Page {{ productStore.pagination.page }} of {{ Math.ceil(productStore.pagination.count / productStore.pagination.pageSize) }}
+      </span>
+      <button
+        :disabled="!productStore.pagination.hasNext"
+        @click="handlePageChange(productStore.pagination.page + 1)"
+        class="px-3 py-1 border rounded disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+
     <FormModal
-      :show="showAddModal"
-      title="Add New Product"
+      :show="showCreateModal"
+      title="Create Product"
       size="lg"
-      @close="showAddModal = false"
-      @submit="handleAddProduct"
+      @close="showCreateModal = false"
+      @submit="handleCreateProduct"
     >
       <div class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
-          <FormInput
-            v-model="newProduct.productName"
-            label="Product Name"
-            placeholder="Enter product name"
-            required
-          />
-          <FormSelect
-            v-model="newProduct.category"
-            label="Category"
-            :options="productCategoryOptions"
-            placeholder="Select category"
-          />
+          <FormInput v-model="createForm.name" label="Product Name" placeholder="Enter product name" required />
+          <FormSelect v-model="createForm.category_id" label="Category" :options="productCategoryOptions" />
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <FormInput
-            v-model.number="newProduct.price"
-            label="Selling Price ($)"
-            type="number"
-            step="0.01"
-            min="0"
-          />
-          <FormInput
-            v-model.number="newProduct.cost"
-            label="Cost Price ($)"
-            type="number"
-            step="0.01"
-            min="0"
-          />
-        </div>
-        
-        <div class="border-t pt-4 mt-4">
+        <FormInput
+          v-model="createForm.current_selling_price"
+          label="Selling Price"
+          type="number"
+          step="0.01"
+          placeholder="0.00"
+        />
+
+        <div class="border-t pt-4">
           <div class="flex items-center justify-between mb-3">
-            <h4 class="font-medium text-gray-900">Variants</h4>
+            <h4 class="font-medium text-gray-900">Initial Variants (Optional)</h4>
             <button
               type="button"
-              @click="addVariant"
+              @click="addVariantToCreate"
               class="text-sm text-primary-600 hover:text-primary-700 font-medium"
             >
               + Add Variant
             </button>
           </div>
-          <div v-for="(variant, index) in newProduct.variants" :key="index" class="p-3 bg-gray-50 rounded-lg mb-2">
+          <div v-for="(variant, index) in createForm.variants" :key="index" class="p-3 bg-gray-50 rounded-lg mb-2">
             <div class="flex items-start gap-3">
-              <div class="flex-1 grid grid-cols-4 gap-3">
-                <FormInput
-                  v-model="variant.color"
-                  placeholder="Color"
-                />
-                <FormInput
-                  v-model="variant.size"
-                  placeholder="Size"
-                />
-                <FormInput
-                  v-model="variant.sku"
-                  placeholder="SKU"
-                />
-                <FormInput
-                  v-model.number="variant.stock"
-                  type="number"
-                  placeholder="Stock"
-                  min="0"
-                />
+              <div class="flex-1 grid grid-cols-3 gap-3">
+                <FormInput v-model="variant.sku" placeholder="SKU (required to include variant)" />
+                <FormInput v-model="variant.color" placeholder="Color" />
+                <FormInput v-model="variant.size" placeholder="Size" />
               </div>
               <button
-                v-if="newProduct.variants.length > 1"
+                v-if="createForm.variants.length > 1"
                 type="button"
-                @click="removeVariant(index)"
+                @click="removeVariantFromCreate(index)"
                 class="p-1 text-red-500 hover:text-red-700"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -253,5 +402,91 @@ const handleAddProduct = () => {
         </div>
       </div>
     </FormModal>
+
+    <FormModal
+      :show="showEditModal"
+      title="Edit Product"
+      size="lg"
+      @close="showEditModal = false"
+      @submit="handleUpdateProduct"
+    >
+      <div class="space-y-5">
+        <div class="grid grid-cols-2 gap-4">
+          <FormInput v-model="editForm.name" label="Product Name" placeholder="Product name" required />
+          <FormSelect v-model="editForm.category_id" label="Category" :options="productCategoryOptions" />
+        </div>
+        <FormInput
+          v-model="editForm.current_selling_price"
+          label="Selling Price"
+          type="number"
+          step="0.01"
+          placeholder="0.00"
+        />
+
+        <div class="border-t pt-4">
+          <h4 class="font-medium text-gray-900 mb-3">Variants</h4>
+          <div v-if="productStore.currentProductVariants.length === 0" class="text-sm text-gray-500 mb-3">
+            No variants found for this product.
+          </div>
+          <div v-else class="space-y-2 mb-4">
+            <div
+              v-for="variant in productStore.currentProductVariants"
+              :key="variant.id"
+              class="p-3 border border-gray-200 rounded-lg flex items-center justify-between"
+            >
+              <div>
+                <div class="font-medium text-gray-900">{{ variant.sku }}</div>
+                <div class="text-sm text-gray-500">
+                  {{ variant.color || '-' }} / {{ variant.size || '-' }} | Stock: {{ variant.current_stock }}
+                </div>
+              </div>
+              <button
+                type="button"
+                @click="openDeleteVariantModal(variant.id)"
+                class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+
+          <div class="p-3 bg-gray-50 rounded-lg">
+            <div class="text-sm font-medium text-gray-700 mb-2">Add Variant</div>
+            <div class="grid grid-cols-3 gap-3">
+              <FormInput v-model="newVariant.sku" placeholder="SKU" />
+              <FormInput v-model="newVariant.color" placeholder="Color" />
+              <FormInput v-model="newVariant.size" placeholder="Size" />
+            </div>
+            <div class="mt-3">
+              <button
+                type="button"
+                @click="handleAddVariant"
+                class="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded hover:bg-primary-700"
+              >
+                Add Variant
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </FormModal>
+
+    <ConfirmModal
+      :show="showDeleteModal"
+      title="Delete Product"
+      :message="`Are you sure you want to delete '${selectedProduct?.name || ''}'? This action cannot be undone.`"
+      confirm-text="Delete"
+      @confirm="handleDeleteProduct"
+      @cancel="showDeleteModal = false"
+    />
+
+    <ConfirmModal
+      :show="showDeleteVariantModal"
+      title="Delete Variant"
+      message="Are you sure you want to delete this variant?"
+      confirm-text="Delete"
+      @confirm="handleDeleteVariant"
+      @cancel="showDeleteVariantModal = false"
+    />
   </div>
 </template>

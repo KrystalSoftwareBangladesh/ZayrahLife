@@ -196,6 +196,101 @@ export interface SupplierListParams {
   category?: number[]
 }
 
+export interface ProductVariantRequest {
+  sku: string
+  color?: string | null
+  size?: string | null
+}
+
+export interface ProductList {
+  id: number
+  name: string
+  category: string
+  current_selling_price: string
+}
+
+export interface ProductDetail {
+  id: number
+  category: string
+  price_histories: Array<{
+    price: string
+    changed_at: string
+    changed_by: string
+  }>
+  created_at: string
+  updated_at: string
+  is_active: boolean
+  deleted_at: string | null
+  name: string
+  current_selling_price: string
+  created_by: number | null
+  updated_by: number | null
+}
+
+export interface ProductCreateUpdateResponse {
+  id: number
+  name: string
+  category: number | null
+  current_selling_price: string
+  variants: Array<{
+    id: number
+    sku: string
+    color: string | null
+    size: string | null
+  }>
+}
+
+export interface ProductCreateRequest {
+  name: string
+  category?: number | null
+  current_selling_price: string
+  variants?: ProductVariantRequest[]
+}
+
+export interface ProductUpdateRequest {
+  name?: string
+  category?: number | null
+  current_selling_price?: string
+  variants?: ProductVariantRequest[]
+}
+
+export interface ProductListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  category?: number
+}
+
+export interface ProductVariantList {
+  id: number
+  product: string
+  sku: string
+  color: string | null
+  size: string | null
+  current_stock: number
+}
+
+export interface ProductVariantCreateRequest {
+  product: number
+  sku: string
+  color?: string | null
+  size?: string | null
+}
+
+export interface ProductVariantUpdateRequest {
+  product?: number
+  sku?: string
+  color?: string | null
+  size?: string | null
+}
+
+export interface ProductVariantListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  product?: number
+}
+
 export interface ApiError {
   message: string
   status: number
