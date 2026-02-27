@@ -1,11 +1,5 @@
 <script setup>
-defineProps({
-  title: { type: String, required: true },
-  value: { type: [String, Number], required: true },
-  icon: { type: String, default: '' },
-  trend: { type: Number, default: null },
-  color: { type: String, default: 'primary' }
-})
+import { computed } from 'vue'
 
 const colorClasses = {
   primary: 'bg-primary-100 text-primary-700',
@@ -15,6 +9,28 @@ const colorClasses = {
   red: 'bg-red-100 text-red-700',
   purple: 'bg-purple-100 text-purple-700'
 }
+
+const props = defineProps({
+  title: { type: String, required: true },
+  value: { type: [String, Number], required: true },
+  icon: { type: String, default: '' },
+  trend: { type: Number, default: null },
+  color: { type: String, default: 'primary' }
+})
+
+const iconMap = {
+  users: 'M17 20h5v-1a4 4 0 00-5.9-3.5M17 20H7m10 0v-1c0-.7-.1-1.4-.3-2M7 20H2v-1a4 4 0 015.9-3.5M7 20v-1c0-.7.1-1.4.3-2m0 0a5 5 0 119.4 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+  check: 'M5 13l4 4L19 7',
+  clock: 'M12 8v4l3 3M12 22a10 10 0 100-20 10 10 0 000 20z',
+  file: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.6a2 2 0 011.4.6l3.4 3.4a2 2 0 01.6 1.4V19a2 2 0 01-2 2z',
+  dollar: 'M12 1v22m5-18H9.5a3.5 3.5 0 000 7H14.5a3.5 3.5 0 010 7H7',
+  alert: 'M12 9v4m0 4h.01M10.3 3.8l-8 14A1 1 0 003.2 19h17.6a1 1 0 00.9-1.5l-8-14a1 1 0 00-1.8 0z'
+}
+
+const resolvedIcon = computed(() => {
+  if (!props.icon) return ''
+  return iconMap[props.icon] || props.icon
+})
 </script>
 
 <template>
@@ -41,7 +57,7 @@ const colorClasses = {
       </div>
       <div v-if="icon" :class="[colorClasses[color]]" class="w-12 h-12 rounded-lg flex items-center justify-center">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="icon" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="resolvedIcon" />
         </svg>
       </div>
     </div>

@@ -291,6 +291,80 @@ export interface ProductVariantListParams {
   product?: number
 }
 
+export type PurchaseStatus = 'DRAFT' | 'CONFIRMED' | 'CANCELLED'
+
+export interface PurchaseItemRequest {
+  product_variant_id: number
+  quantity: number
+  unit_cost: string
+}
+
+export interface PurchaseList {
+  id: number
+  supplier: SupplierList
+  purchase_date: string
+  invoice_number: string | null
+  status: PurchaseStatus
+  total_amount: string
+}
+
+export interface PurchaseDetailItem {
+  id: number
+  product_variant: ProductVariantList
+  quantity: number
+  unit_cost: string
+  line_total: string
+}
+
+export interface PurchaseDetail {
+  id: number
+  supplier: SupplierList
+  items: PurchaseDetailItem[]
+  created_at: string
+  updated_at: string
+  is_active: boolean
+  deleted_at: string | null
+  purchase_date: string
+  invoice_number: string | null
+  status: PurchaseStatus
+  subtotal_amount: string
+  discount_amount: string
+  tax_amount: string
+  total_amount: string
+  notes: string | null
+  created_by: number | null
+  updated_by: number | null
+}
+
+export interface PurchaseCreateRequest {
+  supplier: number
+  purchase_date: string
+  invoice_number?: string | null
+  discount_amount?: string
+  tax_amount?: string
+  notes?: string | null
+  items: PurchaseItemRequest[]
+}
+
+export interface PurchaseUpdateRequest {
+  supplier?: number
+  purchase_date?: string
+  invoice_number?: string | null
+  discount_amount?: string
+  tax_amount?: string
+  notes?: string | null
+  items?: PurchaseItemRequest[]
+}
+
+export interface PurchaseListParams {
+  page?: number
+  page_size?: number
+  supplier?: number
+  status?: PurchaseStatus
+  purchase_date_min?: string
+  purchase_date_max?: string
+}
+
 export interface ApiError {
   message: string
   status: number
