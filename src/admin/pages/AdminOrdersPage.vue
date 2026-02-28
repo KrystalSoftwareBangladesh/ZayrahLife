@@ -166,6 +166,7 @@ const completeOrder = async () => {
     total: cartTotal.value,
     items: cart.value.map(item => ({
       productId: item.productId,
+      variantId: item.variantId,
       productName: item.productName,
       quantity: item.quantity,
       price: item.price,
@@ -248,6 +249,8 @@ const getChannelColor = (channel: string) => {
 }
 
 onMounted(() => {
+  void inventoryStore.fetchInventory()
+  void customerStore.fetchCustomers({ page: 1, page_size: 100 })
   void orderStore.fetchOrders()
 })
 </script>

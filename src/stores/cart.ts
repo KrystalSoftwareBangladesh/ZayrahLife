@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 
 interface CartItem {
   id: number
+  variantId?: number
   name: string
   price: number
   image: string
@@ -43,9 +44,17 @@ export const useCartStore = defineStore('cart', () => {
     return subtotal.value + shipping.value + tax.value
   })
 
-  const addItem = (product: Product, quantity = 1, selectedColor: string | null = null, selectedSize: string | null = null, variantPrice?: number) => {
+  const addItem = (
+    product: Product,
+    quantity = 1,
+    selectedColor: string | null = null,
+    selectedSize: string | null = null,
+    variantPrice?: number,
+    variantId?: number
+  ) => {
     const existingItem = items.value.find(
       item => item.id === product.id && 
+              item.variantId === variantId &&
               item.selectedColor === selectedColor && 
               item.selectedSize === selectedSize
     )
@@ -55,6 +64,7 @@ export const useCartStore = defineStore('cart', () => {
     } else {
       items.value.push({
         id: product.id,
+        variantId,
         name: product.name,
         price: variantPrice ?? product.price,
         image: product.images[0],

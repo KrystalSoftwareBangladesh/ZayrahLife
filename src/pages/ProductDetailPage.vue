@@ -18,6 +18,7 @@ const selectedImage = ref(0)
 const addedToCart = ref(false)
 
 const {
+  selectedVariantId,
   selectedColor,
   selectedSize,
   availableColors,
@@ -33,16 +34,39 @@ const {
   getVariantStock
 } = useProductVariants(product as any)
 
+const loadProduct = async (rawId: unknown) => {
+  selectedImage.value = 0
+  const id = Array.isArray(rawId) ? rawId[0] : rawId
+  if (!id) {
+    product.value = null
+    return
+  }
+
+  await productStore.fetchProducts()
+  const existing = productStore.getProductById(id)
+  if (existing) {
+    product.value = existing
+    return
+  }
+
+  product.value = await productStore.fetchProductById(id)
+}
+
 onMounted(() => {
-  const id = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
-  product.value = productStore.getProductById(id)
+  void loadProduct(route.params.id)
 })
 
 watch(() => route.params.id, (newId) => {
-  if (newId) {
-    const id = Array.isArray(newId) ? newId[0] : newId
-    product.value = productStore.getProductById(id)
-    selectedImage.value = 0
+  void loadProduct(newId)
+})
+
+watch(productStore.products, () => {
+  const id = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
+  if (id) {
+    const latest = productStore.getProductById(id)
+    if (latest) {
+      product.value = latest
+    }
   }
 })
 
@@ -61,7 +85,8 @@ const addToCart = () => {
       quantity.value, 
       selectedColor.value, 
       selectedSize.value,
-      currentPrice.value
+      currentPrice.value,
+      selectedVariantId.value ?? undefined
     )
     addedToCart.value = true
     setTimeout(() => {

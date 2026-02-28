@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { orders as mockOrders } from '@/mock/orders'
 import { salesApi } from '@/api/sales'
-import type { ApiError, SaleCreateRequest, SaleDetail, SaleList } from '@/api/types'
+import { customersApi } from '@/api/customers'
+import type { ApiError, CustomerCreateRequest, SaleCreateRequest, SaleDetail, SaleList } from '@/api/types'
 
 interface OrderItem {
   productId: number
@@ -14,9 +15,12 @@ interface OrderItem {
 }
 
 interface ShippingAddress {
+  customerId?: number
   name?: string
   firstName?: string
   lastName?: string
+  email?: string
+  phone?: string
   street?: string
   address?: string
   city: string
@@ -34,6 +38,7 @@ interface Totals {
 
 interface CartItem {
   id: number
+  variantId?: number
   name: string
   price: number
   quantity: number
@@ -84,19 +89,33 @@ function parseShippingAddress(address: string | null | undefined, fallbackName =
   }
 }
 
+function toApiDate(value?: string): string {
+  const parsed = value ? new Date(value) : new Date()
+  if (Number.isNaN(parsed.getTime())) return new Date().toISOString().split('T')[0]
+  return parsed.toISOString().split('T')[0]
+}
+
+function getSaleCustomerName(sale: Partial<SaleDetail & SaleList>): string {
+  if (sale.customer && typeof sale.customer === 'object') {
+    return sale.customer.full_name || 'Customer'
+  }
+  return sale.customer_name || 'Customer'
+}
+
 function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): Order {
   const status = toStatusKey(sale.status)
-  const createdAt = sale.created_at || new Date().toISOString()
+  const createdAt = sale.created_at || (sale.sale_date ? `${sale.sale_date}T00:00:00.000Z` : new Date().toISOString())
   const items = Array.isArray(sale.items)
     ? sale.items.map(item => ({
-      productId: item.product_id ?? item.id ?? 0,
-      name: item.product_name || 'Product',
+      productId: item.product_variant?.id ?? item.product_id ?? item.id ?? 0,
+      name: item.product_name || item.product_variant?.product || 'Product',
       price: toNumber(item.unit_price),
       quantity: item.quantity || 1,
-      color: item.variant?.split('/')[0]?.trim() || '',
-      size: item.variant?.split('/')[1]?.trim() || null
+      color: item.variant?.split('/')[0]?.trim() || item.product_variant?.color || '',
+      size: item.variant?.split('/')[1]?.trim() || item.product_variant?.size || null
     }))
     : []
+  const customerName = getSaleCustomerName(sale)
 
   return {
     id: String(sale.order_number || sale.id || ''),
@@ -108,8 +127,50 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): Order {
     shipping: toNumber(sale.shipping_amount),
     tax: toNumber(sale.tax_amount),
     total: toNumber(sale.total_amount),
-    shippingAddress: parseShippingAddress(sale.shipping_address, sale.customer_name || ''),
+    shippingAddress: parseShippingAddress(sale.shipping_address, customerName),
     trackingNumber: sale.tracking_number || null
+  }
+}
+
+function buildCustomerPayload(shippingAddress: ShippingAddress): CustomerCreateRequest {
+  const fullName = (shippingAddress.name || '').trim()
+  const nameParts = fullName.split(/\s+/).filter(Boolean)
+  const firstName = shippingAddress.firstName?.trim() || nameParts[0] || 'Guest'
+  const lastName = shippingAddress.lastName?.trim() || nameParts.slice(1).join(' ') || undefined
+  const email = shippingAddress.email?.trim() || undefined
+  const phone = shippingAddress.phone?.trim() || undefined
+
+  return {
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    phone,
+    customer_type: 'WEBSITE',
+    notes: 'Auto-created during website checkout.'
+  }
+}
+
+async function resolveCustomerId(shippingAddress: ShippingAddress): Promise<number | null> {
+  if (typeof shippingAddress.customerId === 'number' && shippingAddress.customerId > 0) {
+    return shippingAddress.customerId
+  }
+
+  const email = shippingAddress.email?.trim().toLowerCase()
+  if (email) {
+    try {
+      const response = await customersApi.list({ search: email, page: 1, page_size: 20 })
+      const matched = response.results.find(customer => customer.email?.toLowerCase() === email)
+      if (matched) return matched.id
+    } catch {
+      // Continue with a create attempt if customer search fails.
+    }
+  }
+
+  try {
+    const created = await customersApi.create(buildCustomerPayload(shippingAddress))
+    return created.id
+  } catch {
+    return null
   }
 }
 
@@ -127,7 +188,7 @@ export const useOrderStore = defineStore('orders', () => {
     error.value = null
 
     try {
-      const response = await salesApi.list({ page: 1, page_size: 50, ordering: '-created_at' })
+      const response = await salesApi.list({ page: 1, page_size: 50, ordering: '-sale_date' })
       orders.value = response.results.map(normalizeSaleOrder)
     } catch (err) {
       const apiError = err as ApiError
@@ -185,27 +246,35 @@ export const useOrderStore = defineStore('orders', () => {
       trackingNumber: null
     }
 
-    const payload: SaleCreateRequest = {
-      customer_name: shippingAddress.name || `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`.trim(),
-      customer_email: null,
-      channel: 'WEBSITE',
-      payment_method: 'CARD',
-      shipping_address: [
-        shippingAddress.street || shippingAddress.address || '',
-        `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip}`,
-        shippingAddress.country
-      ].filter(Boolean).join(', '),
-      subtotal_amount: String(totals.subtotal.toFixed(2)),
-      shipping_amount: String(totals.shipping.toFixed(2)),
-      tax_amount: String(totals.tax.toFixed(2)),
-      total_amount: String(totals.total.toFixed(2)),
-      items: cartItems.map(item => ({
-        product_id: item.id,
-        product_name: item.name,
-        variant: [item.selectedColor, item.selectedSize].filter(Boolean).join(' / ') || null,
+    const customerId = await resolveCustomerId(shippingAddress)
+    const saleItems = cartItems
+      .filter(item => typeof item.variantId === 'number' && item.variantId > 0)
+      .map(item => ({
+        product_variant_id: item.variantId as number,
         quantity: item.quantity,
-        unit_price: String(item.price.toFixed(2))
+        unit_price: String(item.price.toFixed(2)),
+        line_total: String((item.price * item.quantity).toFixed(2))
       }))
+
+    const canSubmitToApi =
+      typeof customerId === 'number' &&
+      customerId > 0 &&
+      saleItems.length === cartItems.length
+
+    if (!canSubmitToApi) {
+      error.value = 'Order saved locally because checkout data is missing customer or variant mapping.'
+      orders.value.unshift(fallbackOrder)
+      return fallbackOrder
+    }
+
+    const payload: SaleCreateRequest = {
+      customer: customerId,
+      sale_date: toApiDate(),
+      invoice_number: null,
+      discount_amount: '0.00',
+      tax_amount: String(totals.tax.toFixed(2)),
+      notes: null,
+      items: saleItems
     }
 
     try {
@@ -213,7 +282,9 @@ export const useOrderStore = defineStore('orders', () => {
       const normalized = normalizeSaleOrder(created)
       orders.value.unshift(normalized)
       return normalized
-    } catch {
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to create sale order in API'
       orders.value.unshift(fallbackOrder)
       return fallbackOrder
     }

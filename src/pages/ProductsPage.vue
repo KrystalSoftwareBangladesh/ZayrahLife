@@ -15,15 +15,18 @@ const selectedCategory = computed(() => productStore.selectedCategory)
 const priceRange = computed(() => productStore.priceRange)
 
 onMounted(() => {
-  const categoryParam = route.query.category
-  if (categoryParam) {
-    productStore.setCategory(categoryParam)
-  }
+  void (async () => {
+    await productStore.fetchProducts()
+    const categoryParam = route.query.category
+    if (categoryParam) {
+      productStore.setCategory(String(categoryParam))
+    }
+  })()
 })
 
 watch(() => route.query.category, (newCategory) => {
   if (newCategory) {
-    productStore.setCategory(newCategory)
+    productStore.setCategory(String(newCategory))
   } else {
     productStore.clearFilters()
   }

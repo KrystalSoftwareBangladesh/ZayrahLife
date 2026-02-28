@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useProductStore } from '@/stores/products'
 import ProductCard from '@/components/product/ProductCard.vue'
@@ -9,6 +9,10 @@ const productStore = useProductStore()
 
 const featuredProducts = computed(() => productStore.featuredProducts)
 const categories = computed(() => productStore.categories)
+
+onMounted(() => {
+  void productStore.fetchProducts()
+})
 </script>
 
 <template>

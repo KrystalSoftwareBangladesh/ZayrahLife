@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import FormSelect from '@/components/admin/FormSelect.vue'
@@ -8,6 +8,7 @@ import { useOrderStore } from '@/stores/admin/orderStore'
 const route = useRoute()
 const router = useRouter()
 const orderStore = useOrderStore()
+const isDeleting = ref(false)
 
 const order = computed(() => orderStore.getOrderById(route.params.id))
 
@@ -22,6 +23,19 @@ const statusOptions = [
 const updateStatus = async (newStatus) => {
   if (!order.value) return
   await orderStore.updateOrderStatus(order.value.id, newStatus)
+}
+
+const deleteCurrentOrder = async () => {
+  if (!order.value || isDeleting.value) return
+  const shouldDelete = window.confirm(`Delete order ${order.value.id}? This cannot be undone.`)
+  if (!shouldDelete) return
+
+  isDeleting.value = true
+  const deleted = await orderStore.deleteOrder(order.value.id)
+  isDeleting.value = false
+  if (deleted) {
+    router.push({ name: 'admin-orders' })
+  }
 }
 
 onMounted(() => {
@@ -161,6 +175,13 @@ onMounted(() => {
             <p class="text-xs text-gray-500 mt-2">
               Last updated: {{ new Date(order.updatedAt).toLocaleString() }}
             </p>
+            <button
+              :disabled="isDeleting"
+              class="mt-4 w-full px-3 py-2 text-sm font-medium rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
+              @click="deleteCurrentOrder"
+            >
+              {{ isDeleting ? 'Deleting...' : 'Delete Order' }}
+            </button>
           </div>
         </div>
       </div>

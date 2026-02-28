@@ -43,6 +43,10 @@ export const salesApi = {
     return http.patch<SaleDetail>(`/api/v1/sales/${id}/`, data)
   },
 
+  async replace(id: number | string, data: SaleUpdateRequest): Promise<SaleDetail> {
+    return http.put<SaleDetail>(`/api/v1/sales/${id}/`, data)
+  },
+
   async delete(id: number | string): Promise<void> {
     return http.delete(`/api/v1/sales/${id}/`)
   },
