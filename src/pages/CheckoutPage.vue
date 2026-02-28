@@ -70,7 +70,7 @@ const placeOrder = async () => {
     country: shippingForm.value.country
   }
   
-  const order = orderStore.createOrder(
+  const order = await orderStore.createOrder(
     cartStore.items,
     shippingAddress,
     {

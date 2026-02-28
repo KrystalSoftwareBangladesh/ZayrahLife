@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import StatCard from '@/components/admin/StatCard.vue'
 import { useOrderStore } from '@/stores/admin/orderStore'
@@ -45,6 +45,10 @@ const stats = computed(() => [
 
 const recentOrders = computed(() => orderStore.orders.slice(0, 5))
 const lowStockItems = computed(() => inventoryStore.lowStockItems.slice(0, 5))
+
+onMounted(() => {
+  void orderStore.fetchOrders()
+})
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import FormSelect from '@/components/admin/FormSelect.vue'
@@ -19,9 +19,14 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelled' }
 ]
 
-const updateStatus = (newStatus) => {
-  orderStore.updateOrderStatus(order.value.id, newStatus)
+const updateStatus = async (newStatus) => {
+  if (!order.value) return
+  await orderStore.updateOrderStatus(order.value.id, newStatus)
 }
+
+onMounted(() => {
+  void orderStore.fetchOrderById(String(route.params.id))
+})
 </script>
 
 <template>

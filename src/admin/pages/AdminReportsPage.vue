@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import StatCard from '@/components/admin/StatCard.vue'
 import { useOrderStore } from '@/stores/admin/orderStore'
 import { useInventoryStore } from '@/stores/admin/inventoryStore'
@@ -83,6 +83,10 @@ const getStatusColor = (status: string) => {
   }
   return colors[status] || 'bg-gray-100 text-gray-800'
 }
+
+onMounted(() => {
+  void orderStore.fetchOrders()
+})
 </script>
 
 <template>

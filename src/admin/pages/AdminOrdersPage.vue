@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormModal from '@/components/admin/FormModal.vue'
@@ -148,7 +148,7 @@ const openCheckout = () => {
   showCheckoutModal.value = true
 }
 
-const completeOrder = () => {
+const completeOrder = async () => {
   if (cart.value.length === 0) return
   
   const customer = selectedCustomer.value
@@ -173,7 +173,7 @@ const completeOrder = () => {
     }))
   }
   
-  orderStore.addOrder(orderData)
+  await orderStore.addOrder(orderData)
   showCheckoutModal.value = false
   clearCart()
 }
@@ -246,6 +246,10 @@ const getChannelColor = (channel: string) => {
   }
   return colors[channel] || 'bg-gray-100 text-gray-700'
 }
+
+onMounted(() => {
+  void orderStore.fetchOrders()
+})
 </script>
 
 <template>

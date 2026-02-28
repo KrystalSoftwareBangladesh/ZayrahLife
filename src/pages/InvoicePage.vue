@@ -10,7 +10,9 @@ const orderStore = useOrderStore()
 const order = ref(null)
 
 onMounted(() => {
-  order.value = orderStore.getOrderById(route.params.orderId)
+  orderStore.fetchOrderById(String(route.params.orderId)).then((loadedOrder) => {
+    order.value = loadedOrder || orderStore.getOrderById(String(route.params.orderId))
+  })
 })
 
 const formatDate = (dateStr) => {
