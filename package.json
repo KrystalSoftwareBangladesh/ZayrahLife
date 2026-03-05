@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5000",
+    "dev:staging": "vite --host 0.0.0.0 --port 5000 --mode staging",
+    "dev:prod": "vite --host 0.0.0.0 --port 5000 --mode production",
     "build": "vite build",
     "build:staging": "vite build --mode staging",
     "build:prod": "vite build --mode production",
