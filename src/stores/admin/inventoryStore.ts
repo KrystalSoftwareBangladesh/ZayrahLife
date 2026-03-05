@@ -65,13 +65,13 @@ async function fetchAllProductPages(): Promise<ProductList[]> {
   return products
 }
 
-async function fetchAllVariantPages(productId: number): Promise<ProductVariantList[]> {
+async function fetchAllVariantPages(): Promise<ProductVariantList[]> {
   const variants: ProductVariantList[] = []
   let page = 1
   const pageSize = 200
 
   while (true) {
-    const response = await productVariantsApi.list({ product: productId, page, page_size: pageSize })
+    const response = await productVariantsApi.list({ page, page_size: pageSize })
     variants.push(...response.results)
     if (!response.next) break
     page += 1
@@ -79,6 +79,10 @@ async function fetchAllVariantPages(productId: number): Promise<ProductVariantLi
   }
 
   return variants
+}
+
+function normalizeLabel(value: string): string {
+  return value.trim().toLowerCase()
 }
 
 function mapInventoryProduct(product: ProductList, variants: ProductVariantList[]): InventoryProduct {
@@ -193,13 +197,27 @@ export const useInventoryStore = defineStore('adminInventory', () => {
     error.value = null
 
     try {
-      const products = await fetchAllProductPages()
-      const mapped = await Promise.all(
-        products.map(async product => {
-          const variants = await fetchAllVariantPages(product.id)
-          return mapInventoryProduct(product, variants)
-        })
-      )
+      const [products, variants] = await Promise.all([
+        fetchAllProductPages(),
+        fetchAllVariantPages()
+      ])
+
+      const variantMapByProductName = new Map<string, ProductVariantList[]>()
+      variants.forEach(variant => {
+        const productName = normalizeLabel(String(variant.product || ''))
+        if (!productName) return
+        const existing = variantMapByProductName.get(productName)
+        if (existing) {
+          existing.push(variant)
+        } else {
+          variantMapByProductName.set(productName, [variant])
+        }
+      })
+
+      const mapped = products.map(product => {
+        const productVariants = variantMapByProductName.get(normalizeLabel(product.name)) || []
+        return mapInventoryProduct(product, productVariants)
+      })
       inventory.value = mapped
       loaded.value = true
     } catch (err) {
