@@ -1,10 +1,12 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/admin/adminAuth'
+import Calculator from './Calculator.vue'
 
 const router = useRouter()
 const adminAuth = useAdminAuthStore()
+const showCalculator = ref(false)
 
 const user = computed(() => adminAuth.user)
 
@@ -22,6 +24,22 @@ const logout = () => {
       </div>
       
       <div class="flex items-center gap-4">
+        <div class="relative">
+          <button
+            @click="showCalculator = !showCalculator"
+            class="w-10 h-10 bg-primary-600 text-white rounded-lg shadow hover:bg-primary-700 transition-colors flex items-center justify-center"
+            title="Calculator"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </button>
+
+          <div v-if="showCalculator" class="absolute top-12 right-0 z-50">
+            <Calculator @close="showCalculator = false" />
+          </div>
+        </div>
+
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-full bg-primary-700 flex items-center justify-center text-white text-sm font-medium">
             {{ user?.full_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || 'A' }}

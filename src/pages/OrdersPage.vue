@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useOrderStore } from '@/stores/orders'
 import { useAuthStore } from '@/stores/auth'
@@ -31,6 +31,10 @@ const getStatusClass = (status) => {
       return 'bg-gray-100 text-gray-700'
   }
 }
+
+onMounted(() => {
+  void orderStore.fetchOrders()
+})
 </script>
 
 <template>

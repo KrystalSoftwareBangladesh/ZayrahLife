@@ -63,6 +63,10 @@ const placeOrder = async () => {
   
   const shippingAddress = {
     name: `${shippingForm.value.firstName} ${shippingForm.value.lastName}`,
+    firstName: shippingForm.value.firstName,
+    lastName: shippingForm.value.lastName,
+    email: shippingForm.value.email,
+    phone: shippingForm.value.phone,
     street: shippingForm.value.address,
     city: shippingForm.value.city,
     state: shippingForm.value.state,
@@ -70,7 +74,7 @@ const placeOrder = async () => {
     country: shippingForm.value.country
   }
   
-  const order = orderStore.createOrder(
+  const order = await orderStore.createOrder(
     cartStore.items,
     shippingAddress,
     {

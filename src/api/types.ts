@@ -69,6 +69,14 @@ export interface CustomerUpdateRequest {
   notes?: string
 }
 
+export interface CustomerProfileDetailRequest {
+  phone?: string | null
+  facebook_profile_url?: string | null
+  customer_type?: CustomerType
+  notes?: string
+  is_active?: boolean
+}
+
 export interface PaginatedResponse<T> {
   count: number
   next: string | null
@@ -363,6 +371,142 @@ export interface PurchaseListParams {
   status?: PurchaseStatus
   purchase_date_min?: string
   purchase_date_max?: string
+}
+
+export type SaleStatus = 'DRAFT' | 'CONFIRMED' | 'CANCELLED'
+
+export interface SaleCustomer {
+  id: number
+  full_name: string
+  email: string
+  phone?: string | null
+}
+
+export interface SaleProductVariant {
+  id: number
+  product: string
+  sku: string
+  color: string | null
+  size: string | null
+}
+
+export interface SaleItem {
+  id: number
+  product_variant: SaleProductVariant | null
+  quantity: number
+  unit_price: string
+  line_total: string
+  product_id?: number | null
+  product_name?: string
+  variant?: string | null
+}
+
+export interface SaleList {
+  id: number | string
+  customer: SaleCustomer | number | null
+  sale_date: string
+  invoice_number: string | null
+  status: SaleStatus
+  total_amount: string
+  created_at?: string
+  order_number?: string | null
+  customer_name?: string
+  customer_email?: string | null
+  channel?: string
+}
+
+export interface SaleDetail {
+  id: number | string
+  customer: SaleCustomer | number | null
+  items: SaleItem[]
+  created_at: string
+  updated_at: string
+  sale_date: string
+  invoice_number: string | null
+  status: SaleStatus
+  subtotal_amount: string
+  discount_amount: string
+  tax_amount: string
+  total_amount: string
+  notes: string | null
+  order_number?: string | null
+  customer_name?: string
+  customer_email?: string | null
+  customer_phone?: string | null
+  channel?: string
+  payment_method?: string | null
+  shipping_address?: string | null
+  shipping_amount?: string
+  tracking_number?: string | null
+}
+
+export interface SaleItemCreateRequest {
+  product_variant_id: number
+  quantity: number
+  unit_price: string
+  line_total: string
+}
+
+export interface SaleCreateRequest {
+  customer: number
+  sale_date: string
+  invoice_number?: string | null
+  channel?: string
+  discount_amount?: string
+  tax_amount?: string
+  notes?: string | null
+  items: SaleItemCreateRequest[]
+}
+
+export interface SaleUpdateRequest {
+  customer?: number
+  sale_date?: string
+  invoice_number?: string | null
+  channel?: string
+  status?: SaleStatus
+  discount_amount?: string
+  tax_amount?: string
+  notes?: string | null
+  items?: SaleItemCreateRequest[]
+}
+
+export interface SaleDetailRequest {
+  customer: number | CustomerProfileDetailRequest
+  items: SaleItemCreateRequest[]
+  sale_date: string
+  channel?: string
+  is_active?: boolean
+  deleted_at?: string | null
+  invoice_number?: string | null
+  status?: SaleStatus
+  subtotal_amount?: string
+  discount_amount?: string
+  tax_amount?: string
+  total_amount?: string
+  notes?: string | null
+  created_by?: number | null
+  updated_by?: number | null
+}
+
+export interface SaleListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  status?: SaleStatus
+  customer?: number
+  start_date?: string
+  end_date?: string
+  ordering?: string
+}
+
+export interface SaleChannelOption {
+  value: string
+  label: string
+}
+
+export interface SaleChannelsResponse {
+  default: string
+  channels: SaleChannelOption[]
 }
 
 export interface ApiError {

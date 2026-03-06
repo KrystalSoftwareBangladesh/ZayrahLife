@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormModal from '@/components/admin/FormModal.vue'
+import { salesApi } from '@/api/sales'
 import { useOrderStore } from '@/stores/admin/orderStore'
 import { useCustomerStore } from '@/stores/admin/customerStore'
 import { useInventoryStore } from '@/stores/admin/inventoryStore'
@@ -29,7 +30,17 @@ const statusFilter = ref('')
 const channelFilter = ref('')
 const orderSearchQuery = ref('')
 
-const selectedChannel = ref('WALK_IN')
+const defaultChannelOptions = [
+  { value: 'Walk-in', label: 'Walk-in', icon: '🏪' },
+  { value: 'Facebook', label: 'Facebook', icon: '📘' },
+  { value: 'Phone', label: 'Phone', icon: '📞' },
+  { value: 'Website', label: 'Website', icon: '🌐' },
+  { value: 'Instagram', label: 'Instagram', icon: '📷' },
+  { value: 'WhatsApp', label: 'WhatsApp', icon: '💬' }
+]
+
+const selectedChannel = ref('Walk-in')
+const channelOptions = ref(defaultChannelOptions)
 const selectedCustomerId = ref<number>(0)
 const selectedPaymentMethod = ref('CASH')
 const cart = ref<CartItem[]>([])
@@ -45,26 +56,50 @@ const categories = computed(() => {
   return ['All', ...Array.from(cats)]
 })
 
-const filteredProducts = computed(() => {
-  let result = inventoryStore.inventory
+interface VariantCatalogItem {
+  productId: number
+  productName: string
+  category: string
+  price: number
+  variantId: number
+  sku: string
+  color: string
+  size: string
+  stock: number
+}
+
+const variantCatalog = computed<VariantCatalogItem[]>(() => {
+  return inventoryStore.inventory.flatMap(product =>
+    product.variants.map(variant => ({
+      productId: product.productId,
+      productName: product.productName,
+      category: product.category,
+      price: product.price,
+      variantId: variant.id,
+      sku: variant.sku,
+      color: variant.color,
+      size: variant.size,
+      stock: variant.stock
+    }))
+  )
+})
+
+const filteredVariants = computed(() => {
+  let result = variantCatalog.value
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter(p => p.productName.toLowerCase().includes(query))
+    result = result.filter(item =>
+      item.productName.toLowerCase().includes(query) ||
+      item.sku.toLowerCase().includes(query) ||
+      item.color.toLowerCase().includes(query) ||
+      item.size.toLowerCase().includes(query)
+    )
   }
   if (categoryFilter.value && categoryFilter.value !== 'All') {
-    result = result.filter(p => p.category === categoryFilter.value)
+    result = result.filter(item => item.category === categoryFilter.value)
   }
   return result
 })
-
-const channelOptions = [
-  { value: 'WALK_IN', label: 'Walk-in', icon: '🏪' },
-  { value: 'FACEBOOK', label: 'Facebook', icon: '📘' },
-  { value: 'PHONE', label: 'Phone', icon: '📞' },
-  { value: 'WEBSITE', label: 'Website', icon: '🌐' },
-  { value: 'INSTAGRAM', label: 'Instagram', icon: '📷' },
-  { value: 'WHATSAPP', label: 'WhatsApp', icon: '💬' }
-]
 
 const paymentMethods = [
   { value: 'CASH', label: 'Cash', icon: '💵' },
@@ -97,25 +132,24 @@ const cartTax = computed(() => cartSubtotal.value * 0.05)
 const cartTotal = computed(() => cartSubtotal.value + cartTax.value)
 const cartItemCount = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0))
 
-const addToCart = (product: typeof inventoryStore.inventory[0], variant?: typeof product.variants[0]) => {
-  const v = variant || product.variants[0]
-  if (!v || v.stock <= 0) return
+const addVariantToCart = (item: VariantCatalogItem) => {
+  if (item.stock <= 0) return
   
   const existingIndex = cart.value.findIndex(
-    item => item.productId === product.productId && item.variantId === v.id
+    cartItem => cartItem.productId === item.productId && cartItem.variantId === item.variantId
   )
   
   if (existingIndex >= 0) {
     cart.value[existingIndex].quantity++
   } else {
     cart.value.push({
-      productId: product.productId,
-      productName: product.productName,
-      variant: `${v.color} / ${v.size}`,
-      variantId: v.id,
-      price: product.price,
+      productId: item.productId,
+      productName: item.productName,
+      variant: `${item.color} / ${item.size}`,
+      variantId: item.variantId,
+      price: item.price,
       quantity: 1,
-      sku: v.sku
+      sku: item.sku
     })
   }
 }
@@ -148,7 +182,7 @@ const openCheckout = () => {
   showCheckoutModal.value = true
 }
 
-const completeOrder = () => {
+const completeOrder = async () => {
   if (cart.value.length === 0) return
   
   const customer = selectedCustomer.value
@@ -166,6 +200,7 @@ const completeOrder = () => {
     total: cartTotal.value,
     items: cart.value.map(item => ({
       productId: item.productId,
+      variantId: item.variantId,
       productName: item.productName,
       quantity: item.quantity,
       price: item.price,
@@ -173,7 +208,7 @@ const completeOrder = () => {
     }))
   }
   
-  orderStore.addOrder(orderData)
+  await orderStore.addOrder(orderData)
   showCheckoutModal.value = false
   clearCart()
 }
@@ -197,10 +232,10 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelled' }
 ]
 
-const orderChannelFilterOptions = [
+const orderChannelFilterOptions = computed(() => [
   { value: '', label: 'All Channels' },
-  ...channelOptions.map(c => ({ value: c.value, label: c.label }))
-]
+  ...channelOptions.value.map(c => ({ value: c.value, label: c.label }))
+])
 
 const filteredOrders = computed(() => {
   let result = orderStore.orders
@@ -208,6 +243,7 @@ const filteredOrders = computed(() => {
     const query = orderSearchQuery.value.toLowerCase()
     result = result.filter(o =>
       o.id.toLowerCase().includes(query) ||
+      (o.invoiceNumber || '').toLowerCase().includes(query) ||
       o.customerName.toLowerCase().includes(query)
     )
   }
@@ -215,7 +251,8 @@ const filteredOrders = computed(() => {
     result = result.filter(o => o.status === statusFilter.value)
   }
   if (channelFilter.value) {
-    result = result.filter(o => o.channel === channelFilter.value)
+    const selected = channelFilter.value.toLowerCase()
+    result = result.filter(o => (o.channel || '').toLowerCase() === selected)
   }
   return result
 })
@@ -236,16 +273,57 @@ const getStatusColor = (status: string) => {
 }
 
 const getChannelColor = (channel: string) => {
+  const normalized = channel.toLowerCase().replace(/[_\s-]/g, '')
   const colors: Record<string, string> = {
-    FACEBOOK: 'bg-blue-100 text-blue-700',
-    INSTAGRAM: 'bg-pink-100 text-pink-700',
-    WHATSAPP: 'bg-green-100 text-green-700',
-    WEBSITE: 'bg-gray-100 text-gray-700',
-    WALK_IN: 'bg-amber-100 text-amber-700',
-    PHONE: 'bg-indigo-100 text-indigo-700'
+    facebook: 'bg-blue-100 text-blue-700',
+    instagram: 'bg-pink-100 text-pink-700',
+    whatsapp: 'bg-green-100 text-green-700',
+    website: 'bg-gray-100 text-gray-700',
+    walkin: 'bg-amber-100 text-amber-700',
+    phone: 'bg-indigo-100 text-indigo-700'
   }
-  return colors[channel] || 'bg-gray-100 text-gray-700'
+  return colors[normalized] || 'bg-gray-100 text-gray-700'
 }
+
+const loadSalesChannels = async () => {
+  try {
+    const response = await salesApi.getChannels()
+    const iconMap: Record<string, string> = {
+      'walk-in': '🏪',
+      walkin: '🏪',
+      facebook: '📘',
+      phone: '📞',
+      website: '🌐',
+      instagram: '📷',
+      whatsapp: '💬'
+    }
+
+    if (Array.isArray(response.channels) && response.channels.length > 0) {
+      channelOptions.value = response.channels.map(channel => ({
+        value: channel.value,
+        label: channel.label,
+        icon: iconMap[channel.value.toLowerCase().replace(/[_\s-]/g, '')] || '🧾'
+      }))
+    }
+
+    const defaultValue = response.default
+    if (defaultValue && channelOptions.value.some(channel => channel.value === defaultValue)) {
+      selectedChannel.value = defaultValue
+    } else if (channelOptions.value.length > 0) {
+      selectedChannel.value = channelOptions.value[0].value
+    }
+  } catch {
+    channelOptions.value = defaultChannelOptions
+    selectedChannel.value = defaultChannelOptions[0].value
+  }
+}
+
+onMounted(() => {
+  void inventoryStore.fetchInventory()
+  void customerStore.fetchCustomers({ page: 1, page_size: 100 })
+  void orderStore.fetchOrders()
+  void loadSalesChannels()
+})
 </script>
 
 <template>
@@ -284,7 +362,7 @@ const getChannelColor = (channel: string) => {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search products..."
+              placeholder="Search product/variant..."
               class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
@@ -306,61 +384,47 @@ const getChannelColor = (channel: string) => {
         </div>
 
         <div class="flex-1 overflow-y-auto">
-          <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div class="mb-2 text-xs text-gray-500">{{ filteredVariants.length }} variants</div>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
             <div
-              v-for="product in filteredProducts"
-              :key="product.productId"
-              class="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-primary-300 transition-all cursor-pointer group"
+              v-for="item in filteredVariants"
+              :key="item.variantId"
+              class="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md hover:border-primary-300 transition-all cursor-pointer group"
             >
-              <div class="aspect-square bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
-                <span class="text-4xl">📦</span>
-                <div class="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-xs font-medium text-gray-600">
-                  {{ product.totalStock }} in stock
+              <div class="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
+                <span class="text-3xl">📦</span>
+                <div class="absolute top-1.5 right-1.5 bg-white/90 backdrop-blur px-1.5 py-0.5 rounded-full text-[10px] font-medium text-gray-600">
+                  Stock: {{ item.stock }}
                 </div>
               </div>
-              <div class="p-3">
-                <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ product.productName }}</h3>
+              <div class="p-2">
+                <h3 class="font-medium text-gray-900 text-xs mb-0.5 truncate">{{ item.productName }}</h3>
+                <p class="text-[11px] text-gray-500 truncate">SKU: {{ item.sku }}</p>
+                <p class="text-[11px] text-gray-500 truncate">{{ item.color }} / {{ item.size }}</p>
                 <div class="flex items-center justify-between">
-                  <span class="text-lg font-bold text-primary-600">${{ product.price.toFixed(2) }}</span>
-                  <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{{ product.category }}</span>
-                </div>
-                <div class="mt-2 flex flex-wrap gap-1">
-                  <button
-                    v-for="variant in product.variants.slice(0, 3)"
-                    :key="variant.id"
-                    @click.stop="addToCart(product, variant)"
-                    :disabled="variant.stock <= 0"
-                    :class="[
-                      'px-2 py-1 text-xs rounded transition-all',
-                      variant.stock > 0
-                        ? 'bg-gray-100 hover:bg-primary-100 hover:text-primary-700 text-gray-700'
-                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                    ]"
-                  >
-                    {{ variant.size }}
-                  </button>
-                  <button
-                    v-if="product.variants.length > 3"
-                    @click.stop="addToCart(product)"
-                    class="px-2 py-1 text-xs rounded bg-primary-100 text-primary-700 hover:bg-primary-200"
-                  >
-                    +{{ product.variants.length - 3 }}
-                  </button>
+                  <span class="text-sm font-bold text-primary-600">৳{{ item.price.toFixed(2) }}</span>
+                  <span class="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ item.category }}</span>
                 </div>
                 <button
-                  @click="addToCart(product)"
-                  :disabled="product.totalStock <= 0"
-                  class="mt-2 w-full py-2 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  @click="addVariantToCart(item)"
+                  :disabled="item.stock <= 0"
+                  class="mt-1.5 w-full py-1.5 text-xs font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  Add to Cart
+                  Add
                 </button>
               </div>
+            </div>
+            <div
+              v-if="filteredVariants.length === 0"
+              class="col-span-full bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500"
+            >
+              No variants found for current filters.
             </div>
           </div>
         </div>
       </div>
 
-      <div class="w-96 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div class="w-80 xl:w-96 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
         <div class="p-4 border-b border-gray-200">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-bold text-gray-900">Current Sale</h2>
@@ -452,7 +516,7 @@ const getChannelColor = (channel: string) => {
                     +
                   </button>
                 </div>
-                <span class="font-bold text-gray-900">${{ (item.price * item.quantity).toFixed(2) }}</span>
+                <span class="font-bold text-gray-900">৳{{ (item.price * item.quantity).toFixed(2) }}</span>
               </div>
             </div>
           </div>
@@ -462,15 +526,15 @@ const getChannelColor = (channel: string) => {
           <div class="space-y-2 mb-4">
             <div class="flex justify-between text-sm">
               <span class="text-gray-600">Subtotal</span>
-              <span class="font-medium">${{ cartSubtotal.toFixed(2) }}</span>
+              <span class="font-medium">৳{{ cartSubtotal.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between text-sm">
               <span class="text-gray-600">Tax (5%)</span>
-              <span class="font-medium">${{ cartTax.toFixed(2) }}</span>
+              <span class="font-medium">৳{{ cartTax.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
               <span>Total</span>
-              <span class="text-primary-600">${{ cartTotal.toFixed(2) }}</span>
+              <span class="text-primary-600">৳{{ cartTotal.toFixed(2) }}</span>
             </div>
           </div>
           
@@ -540,6 +604,7 @@ const getChannelColor = (channel: string) => {
             <thead class="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
@@ -558,10 +623,13 @@ const getChannelColor = (channel: string) => {
                 <td class="px-4 py-3">
                   <span class="font-mono font-medium text-primary-600">{{ order.id }}</span>
                 </td>
+                <td class="px-4 py-3 text-sm text-gray-700">
+                  <span class="font-mono">{{ order.invoiceNumber || '-' }}</span>
+                </td>
                 <td class="px-4 py-3 text-sm text-gray-900">{{ order.customerName }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ order.items.length }}</td>
                 <td class="px-4 py-3">
-                  <span class="font-medium">${{ order.total.toFixed(2) }}</span>
+                  <span class="font-medium">৳{{ order.total.toFixed(2) }}</span>
                 </td>
                 <td class="px-4 py-3">
                   <span :class="[getChannelColor(order.channel), 'px-2 py-1 text-xs font-medium rounded']">
@@ -646,21 +714,21 @@ const getChannelColor = (channel: string) => {
           <div class="space-y-2 text-sm mb-4">
             <div v-for="item in cart" :key="`${item.productId}-${item.variantId}`" class="flex justify-between">
               <span class="text-gray-600">{{ item.productName }} x{{ item.quantity }}</span>
-              <span>${{ (item.price * item.quantity).toFixed(2) }}</span>
+              <span>৳{{ (item.price * item.quantity).toFixed(2) }}</span>
             </div>
           </div>
           <div class="border-t border-gray-200 pt-3 space-y-2">
             <div class="flex justify-between text-sm">
               <span class="text-gray-600">Subtotal</span>
-              <span>${{ cartSubtotal.toFixed(2) }}</span>
+              <span>৳{{ cartSubtotal.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between text-sm">
               <span class="text-gray-600">Tax (5%)</span>
-              <span>${{ cartTax.toFixed(2) }}</span>
+              <span>৳{{ cartTax.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
               <span>Total</span>
-              <span class="text-primary-600">${{ cartTotal.toFixed(2) }}</span>
+              <span class="text-primary-600">৳{{ cartTotal.toFixed(2) }}</span>
             </div>
           </div>
           

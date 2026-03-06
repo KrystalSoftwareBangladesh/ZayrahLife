@@ -6,6 +6,8 @@ node_modules
 dist
 dist-ssr
 *.local
+vite.config.js
+vite.config.d.ts
 
 # Editor directories and files
 .vscode/*
@@ -27,3 +29,4 @@ pnpm-debug.log*
 # Environment files
 .env*.local
 .env.development
+.env.staging

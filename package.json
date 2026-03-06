@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5000",
+    "dev:staging": "vite --host 0.0.0.0 --port 5000 --mode staging",
+    "dev:prod": "vite --host 0.0.0.0 --port 5000 --mode production",
     "build": "vite build",
     "build:staging": "vite build --mode staging",
     "build:prod": "vite build --mode production",
     "preview": "vite preview",
     "lint": "eslint src --ext .vue,.js,.jsx,.ts,.tsx,.cjs,.mjs",
     "lint:fix": "eslint src --ext .vue,.js,.jsx,.ts,.tsx,.cjs,.mjs --fix",
-    "type-check": "vue-tsc --build --force"
+    "type-check": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
     "@eslint/js": "^9.39.2",
