@@ -55,6 +55,7 @@ interface NewOrder {
 
 interface AdminOrder {
   id: string
+  invoiceNumber: string | null
   customerId: number
   customerName: string
   customerEmail: string
@@ -112,16 +113,46 @@ function getSaleCustomer(sale: Partial<SaleDetail & SaleList>) {
   }
 }
 
-function mapSaleItemsForRequest(items: OrderItem[]) {
-  return items.map(item => {
-    const productVariantId = item.variantId || item.productId
-    return {
-      product_variant_id: productVariantId,
-      quantity: item.quantity,
-      unit_price: String(item.price.toFixed(2)),
-      line_total: String((item.price * item.quantity).toFixed(2))
-    }
-  })
+function buildDetailPayloadFromSale(detail: SaleDetail, status: SaleStatus): SaleDetailRequest {
+  const customer =
+    typeof detail.customer === 'object' && detail.customer
+      ? detail.customer
+      : (typeof detail.customer === 'number' ? detail.customer : 0)
+
+  const items = detail.items
+    .map(item => {
+      const productVariantId = item.product_variant?.id ?? 0
+      if (!productVariantId) return null
+
+      const unitPrice = String(item.unit_price)
+      const lineTotal = item.line_total || String((toNumber(item.unit_price) * item.quantity).toFixed(2))
+
+      return {
+        product_variant_id: productVariantId,
+        quantity: item.quantity,
+        unit_price: unitPrice,
+        line_total: lineTotal
+      }
+    })
+    .filter((item): item is SaleItemCreateRequest => item !== null)
+
+  if (!customer || items.length === 0) {
+    throw new Error('Unable to prepare sale payload for status action')
+  }
+
+  return {
+    customer,
+    sale_date: detail.sale_date || toApiDate(),
+    invoice_number: detail.invoice_number ?? null,
+    channel: detail.channel || undefined,
+    status,
+    subtotal_amount: detail.subtotal_amount,
+    discount_amount: detail.discount_amount,
+    tax_amount: detail.tax_amount,
+    total_amount: detail.total_amount,
+    notes: detail.notes ?? null,
+    items
+  }
 }
 
 function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
@@ -141,6 +172,7 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
 
   return {
     id: String(sale.order_number || sale.id || ''),
+    invoiceNumber: sale.invoice_number || null,
     customerId: customer.id,
     customerName: customer.name,
     customerEmail: customer.email,
@@ -173,7 +205,7 @@ function buildCreatePayload(data: NewOrder, customerId: number, items: SaleItemC
   return {
     customer: customerId,
     sale_date: toApiDate(),
-    invoice_number: null,
+    channel: data.channel,
     discount_amount: '0.00',
     tax_amount: String((data.tax ?? 0).toFixed(2)),
     notes: data.notes || null,
@@ -251,21 +283,13 @@ export const useOrderStore = defineStore('adminOrders', () => {
 
     try {
       const apiStatus = toApiStatus(status)
-      if (order.customerId <= 0 || order.items.length === 0) return
-
-      const detailPayload: SaleDetailRequest = {
-        customer: order.customerId,
-        sale_date: toApiDate(order.createdAt),
-        invoice_number: null,
-        discount_amount: '0.00',
-        tax_amount: String(order.tax.toFixed(2)),
-        notes: null,
-        items: mapSaleItemsForRequest(order.items)
-      }
-
       if (apiStatus === 'CANCELLED') {
+        const detail = await salesApi.getById(id)
+        const detailPayload = buildDetailPayloadFromSale(detail, apiStatus)
         await salesApi.cancel(id, detailPayload)
       } else if (apiStatus === 'CONFIRMED') {
+        const detail = await salesApi.getById(id)
+        const detailPayload = buildDetailPayloadFromSale(detail, apiStatus)
         await salesApi.confirm(id, detailPayload)
       } else {
         const payload: SaleUpdateRequest = { status: apiStatus }
@@ -343,6 +367,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
 
     const fallbackOrder: AdminOrder = {
       id: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
+      invoiceNumber: null,
       customerId: data.customerId,
       customerName: data.customerName,
       customerEmail: data.customerEmail,

@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormModal from '@/components/admin/FormModal.vue'
+import { salesApi } from '@/api/sales'
 import { useOrderStore } from '@/stores/admin/orderStore'
 import { useCustomerStore } from '@/stores/admin/customerStore'
 import { useInventoryStore } from '@/stores/admin/inventoryStore'
@@ -29,7 +30,17 @@ const statusFilter = ref('')
 const channelFilter = ref('')
 const orderSearchQuery = ref('')
 
-const selectedChannel = ref('WALK_IN')
+const defaultChannelOptions = [
+  { value: 'Walk-in', label: 'Walk-in', icon: '🏪' },
+  { value: 'Facebook', label: 'Facebook', icon: '📘' },
+  { value: 'Phone', label: 'Phone', icon: '📞' },
+  { value: 'Website', label: 'Website', icon: '🌐' },
+  { value: 'Instagram', label: 'Instagram', icon: '📷' },
+  { value: 'WhatsApp', label: 'WhatsApp', icon: '💬' }
+]
+
+const selectedChannel = ref('Walk-in')
+const channelOptions = ref(defaultChannelOptions)
 const selectedCustomerId = ref<number>(0)
 const selectedPaymentMethod = ref('CASH')
 const cart = ref<CartItem[]>([])
@@ -89,15 +100,6 @@ const filteredVariants = computed(() => {
   }
   return result
 })
-
-const channelOptions = [
-  { value: 'WALK_IN', label: 'Walk-in', icon: '🏪' },
-  { value: 'FACEBOOK', label: 'Facebook', icon: '📘' },
-  { value: 'PHONE', label: 'Phone', icon: '📞' },
-  { value: 'WEBSITE', label: 'Website', icon: '🌐' },
-  { value: 'INSTAGRAM', label: 'Instagram', icon: '📷' },
-  { value: 'WHATSAPP', label: 'WhatsApp', icon: '💬' }
-]
 
 const paymentMethods = [
   { value: 'CASH', label: 'Cash', icon: '💵' },
@@ -230,10 +232,10 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelled' }
 ]
 
-const orderChannelFilterOptions = [
+const orderChannelFilterOptions = computed(() => [
   { value: '', label: 'All Channels' },
-  ...channelOptions.map(c => ({ value: c.value, label: c.label }))
-]
+  ...channelOptions.value.map(c => ({ value: c.value, label: c.label }))
+])
 
 const filteredOrders = computed(() => {
   let result = orderStore.orders
@@ -241,6 +243,7 @@ const filteredOrders = computed(() => {
     const query = orderSearchQuery.value.toLowerCase()
     result = result.filter(o =>
       o.id.toLowerCase().includes(query) ||
+      (o.invoiceNumber || '').toLowerCase().includes(query) ||
       o.customerName.toLowerCase().includes(query)
     )
   }
@@ -248,7 +251,8 @@ const filteredOrders = computed(() => {
     result = result.filter(o => o.status === statusFilter.value)
   }
   if (channelFilter.value) {
-    result = result.filter(o => o.channel === channelFilter.value)
+    const selected = channelFilter.value.toLowerCase()
+    result = result.filter(o => (o.channel || '').toLowerCase() === selected)
   }
   return result
 })
@@ -269,21 +273,56 @@ const getStatusColor = (status: string) => {
 }
 
 const getChannelColor = (channel: string) => {
+  const normalized = channel.toLowerCase().replace(/[_\s-]/g, '')
   const colors: Record<string, string> = {
-    FACEBOOK: 'bg-blue-100 text-blue-700',
-    INSTAGRAM: 'bg-pink-100 text-pink-700',
-    WHATSAPP: 'bg-green-100 text-green-700',
-    WEBSITE: 'bg-gray-100 text-gray-700',
-    WALK_IN: 'bg-amber-100 text-amber-700',
-    PHONE: 'bg-indigo-100 text-indigo-700'
+    facebook: 'bg-blue-100 text-blue-700',
+    instagram: 'bg-pink-100 text-pink-700',
+    whatsapp: 'bg-green-100 text-green-700',
+    website: 'bg-gray-100 text-gray-700',
+    walkin: 'bg-amber-100 text-amber-700',
+    phone: 'bg-indigo-100 text-indigo-700'
   }
-  return colors[channel] || 'bg-gray-100 text-gray-700'
+  return colors[normalized] || 'bg-gray-100 text-gray-700'
+}
+
+const loadSalesChannels = async () => {
+  try {
+    const response = await salesApi.getChannels()
+    const iconMap: Record<string, string> = {
+      'walk-in': '🏪',
+      walkin: '🏪',
+      facebook: '📘',
+      phone: '📞',
+      website: '🌐',
+      instagram: '📷',
+      whatsapp: '💬'
+    }
+
+    if (Array.isArray(response.channels) && response.channels.length > 0) {
+      channelOptions.value = response.channels.map(channel => ({
+        value: channel.value,
+        label: channel.label,
+        icon: iconMap[channel.value.toLowerCase().replace(/[_\s-]/g, '')] || '🧾'
+      }))
+    }
+
+    const defaultValue = response.default
+    if (defaultValue && channelOptions.value.some(channel => channel.value === defaultValue)) {
+      selectedChannel.value = defaultValue
+    } else if (channelOptions.value.length > 0) {
+      selectedChannel.value = channelOptions.value[0].value
+    }
+  } catch {
+    channelOptions.value = defaultChannelOptions
+    selectedChannel.value = defaultChannelOptions[0].value
+  }
 }
 
 onMounted(() => {
   void inventoryStore.fetchInventory()
   void customerStore.fetchCustomers({ page: 1, page_size: 100 })
   void orderStore.fetchOrders()
+  void loadSalesChannels()
 })
 </script>
 
@@ -565,6 +604,7 @@ onMounted(() => {
             <thead class="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
@@ -582,6 +622,9 @@ onMounted(() => {
               >
                 <td class="px-4 py-3">
                   <span class="font-mono font-medium text-primary-600">{{ order.id }}</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-700">
+                  <span class="font-mono">{{ order.invoiceNumber || '-' }}</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-900">{{ order.customerName }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ order.items.length }}</td>

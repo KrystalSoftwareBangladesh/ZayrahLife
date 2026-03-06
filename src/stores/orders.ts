@@ -270,7 +270,7 @@ export const useOrderStore = defineStore('orders', () => {
     const payload: SaleCreateRequest = {
       customer: customerId,
       sale_date: toApiDate(),
-      invoice_number: null,
+      channel: 'Website',
       discount_amount: '0.00',
       tax_amount: String(totals.tax.toFixed(2)),
       notes: null,

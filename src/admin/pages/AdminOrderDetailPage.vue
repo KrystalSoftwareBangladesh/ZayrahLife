@@ -68,6 +68,7 @@ onMounted(() => {
             <div class="flex items-start justify-between">
               <div>
                 <h2 class="text-xl font-bold text-gray-900 font-mono">{{ order.id }}</h2>
+                <p class="text-sm text-gray-500 mt-1">Invoice: <span class="font-mono">{{ order.invoiceNumber || '-' }}</span></p>
                 <p class="text-gray-500 mt-1">{{ new Date(order.createdAt).toLocaleString() }}</p>
               </div>
               <div class="flex items-center gap-3">

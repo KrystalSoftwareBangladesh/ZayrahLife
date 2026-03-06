@@ -451,6 +451,7 @@ export interface SaleCreateRequest {
   customer: number
   sale_date: string
   invoice_number?: string | null
+  channel?: string
   discount_amount?: string
   tax_amount?: string
   notes?: string | null
@@ -461,6 +462,7 @@ export interface SaleUpdateRequest {
   customer?: number
   sale_date?: string
   invoice_number?: string | null
+  channel?: string
   status?: SaleStatus
   discount_amount?: string
   tax_amount?: string
@@ -472,6 +474,7 @@ export interface SaleDetailRequest {
   customer: number | CustomerProfileDetailRequest
   items: SaleItemCreateRequest[]
   sale_date: string
+  channel?: string
   is_active?: boolean
   deleted_at?: string | null
   invoice_number?: string | null
@@ -494,6 +497,16 @@ export interface SaleListParams {
   start_date?: string
   end_date?: string
   ordering?: string
+}
+
+export interface SaleChannelOption {
+  value: string
+  label: string
+}
+
+export interface SaleChannelsResponse {
+  default: string
+  channels: SaleChannelOption[]
 }
 
 export interface ApiError {

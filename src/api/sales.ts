@@ -1,6 +1,7 @@
 import http from './http'
 import type {
   PaginatedResponse,
+  SaleChannelsResponse,
   SaleCreateRequest,
   SaleDetail,
   SaleDetailRequest,
@@ -26,6 +27,10 @@ function buildQueryString(params: SaleListParams): string {
 }
 
 export const salesApi = {
+  async getChannels(): Promise<SaleChannelsResponse> {
+    return http.get<SaleChannelsResponse>('/api/v1/sales/channels/')
+  },
+
   async list(params: SaleListParams = {}): Promise<PaginatedResponse<SaleList>> {
     const queryString = buildQueryString(params)
     return http.get<PaginatedResponse<SaleList>>(`/api/v1/sales/${queryString}`)
