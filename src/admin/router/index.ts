@@ -53,6 +53,11 @@ const adminRoutes = [
         component: () => import('@/admin/pages/AdminOrdersPage.vue')
       },
       {
+        path: 'order-management',
+        name: 'admin-order-management',
+        component: () => import('@/admin/pages/AdminOrderManagementPage.vue')
+      },
+      {
         path: 'orders/:id',
         name: 'admin-order-detail',
         component: () => import('@/admin/pages/AdminOrderDetailPage.vue')
