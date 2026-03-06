@@ -97,6 +97,10 @@ function toApiDate(value?: string): string {
   return parsed.toISOString().split('T')[0]
 }
 
+function isConfirmedStatus(status: string): boolean {
+  return status === 'processing' || status === 'confirmed'
+}
+
 function getSaleCustomer(sale: Partial<SaleDetail & SaleList>) {
   if (sale.customer && typeof sale.customer === 'object') {
     return {
@@ -277,6 +281,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
     const order = orders.value.find(o => o.id === id)
     if (!order) return
 
+    if (isConfirmedStatus(order.status) && status === 'cancelled') {
+      error.value = 'Confirmed sale cannot be cancelled.'
+      return
+    }
+
     const previousStatus = order.status
     order.status = status
     order.updatedAt = new Date().toISOString()
@@ -298,6 +307,51 @@ export const useOrderStore = defineStore('adminOrders', () => {
     } catch {
       order.status = previousStatus
       order.updatedAt = new Date().toISOString()
+    }
+  }
+
+  async function confirmOrder(id: string): Promise<boolean> {
+    const order = orders.value.find(o => o.id === id)
+    if (!order) return false
+
+    const previousStatus = order.status
+    order.status = 'processing'
+    order.updatedAt = new Date().toISOString()
+
+    try {
+      const detail = await salesApi.getById(id)
+      const payload = buildDetailPayloadFromSale(detail, 'CONFIRMED')
+      await salesApi.confirm(id, payload)
+      return true
+    } catch {
+      order.status = previousStatus
+      order.updatedAt = new Date().toISOString()
+      return false
+    }
+  }
+
+  async function cancelOrder(id: string): Promise<boolean> {
+    const order = orders.value.find(o => o.id === id)
+    if (!order) return false
+
+    if (isConfirmedStatus(order.status)) {
+      error.value = 'Confirmed sale cannot be cancelled.'
+      return false
+    }
+
+    const previousStatus = order.status
+    order.status = 'cancelled'
+    order.updatedAt = new Date().toISOString()
+
+    try {
+      const detail = await salesApi.getById(id)
+      const payload = buildDetailPayloadFromSale(detail, 'CANCELLED')
+      await salesApi.cancel(id, payload)
+      return true
+    } catch {
+      order.status = previousStatus
+      order.updatedAt = new Date().toISOString()
+      return false
     }
   }
 
@@ -419,6 +473,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
     const index = orders.value.findIndex(order => order.id === id)
     if (index < 0) return false
 
+    if (isConfirmedStatus(orders.value[index].status)) {
+      error.value = 'Confirmed sale cannot be deleted.'
+      return false
+    }
+
     const [removed] = orders.value.splice(index, 1)
     try {
       await salesApi.delete(id)
@@ -444,6 +503,8 @@ export const useOrderStore = defineStore('adminOrders', () => {
     fetchOrderById,
     getOrderById,
     updateOrderStatus,
+    confirmOrder,
+    cancelOrder,
     filterOrders,
     addOrder,
     deleteOrder

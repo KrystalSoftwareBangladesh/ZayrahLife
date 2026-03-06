@@ -9,6 +9,8 @@ const route = useRoute()
 const router = useRouter()
 const orderStore = useOrderStore()
 const isDeleting = ref(false)
+const isConfirming = ref(false)
+const isCancelling = ref(false)
 
 const order = computed(() => orderStore.getOrderById(route.params.id))
 
@@ -19,6 +21,16 @@ const statusOptions = [
   { value: 'delivered', label: 'Delivered' },
   { value: 'cancelled', label: 'Cancelled' }
 ]
+
+const isConfirmedOrder = computed(() => {
+  if (!order.value) return false
+  return order.value.status === 'processing' || order.value.status === 'confirmed'
+})
+
+const statusOptionsForOrder = computed(() => {
+  if (!isConfirmedOrder.value) return statusOptions
+  return statusOptions.filter(option => option.value !== 'cancelled')
+})
 
 const updateStatus = async (newStatus) => {
   if (!order.value) return
@@ -36,6 +48,26 @@ const deleteCurrentOrder = async () => {
   if (deleted) {
     router.push({ name: 'admin-orders' })
   }
+}
+
+const confirmCurrentOrder = async () => {
+  if (!order.value || isConfirming.value) return
+  const shouldConfirm = window.confirm(`Confirm sale ${order.value.id}?`)
+  if (!shouldConfirm) return
+
+  isConfirming.value = true
+  await orderStore.confirmOrder(order.value.id)
+  isConfirming.value = false
+}
+
+const cancelCurrentOrder = async () => {
+  if (!order.value || isCancelling.value) return
+  const shouldCancel = window.confirm(`Cancel sale ${order.value.id}?`)
+  if (!shouldCancel) return
+
+  isCancelling.value = true
+  await orderStore.cancelOrder(order.value.id)
+  isCancelling.value = false
 }
 
 onMounted(() => {
@@ -170,18 +202,34 @@ onMounted(() => {
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Update Status</h3>
             <FormSelect
               :modelValue="order.status"
-              :options="statusOptions"
+              :options="statusOptionsForOrder"
               @update:modelValue="updateStatus"
             />
             <p class="text-xs text-gray-500 mt-2">
               Last updated: {{ new Date(order.updatedAt).toLocaleString() }}
             </p>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <button
+                :disabled="isConfirming || order.status === 'processing' || order.status === 'cancelled'"
+                class="px-3 py-2 text-sm font-medium rounded-md border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-60"
+                @click="confirmCurrentOrder"
+              >
+                {{ isConfirming ? 'Confirming...' : 'Confirm Sale' }}
+              </button>
+              <button
+                :disabled="isCancelling || order.status === 'cancelled' || isConfirmedOrder"
+                class="px-3 py-2 text-sm font-medium rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                @click="cancelCurrentOrder"
+              >
+                {{ isCancelling ? 'Cancelling...' : 'Cancel Sale' }}
+              </button>
+            </div>
             <button
-              :disabled="isDeleting"
+              :disabled="isDeleting || isConfirmedOrder"
               class="mt-4 w-full px-3 py-2 text-sm font-medium rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
               @click="deleteCurrentOrder"
             >
-              {{ isDeleting ? 'Deleting...' : 'Delete Order' }}
+              {{ isDeleting ? 'Deleting...' : isConfirmedOrder ? 'Delete Disabled (Confirmed)' : 'Delete Order' }}
             </button>
           </div>
         </div>
