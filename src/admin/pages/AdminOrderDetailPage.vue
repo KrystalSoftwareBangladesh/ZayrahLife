@@ -1,77 +1,80 @@
-<script setup>
-import { computed, onMounted, ref } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import StatusBadge from '@/components/admin/StatusBadge.vue'
 import FormSelect from '@/components/admin/FormSelect.vue'
+import StatusBadge from '@/components/admin/StatusBadge.vue'
 import { useOrderStore } from '@/stores/admin/orderStore'
 
 const route = useRoute()
 const router = useRouter()
 const orderStore = useOrderStore()
 const isDeleting = ref(false)
-const isConfirming = ref(false)
-const isCancelling = ref(false)
+const isUpdatingStatus = ref(false)
 
-const order = computed(() => orderStore.getOrderById(route.params.id))
+const orderIdentifier = computed(() => String(route.params.id || ''))
+const order = computed(() => orderStore.getOrderById(orderIdentifier.value))
 
-const statusOptions = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'cancelled', label: 'Cancelled' }
-]
+const availableStatusOptions = computed(() => {
+  if (!order.value) return orderStore.apiStatusOptions
 
-const isConfirmedOrder = computed(() => {
+  const currentStatusMissing = !orderStore.apiStatusOptions.some(status =>
+    orderStore.statusValuesMatch(status.value, order.value?.status)
+  )
+
+  if (!currentStatusMissing) return orderStore.apiStatusOptions
+
+  return [
+    { value: order.value.status, label: orderStore.getStatusLabel(order.value.status) },
+    ...orderStore.apiStatusOptions
+  ]
+})
+
+const nextStatusLabels = computed(() => {
+  if (!order.value) return []
+  return orderStore.getTransitionLabels(order.value.status)
+})
+
+const canDeleteCurrentOrder = computed(() => {
   if (!order.value) return false
-  return order.value.status === 'processing' || order.value.status === 'confirmed'
+  return orderStore.canDeleteOrder(order.value.apiId)
 })
 
-const statusOptionsForOrder = computed(() => {
-  if (!isConfirmedOrder.value) return statusOptions
-  return statusOptions.filter(option => option.value !== 'cancelled')
-})
-
-const updateStatus = async (newStatus) => {
-  if (!order.value) return
-  await orderStore.updateOrderStatus(order.value.id, newStatus)
+async function loadOrder(): Promise<void> {
+  await orderStore.fetchStatusMetadata()
+  await orderStore.fetchOrderById(orderIdentifier.value)
 }
 
-const deleteCurrentOrder = async () => {
+async function updateStatus(newStatus: string | number): Promise<void> {
+  if (!order.value || isUpdatingStatus.value) return
+  if (orderStore.statusValuesMatch(order.value.status, String(newStatus))) return
+
+  isUpdatingStatus.value = true
+  await orderStore.updateOrderStatus(order.value.apiId, String(newStatus))
+  isUpdatingStatus.value = false
+}
+
+async function deleteCurrentOrder(): Promise<void> {
   if (!order.value || isDeleting.value) return
+  if (!canDeleteCurrentOrder.value) return
+
   const shouldDelete = window.confirm(`Delete order ${order.value.id}? This cannot be undone.`)
   if (!shouldDelete) return
 
   isDeleting.value = true
-  const deleted = await orderStore.deleteOrder(order.value.id)
+  const deleted = await orderStore.deleteOrder(order.value.apiId)
   isDeleting.value = false
+
   if (deleted) {
     router.push({ name: 'admin-orders' })
   }
 }
 
-const confirmCurrentOrder = async () => {
-  if (!order.value || isConfirming.value) return
-  const shouldConfirm = window.confirm(`Confirm sale ${order.value.id}?`)
-  if (!shouldConfirm) return
-
-  isConfirming.value = true
-  await orderStore.confirmOrder(order.value.id)
-  isConfirming.value = false
-}
-
-const cancelCurrentOrder = async () => {
-  if (!order.value || isCancelling.value) return
-  const shouldCancel = window.confirm(`Cancel sale ${order.value.id}?`)
-  if (!shouldCancel) return
-
-  isCancelling.value = true
-  await orderStore.cancelOrder(order.value.id)
-  isCancelling.value = false
-}
+watch(() => route.params.id, () => {
+  void loadOrder()
+})
 
 onMounted(() => {
-  void orderStore.fetchOrderById(String(route.params.id))
+  void loadOrder()
 })
 </script>
 
@@ -130,9 +133,9 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200">
-                <tr v-for="item in order.items" :key="item.productId">
+                <tr v-for="item in order.items" :key="`${item.productId}-${item.variantId || item.name}`">
                   <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ item.name }}</td>
-                  <td class="px-6 py-4 text-sm text-gray-500">{{ item.variant }}</td>
+                  <td class="px-6 py-4 text-sm text-gray-500">{{ item.variant || '-' }}</td>
                   <td class="px-6 py-4 text-sm text-gray-900 text-center">{{ item.quantity }}</td>
                   <td class="px-6 py-4 text-sm text-gray-900 text-right">${{ item.price.toFixed(2) }}</td>
                   <td class="px-6 py-4 text-sm font-medium text-gray-900 text-right">
@@ -179,7 +182,7 @@ onMounted(() => {
               </div>
               <div>
                 <p class="text-sm text-gray-500">Email</p>
-                <p class="font-medium text-gray-900">{{ order.customerEmail }}</p>
+                <p class="font-medium text-gray-900">{{ order.customerEmail || '-' }}</p>
               </div>
             </div>
           </div>
@@ -202,34 +205,33 @@ onMounted(() => {
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Update Status</h3>
             <FormSelect
               :modelValue="order.status"
-              :options="statusOptionsForOrder"
+              :options="availableStatusOptions"
+              :disabled="isUpdatingStatus || availableStatusOptions.length === 0"
               @update:modelValue="updateStatus"
             />
             <p class="text-xs text-gray-500 mt-2">
               Last updated: {{ new Date(order.updatedAt).toLocaleString() }}
             </p>
-            <div class="mt-4 grid grid-cols-2 gap-2">
-              <button
-                :disabled="isConfirming || order.status === 'processing' || order.status === 'cancelled'"
-                class="px-3 py-2 text-sm font-medium rounded-md border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-60"
-                @click="confirmCurrentOrder"
-              >
-                {{ isConfirming ? 'Confirming...' : 'Confirm Sale' }}
-              </button>
-              <button
-                :disabled="isCancelling || order.status === 'cancelled' || isConfirmedOrder"
-                class="px-3 py-2 text-sm font-medium rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
-                @click="cancelCurrentOrder"
-              >
-                {{ isCancelling ? 'Cancelling...' : 'Cancel Sale' }}
-              </button>
-            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              <template v-if="nextStatusLabels.length > 0">
+                Allowed next statuses: {{ nextStatusLabels.join(', ') }}
+              </template>
+              <template v-else>
+                No further transitions are currently available for this order.
+              </template>
+            </p>
+            <p v-if="order.isLocalOnly" class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              This order exists only in local fallback state. Status changes will stay in the browser until the sale is created in the API.
+            </p>
+            <p v-if="orderStore.error" class="mt-3 text-xs text-red-600">
+              {{ orderStore.error }}
+            </p>
             <button
-              :disabled="isDeleting || isConfirmedOrder"
+              :disabled="isDeleting || !canDeleteCurrentOrder"
               class="mt-4 w-full px-3 py-2 text-sm font-medium rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
               @click="deleteCurrentOrder"
             >
-              {{ isDeleting ? 'Deleting...' : isConfirmedOrder ? 'Delete Disabled (Confirmed)' : 'Delete Order' }}
+              {{ isDeleting ? 'Deleting...' : canDeleteCurrentOrder ? 'Delete Order' : 'Delete Disabled (Pending Only)' }}
             </button>
           </div>
         </div>

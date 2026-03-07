@@ -1,19 +1,21 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { salesApi } from '@/api/sales'
+import { computed, ref } from 'vue'
 import { customersApi } from '@/api/customers'
+import { salesApi } from '@/api/sales'
 import type {
   ApiError,
   CustomerCreateRequest,
   SaleCreateRequest,
   SaleDetail,
-  SaleDetailRequest,
   SaleItemCreateRequest,
   SaleList,
   SaleStatus,
+  SaleStatusOption,
+  SaleStatusesResponse,
   SaleUpdateRequest
 } from '@/api/types'
 import { mockAdminOrders } from '@/mock/admin/orders'
+import { humanizeStatusLabel, normalizeStatusValue, statusValuesMatch } from '@/utils/status'
 
 interface OrderFilters {
   status?: string
@@ -53,8 +55,9 @@ interface NewOrder {
   total?: number
 }
 
-interface AdminOrder {
+export interface AdminOrder {
   id: string
+  apiId: string
   invoiceNumber: string | null
   customerId: number
   customerName: string
@@ -70,6 +73,25 @@ interface AdminOrder {
   shippingAddress: string
   createdAt: string
   updatedAt: string
+  isLocalOnly: boolean
+}
+
+const fallbackStatuses: SaleStatusesResponse = {
+  default: 'PENDING',
+  statuses: [
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'PROCESSING', label: 'Processing' },
+    { value: 'SHIPPED', label: 'Shipped' },
+    { value: 'DELIVERED', label: 'Delivered' },
+    { value: 'CANCELLED', label: 'Cancelled' }
+  ],
+  transitions: {
+    PENDING: ['PROCESSING', 'CANCELLED'],
+    PROCESSING: ['SHIPPED', 'DELIVERED', 'CANCELLED'],
+    SHIPPED: ['DELIVERED'],
+    DELIVERED: [],
+    CANCELLED: []
+  }
 }
 
 function toNumber(value: unknown): number {
@@ -78,27 +100,26 @@ function toNumber(value: unknown): number {
   return 0
 }
 
-function toStatusKey(status: unknown): string {
-  const raw = String(status || '').toLowerCase()
-  if (raw === 'draft') return 'pending'
-  if (raw === 'confirmed') return 'processing'
-  return raw || 'pending'
-}
-
-function toApiStatus(status: string): SaleStatus {
-  if (status === 'cancelled') return 'CANCELLED'
-  if (status === 'pending') return 'DRAFT'
-  return 'CONFIRMED'
-}
-
 function toApiDate(value?: string): string {
   const parsed = value ? new Date(value) : new Date()
   if (Number.isNaN(parsed.getTime())) return new Date().toISOString().split('T')[0]
   return parsed.toISOString().split('T')[0]
 }
 
-function isConfirmedStatus(status: string): boolean {
-  return status === 'processing' || status === 'confirmed'
+function buildStatusOption(value: string, label?: string): SaleStatusOption {
+  return {
+    value,
+    label: label || humanizeStatusLabel(value)
+  }
+}
+
+function normalizeTransitions(transitions: Record<string, string[]> = {}): Record<string, string[]> {
+  return Object.entries(transitions).reduce<Record<string, string[]>>((acc, [status, nextStatuses]) => {
+    acc[normalizeStatusValue(status)] = Array.from(
+      new Set((Array.isArray(nextStatuses) ? nextStatuses : []).map(nextStatus => normalizeStatusValue(nextStatus)).filter(Boolean))
+    )
+    return acc
+  }, {})
 }
 
 function getSaleCustomer(sale: Partial<SaleDetail & SaleList>) {
@@ -114,48 +135,6 @@ function getSaleCustomer(sale: Partial<SaleDetail & SaleList>) {
     id: typeof sale.customer === 'number' ? sale.customer : 0,
     name: sale.customer_name || 'Unknown Customer',
     email: sale.customer_email || ''
-  }
-}
-
-function buildDetailPayloadFromSale(detail: SaleDetail, status: SaleStatus): SaleDetailRequest {
-  const customer =
-    typeof detail.customer === 'object' && detail.customer
-      ? detail.customer
-      : (typeof detail.customer === 'number' ? detail.customer : 0)
-
-  const items = detail.items
-    .map(item => {
-      const productVariantId = item.product_variant?.id ?? 0
-      if (!productVariantId) return null
-
-      const unitPrice = String(item.unit_price)
-      const lineTotal = item.line_total || String((toNumber(item.unit_price) * item.quantity).toFixed(2))
-
-      return {
-        product_variant_id: productVariantId,
-        quantity: item.quantity,
-        unit_price: unitPrice,
-        line_total: lineTotal
-      }
-    })
-    .filter((item): item is SaleItemCreateRequest => item !== null)
-
-  if (!customer || items.length === 0) {
-    throw new Error('Unable to prepare sale payload for status action')
-  }
-
-  return {
-    customer,
-    sale_date: detail.sale_date || toApiDate(),
-    invoice_number: detail.invoice_number ?? null,
-    channel: detail.channel || undefined,
-    status,
-    subtotal_amount: detail.subtotal_amount,
-    discount_amount: detail.discount_amount,
-    tax_amount: detail.tax_amount,
-    total_amount: detail.total_amount,
-    notes: detail.notes ?? null,
-    items
   }
 }
 
@@ -176,6 +155,7 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
 
   return {
     id: String(sale.order_number || sale.id || ''),
+    apiId: String(sale.id || sale.order_number || ''),
     invoiceNumber: sale.invoice_number || null,
     customerId: customer.id,
     customerName: customer.name,
@@ -185,12 +165,24 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
     shipping: toNumber(sale.shipping_amount),
     tax: toNumber(sale.tax_amount),
     total: toNumber(sale.total_amount),
-    status: toStatusKey(sale.status),
+    status: String(sale.status || fallbackStatuses.default),
     channel: sale.channel || 'WEBSITE',
     paymentMethod: sale.payment_method || 'CARD',
     shippingAddress: sale.shipping_address || '-',
     createdAt,
-    updatedAt: sale.updated_at || createdAt
+    updatedAt: sale.updated_at || createdAt,
+    isLocalOnly: false
+  }
+}
+
+function normalizeMockOrder(
+  order: Omit<AdminOrder, 'apiId' | 'isLocalOnly' | 'invoiceNumber'> & { invoiceNumber?: string | null }
+): AdminOrder {
+  return {
+    ...order,
+    invoiceNumber: order.invoiceNumber ?? null,
+    apiId: String(order.id),
+    isLocalOnly: true
   }
 }
 
@@ -218,30 +210,147 @@ function buildCreatePayload(data: NewOrder, customerId: number, items: SaleItemC
 }
 
 export const useOrderStore = defineStore('adminOrders', () => {
-  const orders = ref<AdminOrder[]>([...mockAdminOrders] as AdminOrder[])
+  const orders = ref<AdminOrder[]>(mockAdminOrders.map(order => normalizeMockOrder(order)))
   const loading = ref(false)
   const error = ref<string | null>(null)
   const walkInCustomerId = ref<number | null>(null)
+  const statusLoading = ref(false)
+  const statusMetadataLoaded = ref(false)
+  const defaultStatus = ref(fallbackStatuses.default)
+  const configuredStatusOptions = ref<SaleStatusOption[]>(fallbackStatuses.statuses)
+  const statusTransitions = ref<Record<string, string[]>>(normalizeTransitions(fallbackStatuses.transitions))
+
+  const statusOptions = computed(() => {
+    const merged = [...configuredStatusOptions.value]
+    orders.value.forEach(order => {
+      if (!merged.some(option => statusValuesMatch(option.value, order.status))) {
+        merged.push(buildStatusOption(order.status))
+      }
+    })
+    return merged
+  })
+  const apiStatusOptions = computed(() => [...configuredStatusOptions.value])
 
   const totalOrders = computed(() => orders.value.length)
-  const totalRevenue = computed(() => orders.value.reduce((sum, o) => sum + o.total, 0))
-  const pendingOrders = computed(() => orders.value.filter(o => o.status === 'pending').length)
-  const processingOrders = computed(() => orders.value.filter(o => o.status === 'processing').length)
+  const totalRevenue = computed(() => orders.value.reduce((sum, order) => sum + order.total, 0))
+  const pendingOrders = computed(() =>
+    orders.value.filter(order =>
+      statusValuesMatch(order.status, defaultStatus.value) ||
+      statusValuesMatch(order.status, 'PENDING') ||
+      statusValuesMatch(order.status, 'DRAFT')
+    ).length
+  )
+  const processingOrders = computed(() =>
+    orders.value.filter(order =>
+      statusValuesMatch(order.status, 'PROCESSING') ||
+      statusValuesMatch(order.status, 'CONFIRMED')
+    ).length
+  )
 
   const ordersByStatus = computed(() => {
     const grouped: Record<string, typeof orders.value> = {}
     orders.value.forEach(order => {
-      if (!grouped[order.status]) grouped[order.status] = []
-      grouped[order.status].push(order)
+      const key = normalizeStatusValue(order.status) || defaultStatus.value
+      if (!grouped[key]) grouped[key] = []
+      grouped[key].push(order)
     })
     return grouped
   })
+
+  function resolveStatusValue(status: string): string {
+    const matched = statusOptions.value.find(option => statusValuesMatch(option.value, status))
+    return matched?.value || status
+  }
+
+  function getOrderById(identifier: string) {
+    return orders.value.find(order => order.apiId === identifier || order.id === identifier)
+  }
+
+  function isPendingStatus(status: string): boolean {
+    return (
+      statusValuesMatch(status, defaultStatus.value) ||
+      statusValuesMatch(status, 'PENDING') ||
+      statusValuesMatch(status, 'DRAFT')
+    )
+  }
+
+  function canDeleteOrder(identifier: string): boolean {
+    const order = getOrderById(identifier)
+    if (!order) return false
+    if (order.isLocalOnly) return isPendingStatus(order.status)
+    return isPendingStatus(order.status)
+  }
+
+  function getStatusLabel(status: string): string {
+    return statusOptions.value.find(option => statusValuesMatch(option.value, status))?.label || humanizeStatusLabel(status)
+  }
+
+  function getAvailableStatuses(currentStatus?: string): SaleStatusOption[] {
+    if (!currentStatus) return statusOptions.value
+
+    const normalizedCurrentStatus = normalizeStatusValue(currentStatus)
+    if (Object.keys(statusTransitions.value).length === 0) {
+      return statusOptions.value
+    }
+
+    const nextStatuses = statusTransitions.value[normalizedCurrentStatus]
+    if (!nextStatuses) {
+      return [buildStatusOption(resolveStatusValue(currentStatus), getStatusLabel(currentStatus))]
+    }
+
+    const allowedValues = Array.from(new Set([normalizedCurrentStatus, ...nextStatuses]))
+    return allowedValues.map(status => {
+      const matched = statusOptions.value.find(option => statusValuesMatch(option.value, status))
+      return matched || buildStatusOption(status)
+    })
+  }
+
+  function canTransition(fromStatus: string, toStatus: string): boolean {
+    if (statusValuesMatch(fromStatus, toStatus)) return true
+    if (Object.keys(statusTransitions.value).length === 0) return true
+
+    const allowed = statusTransitions.value[normalizeStatusValue(fromStatus)]
+    if (!allowed) return false
+
+    return allowed.some(status => statusValuesMatch(status, toStatus))
+  }
+
+  function getTransitionLabels(status: string): string[] {
+    const allowed = statusTransitions.value[normalizeStatusValue(status)] || []
+    return allowed.map(nextStatus => getStatusLabel(nextStatus))
+  }
+
+  async function fetchStatusMetadata(force = false): Promise<void> {
+    if (statusMetadataLoaded.value && !force) return
+
+    statusLoading.value = true
+
+    try {
+      const response = await salesApi.getStatuses()
+      const nextOptions = Array.isArray(response.statuses) && response.statuses.length > 0
+        ? response.statuses.map(status => buildStatusOption(status.value, status.label))
+        : fallbackStatuses.statuses
+
+      configuredStatusOptions.value = nextOptions
+      defaultStatus.value = response.default || nextOptions[0]?.value || fallbackStatuses.default
+      statusTransitions.value = normalizeTransitions(response.transitions)
+      statusMetadataLoaded.value = true
+    } catch {
+      configuredStatusOptions.value = fallbackStatuses.statuses
+      defaultStatus.value = fallbackStatuses.default
+      statusTransitions.value = normalizeTransitions(fallbackStatuses.transitions)
+      statusMetadataLoaded.value = true
+    } finally {
+      statusLoading.value = false
+    }
+  }
 
   async function fetchOrders(): Promise<void> {
     loading.value = true
     error.value = null
 
     try {
+      await fetchStatusMetadata()
       const response = await salesApi.list({ page: 1, page_size: 100, ordering: '-sale_date' })
       orders.value = response.results.map(normalizeSaleOrder)
     } catch (err) {
@@ -252,15 +361,16 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
-  async function fetchOrderById(id: string): Promise<AdminOrder | null> {
-    const existing = getOrderById(id)
+  async function fetchOrderById(identifier: string): Promise<AdminOrder | null> {
+    const existing = getOrderById(identifier)
     if (existing) return existing
 
     loading.value = true
     error.value = null
 
     try {
-      const detail = await salesApi.getById(id)
+      await fetchStatusMetadata()
+      const detail = await salesApi.getById(identifier)
       const normalized = normalizeSaleOrder(detail)
       orders.value.unshift(normalized)
       return normalized
@@ -273,95 +383,62 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
-  function getOrderById(id: string) {
-    return orders.value.find(o => o.id === id)
-  }
-
-  async function updateOrderStatus(id: string, status: string): Promise<void> {
-    const order = orders.value.find(o => o.id === id)
-    if (!order) return
-
-    if (isConfirmedStatus(order.status) && status === 'cancelled') {
-      error.value = 'Confirmed sale cannot be cancelled.'
-      return
-    }
-
-    const previousStatus = order.status
-    order.status = status
-    order.updatedAt = new Date().toISOString()
-
-    try {
-      const apiStatus = toApiStatus(status)
-      if (apiStatus === 'CANCELLED') {
-        const detail = await salesApi.getById(id)
-        const detailPayload = buildDetailPayloadFromSale(detail, apiStatus)
-        await salesApi.cancel(id, detailPayload)
-      } else if (apiStatus === 'CONFIRMED') {
-        const detail = await salesApi.getById(id)
-        const detailPayload = buildDetailPayloadFromSale(detail, apiStatus)
-        await salesApi.confirm(id, detailPayload)
-      } else {
-        const payload: SaleUpdateRequest = { status: apiStatus }
-        await salesApi.update(id, payload)
-      }
-    } catch {
-      order.status = previousStatus
-      order.updatedAt = new Date().toISOString()
-    }
-  }
-
-  async function confirmOrder(id: string): Promise<boolean> {
-    const order = orders.value.find(o => o.id === id)
+  async function updateOrderStatus(identifier: string, status: string): Promise<boolean> {
+    const order = getOrderById(identifier)
     if (!order) return false
 
+    const nextStatus = resolveStatusValue(status)
+    if (!canTransition(order.status, nextStatus)) {
+      error.value = `Transition from ${getStatusLabel(order.status)} to ${getStatusLabel(nextStatus)} is not allowed.`
+      return false
+    }
+
     const previousStatus = order.status
-    order.status = 'processing'
+    const previousUpdatedAt = order.updatedAt
+
+    order.status = nextStatus
     order.updatedAt = new Date().toISOString()
+    error.value = null
+
+    if (order.isLocalOnly) {
+      return true
+    }
 
     try {
-      const detail = await salesApi.getById(id)
-      const payload = buildDetailPayloadFromSale(detail, 'CONFIRMED')
-      await salesApi.confirm(id, payload)
+      const payload: SaleUpdateRequest = { status: nextStatus as SaleStatus }
+      await salesApi.update(order.apiId, payload)
       return true
-    } catch {
+    } catch (err) {
+      const apiError = err as ApiError
       order.status = previousStatus
-      order.updatedAt = new Date().toISOString()
+      order.updatedAt = previousUpdatedAt
+      error.value = apiError.message || 'Failed to update sale status'
       return false
     }
   }
 
-  async function cancelOrder(id: string): Promise<boolean> {
-    const order = orders.value.find(o => o.id === id)
-    if (!order) return false
+  async function confirmOrder(identifier: string): Promise<boolean> {
+    const nextStatus = statusOptions.value.find(option =>
+      statusValuesMatch(option.value, 'PROCESSING') || statusValuesMatch(option.value, 'CONFIRMED')
+    )
 
-    if (isConfirmedStatus(order.status)) {
-      error.value = 'Confirmed sale cannot be cancelled.'
-      return false
-    }
+    if (!nextStatus) return false
+    return updateOrderStatus(identifier, nextStatus.value)
+  }
 
-    const previousStatus = order.status
-    order.status = 'cancelled'
-    order.updatedAt = new Date().toISOString()
-
-    try {
-      const detail = await salesApi.getById(id)
-      const payload = buildDetailPayloadFromSale(detail, 'CANCELLED')
-      await salesApi.cancel(id, payload)
-      return true
-    } catch {
-      order.status = previousStatus
-      order.updatedAt = new Date().toISOString()
-      return false
-    }
+  async function cancelOrder(identifier: string): Promise<boolean> {
+    const nextStatus = statusOptions.value.find(option => statusValuesMatch(option.value, 'CANCELLED'))
+    if (!nextStatus) return false
+    return updateOrderStatus(identifier, nextStatus.value)
   }
 
   function filterOrders(filters: OrderFilters) {
     let result = [...orders.value]
     if (filters.status) {
-      result = result.filter(o => o.status === filters.status)
+      result = result.filter(order => statusValuesMatch(order.status, filters.status))
     }
     if (filters.channel) {
-      result = result.filter(o => o.channel === filters.channel)
+      result = result.filter(order => order.channel === filters.channel)
     }
     return result
   }
@@ -418,9 +495,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
     const tax = data.tax ?? subtotal * 0.05
     const shipping = data.shipping ?? 0
     const total = data.total ?? (subtotal + tax + shipping)
+    const initialStatus = resolveStatusValue(defaultStatus.value)
 
     const fallbackOrder: AdminOrder = {
       id: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
+      apiId: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
       invoiceNumber: null,
       customerId: data.customerId,
       customerName: data.customerName,
@@ -436,12 +515,13 @@ export const useOrderStore = defineStore('adminOrders', () => {
       shipping,
       tax,
       total,
-      status: 'pending',
+      status: initialStatus,
       channel: data.channel,
       paymentMethod: data.paymentMethod || 'Credit Card',
       shippingAddress: data.shippingAddress,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      isLocalOnly: true
     }
 
     const customerId = await resolveCustomerId(data)
@@ -469,18 +549,23 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
-  async function deleteOrder(id: string): Promise<boolean> {
-    const index = orders.value.findIndex(order => order.id === id)
+  async function deleteOrder(identifier: string): Promise<boolean> {
+    const index = orders.value.findIndex(order => order.apiId === identifier || order.id === identifier)
     if (index < 0) return false
 
-    if (isConfirmedStatus(orders.value[index].status)) {
-      error.value = 'Confirmed sale cannot be deleted.'
+    if (!canDeleteOrder(identifier)) {
+      error.value = 'Only pending orders can be deleted.'
       return false
     }
 
     const [removed] = orders.value.splice(index, 1)
+
+    if (removed.isLocalOnly) {
+      return true
+    }
+
     try {
-      await salesApi.delete(id)
+      await salesApi.delete(removed.apiId)
       return true
     } catch (err) {
       orders.value.splice(index, 0, removed)
@@ -494,19 +579,32 @@ export const useOrderStore = defineStore('adminOrders', () => {
     orders,
     loading,
     error,
+    statusLoading,
+    statusOptions,
+    apiStatusOptions,
+    defaultStatus,
+    statusTransitions,
     totalOrders,
     totalRevenue,
     pendingOrders,
     processingOrders,
     ordersByStatus,
+    fetchStatusMetadata,
     fetchOrders,
     fetchOrderById,
     getOrderById,
+    isPendingStatus,
+    canDeleteOrder,
+    getStatusLabel,
+    getAvailableStatuses,
+    getTransitionLabels,
+    canTransition,
     updateOrderStatus,
     confirmOrder,
     cancelOrder,
     filterOrders,
     addOrder,
-    deleteOrder
+    deleteOrder,
+    statusValuesMatch
   }
 })

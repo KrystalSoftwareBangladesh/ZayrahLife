@@ -7,6 +7,7 @@ import type {
   SaleDetailRequest,
   SaleList,
   SaleListParams,
+  SaleStatusesResponse,
   SaleUpdateRequest
 } from './types'
 
@@ -29,6 +30,10 @@ function buildQueryString(params: SaleListParams): string {
 export const salesApi = {
   async getChannels(): Promise<SaleChannelsResponse> {
     return http.get<SaleChannelsResponse>('/api/v1/sales/channels/')
+  },
+
+  async getStatuses(): Promise<SaleStatusesResponse> {
+    return http.get<SaleStatusesResponse>('/api/v1/sales/statuses/')
   },
 
   async list(params: SaleListParams = {}): Promise<PaginatedResponse<SaleList>> {

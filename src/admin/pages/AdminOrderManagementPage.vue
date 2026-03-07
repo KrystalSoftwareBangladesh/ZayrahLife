@@ -1,28 +1,28 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import type { AdminOrder } from '@/stores/admin/orderStore'
 import { useOrderStore } from '@/stores/admin/orderStore'
 
-type OrderStage =
-  | 'pending'
-  | 'confirmed'
-  | 'processing'
-  | 'packaged'
-  | 'shipped'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'returned'
-  | 'cancelled'
-
 interface StageColumn {
-  key: OrderStage
+  key: string
   title: string
   description: string
   dotClass: string
   toneClass: string
 }
 
-const STORAGE_KEY = 'admin-order-management-board-v1'
+const columnThemes = [
+  { dotClass: 'bg-amber-500', toneClass: 'border-amber-200 bg-amber-50/60' },
+  { dotClass: 'bg-cyan-500', toneClass: 'border-cyan-200 bg-cyan-50/60' },
+  { dotClass: 'bg-blue-500', toneClass: 'border-blue-200 bg-blue-50/60' },
+  { dotClass: 'bg-indigo-500', toneClass: 'border-indigo-200 bg-indigo-50/60' },
+  { dotClass: 'bg-violet-500', toneClass: 'border-violet-200 bg-violet-50/60' },
+  { dotClass: 'bg-fuchsia-500', toneClass: 'border-fuchsia-200 bg-fuchsia-50/60' },
+  { dotClass: 'bg-emerald-500', toneClass: 'border-emerald-200 bg-emerald-50/60' },
+  { dotClass: 'bg-rose-500', toneClass: 'border-rose-200 bg-rose-50/60' },
+  { dotClass: 'bg-slate-500', toneClass: 'border-slate-200 bg-slate-50/60' }
+]
 
 const router = useRouter()
 const orderStore = useOrderStore()
@@ -30,112 +30,38 @@ const orderStore = useOrderStore()
 const searchQuery = ref('')
 const channelFilter = ref('')
 const draggedOrderId = ref<string | null>(null)
-const boardState = ref<Record<string, OrderStage>>({})
+const updatingOrderIds = ref<Record<string, boolean>>({})
 
-const stageColumns: StageColumn[] = [
-  {
-    key: 'pending',
-    title: 'Pending',
-    description: 'New order received',
-    dotClass: 'bg-amber-500',
-    toneClass: 'border-amber-200 bg-amber-50/60'
-  },
-  {
-    key: 'confirmed',
-    title: 'Confirmed',
-    description: 'Payment/stock verified',
-    dotClass: 'bg-cyan-500',
-    toneClass: 'border-cyan-200 bg-cyan-50/60'
-  },
-  {
-    key: 'processing',
-    title: 'Processing',
-    description: 'Picking and internal checks',
-    dotClass: 'bg-blue-500',
-    toneClass: 'border-blue-200 bg-blue-50/60'
-  },
-  {
-    key: 'packaged',
-    title: 'Packaged',
-    description: 'Packed and labeled',
-    dotClass: 'bg-indigo-500',
-    toneClass: 'border-indigo-200 bg-indigo-50/60'
-  },
-  {
-    key: 'shipped',
-    title: 'Shipped',
-    description: 'Handed to courier',
-    dotClass: 'bg-violet-500',
-    toneClass: 'border-violet-200 bg-violet-50/60'
-  },
-  {
-    key: 'out_for_delivery',
-    title: 'Out for Delivery',
-    description: 'On final-mile route',
-    dotClass: 'bg-fuchsia-500',
-    toneClass: 'border-fuchsia-200 bg-fuchsia-50/60'
-  },
-  {
-    key: 'delivered',
-    title: 'Delivered',
-    description: 'Completed successfully',
-    dotClass: 'bg-emerald-500',
-    toneClass: 'border-emerald-200 bg-emerald-50/60'
-  },
-  {
-    key: 'returned',
-    title: 'Returned',
-    description: 'Returned by customer',
-    dotClass: 'bg-rose-500',
-    toneClass: 'border-rose-200 bg-rose-50/60'
-  },
-  {
-    key: 'cancelled',
-    title: 'Cancelled',
-    description: 'Cancelled before completion',
-    dotClass: 'bg-slate-500',
-    toneClass: 'border-slate-200 bg-slate-50/60'
-  }
-]
+const stageColumns = computed<StageColumn[]>(() => {
+  return orderStore.apiStatusOptions.map((status, index) => {
+    const theme = columnThemes[index % columnThemes.length]
+    const nextLabels = orderStore.getTransitionLabels(status.value)
 
-const stageOrder = stageColumns.map(column => column.key)
-const stageSet = new Set<OrderStage>(stageOrder)
+    return {
+      key: status.value,
+      title: status.label,
+      description: nextLabels.length > 0 ? `Next: ${nextLabels.join(', ')}` : 'No further transitions configured',
+      dotClass: theme.dotClass,
+      toneClass: theme.toneClass
+    }
+  })
+})
 
 const availableChannels = computed(() => {
   const channels = new Set<string>()
   orderStore.orders.forEach(order => {
     if (order.channel) channels.add(order.channel)
   })
-  return Array.from(channels).sort((a, b) => a.localeCompare(b))
+  return Array.from(channels).sort((left, right) => left.localeCompare(right))
 })
 
 const normalizedQuery = computed(() => searchQuery.value.trim().toLowerCase())
-
-function normalizeStage(status: string): OrderStage {
-  const value = (status || '').toLowerCase().trim().replace(/[-\s]/g, '_')
-
-  if (value === 'draft') return 'pending'
-  if (value === 'confirmed') return 'confirmed'
-  if (value === 'processing') return 'processing'
-  if (value === 'packaged') return 'packaged'
-  if (value === 'shipped') return 'shipped'
-  if (value === 'out_for_delivery') return 'out_for_delivery'
-  if (value === 'delivered') return 'delivered'
-  if (value === 'returned') return 'returned'
-  if (value === 'cancelled') return 'cancelled'
-  return 'pending'
-}
-
-function getOrderStage(orderId: string, fallbackStatus: string): OrderStage {
-  const existing = boardState.value[orderId]
-  if (existing && stageSet.has(existing)) return existing
-  return normalizeStage(fallbackStatus)
-}
 
 const filteredOrders = computed(() => {
   return orderStore.orders.filter(order => {
     if (channelFilter.value && order.channel !== channelFilter.value) return false
     if (!normalizedQuery.value) return true
+
     const haystack = [
       order.id,
       order.invoiceNumber || '',
@@ -151,77 +77,72 @@ const filteredOrders = computed(() => {
 })
 
 const ordersByStage = computed(() => {
-  const grouped = Object.fromEntries(stageOrder.map(stage => [stage, [] as typeof orderStore.orders]))
+  const grouped = Object.fromEntries(stageColumns.value.map(stage => [stage.key, [] as AdminOrder[]]))
+
   filteredOrders.value.forEach(order => {
-    const stage = getOrderStage(order.id, order.status)
-    grouped[stage].push(order)
+    const matchedStage = stageColumns.value.find(stage => orderStore.statusValuesMatch(stage.key, order.status))
+    const targetStage = matchedStage?.key || stageColumns.value[0]?.key
+    if (!targetStage) return
+    grouped[targetStage].push(order)
   })
+
   return grouped
 })
 
 const boardStats = computed(() => {
   const total = filteredOrders.value.length
-  const active = total - ordersByStage.value.delivered.length - ordersByStage.value.cancelled.length
-  const delayed =
-    ordersByStage.value.pending.length +
-    ordersByStage.value.confirmed.length +
-    ordersByStage.value.processing.length
+  const closedStatuses = stageColumns.value
+    .filter(stage => orderStore.getTransitionLabels(stage.key).length === 0)
+    .map(stage => stage.key)
 
-  return { total, active, delayed }
+  const completed = filteredOrders.value.filter(order =>
+    closedStatuses.some(status => orderStore.statusValuesMatch(status, order.status))
+  ).length
+
+  const blocked = filteredOrders.value.filter(order => orderStore.getTransitionLabels(order.status).length === 0).length
+
+  return {
+    total,
+    active: total - completed,
+    blocked
+  }
 })
-
-function hydrateBoardState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    const parsed = JSON.parse(raw) as Record<string, string>
-    const sanitized: Record<string, OrderStage> = {}
-    Object.entries(parsed).forEach(([orderId, stage]) => {
-      const normalized = normalizeStage(stage)
-      if (stageSet.has(normalized)) {
-        sanitized[orderId] = normalized
-      }
-    })
-    boardState.value = sanitized
-  } catch {
-    boardState.value = {}
-  }
-}
-
-function persistBoardState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(boardState.value))
-}
-
-function moveToStage(orderId: string, stage: OrderStage) {
-  boardState.value = {
-    ...boardState.value,
-    [orderId]: stage
-  }
-}
 
 function onDragStart(orderId: string) {
   draggedOrderId.value = orderId
 }
 
-function onDrop(stage: OrderStage) {
-  if (!draggedOrderId.value) return
-  moveToStage(draggedOrderId.value, stage)
+function onDragEnd() {
   draggedOrderId.value = null
+}
+
+function isUpdating(orderId: string): boolean {
+  return Boolean(updatingOrderIds.value[orderId])
+}
+
+async function onDrop(targetStatus: string): Promise<void> {
+  if (!draggedOrderId.value) return
+
+  const order = orderStore.getOrderById(draggedOrderId.value)
+  draggedOrderId.value = null
+  if (!order) return
+  if (!orderStore.canTransition(order.status, targetStatus)) return
+
+  updatingOrderIds.value = { ...updatingOrderIds.value, [order.apiId]: true }
+  await orderStore.updateOrderStatus(order.apiId, targetStatus)
+
+  const nextState = { ...updatingOrderIds.value }
+  delete nextState[order.apiId]
+  updatingOrderIds.value = nextState
 }
 
 function openOrderDetails(orderId: string) {
   router.push({ name: 'admin-order-detail', params: { id: orderId } })
 }
 
-function clearBoardTracking() {
-  boardState.value = {}
-}
-
-watch(boardState, persistBoardState, { deep: true })
-
-onMounted(() => {
-  hydrateBoardState()
-  void orderStore.fetchOrders()
+onMounted(async () => {
+  await orderStore.fetchStatusMetadata()
+  await orderStore.fetchOrders()
 })
 </script>
 
@@ -232,15 +153,9 @@ onMounted(() => {
         <div>
           <h1 class="text-2xl font-bold text-gray-900">Order Management</h1>
           <p class="text-sm text-gray-500 mt-1">
-            Kanban board for tracking the complete order lifecycle from intake to completion.
+            Kanban board synced with backend sale statuses and transition rules.
           </p>
         </div>
-        <button
-          class="px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          @click="clearBoardTracking"
-        >
-          Reset Board Tracking
-        </button>
       </div>
 
       <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -253,8 +168,8 @@ onMounted(() => {
           <p class="text-2xl font-bold text-blue-800 mt-1">{{ boardStats.active }}</p>
         </div>
         <div class="rounded-lg border border-amber-200 p-3 bg-amber-50/70">
-          <p class="text-xs uppercase tracking-wide text-amber-700">Needs Attention</p>
-          <p class="text-2xl font-bold text-amber-800 mt-1">{{ boardStats.delayed }}</p>
+          <p class="text-xs uppercase tracking-wide text-amber-700">No Next Step</p>
+          <p class="text-2xl font-bold text-amber-800 mt-1">{{ boardStats.blocked }}</p>
         </div>
       </div>
 
@@ -276,7 +191,10 @@ onMounted(() => {
         </select>
       </div>
       <p class="mt-3 text-xs text-gray-500">
-        Board stage updates are tracked locally in this browser to support detailed follow-up steps beyond API status values.
+        Drag a card into another column only when that transition is allowed by the backend metadata.
+      </p>
+      <p v-if="orderStore.error" class="mt-2 text-xs text-red-600">
+        {{ orderStore.error }}
       </p>
     </div>
 
@@ -288,7 +206,7 @@ onMounted(() => {
           class="w-80 rounded-xl border shadow-sm flex flex-col"
           :class="column.toneClass"
           @dragover.prevent
-          @drop="onDrop(column.key)"
+          @drop.prevent="onDrop(column.key)"
         >
           <header class="p-3 border-b border-black/5">
             <div class="flex items-center justify-between gap-2">
@@ -297,7 +215,7 @@ onMounted(() => {
                 <h2 class="font-semibold text-gray-900">{{ column.title }}</h2>
               </div>
               <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white text-gray-700 border border-gray-200">
-                {{ ordersByStage[column.key].length }}
+                {{ ordersByStage[column.key]?.length || 0 }}
               </span>
             </div>
             <p class="text-xs text-gray-600 mt-1">{{ column.description }}</p>
@@ -306,10 +224,12 @@ onMounted(() => {
           <div class="p-3 space-y-3 min-h-32 max-h-[65vh] overflow-y-auto">
             <article
               v-for="order in ordersByStage[column.key]"
-              :key="order.id"
+              :key="order.apiId"
               draggable="true"
               class="bg-white rounded-lg border border-gray-200 shadow-sm p-3 cursor-grab active:cursor-grabbing"
-              @dragstart="onDragStart(order.id)"
+              :class="{ 'opacity-60': isUpdating(order.apiId) }"
+              @dragstart="onDragStart(order.apiId)"
+              @dragend="onDragEnd"
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
@@ -334,17 +254,17 @@ onMounted(() => {
 
               <div class="mt-3 flex items-center justify-between text-xs text-gray-500">
                 <span>{{ new Date(order.createdAt).toLocaleDateString() }}</span>
-                <button class="text-primary-700 hover:text-primary-800 font-medium" @click="openOrderDetails(order.id)">
+                <button class="text-primary-700 hover:text-primary-800 font-medium" @click="openOrderDetails(order.apiId)">
                   View
                 </button>
               </div>
             </article>
 
             <div
-              v-if="ordersByStage[column.key].length === 0"
+              v-if="(ordersByStage[column.key]?.length || 0) === 0"
               class="rounded-lg border border-dashed border-gray-300 bg-white/50 p-4 text-center text-xs text-gray-500"
             >
-              No orders in this stage
+              No orders in this status
             </div>
           </div>
         </section>
