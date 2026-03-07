@@ -373,7 +373,7 @@ export interface PurchaseListParams {
   purchase_date_max?: string
 }
 
-export type SaleStatus = 'DRAFT' | 'CONFIRMED' | 'CANCELLED'
+export type SaleStatus = string
 
 export interface SaleCustomer {
   id: number
@@ -507,6 +507,17 @@ export interface SaleChannelOption {
 export interface SaleChannelsResponse {
   default: string
   channels: SaleChannelOption[]
+}
+
+export interface SaleStatusOption {
+  value: string
+  label: string
+}
+
+export interface SaleStatusesResponse {
+  default: string
+  statuses: SaleStatusOption[]
+  transitions: Record<string, string[]>
 }
 
 export interface ApiError {

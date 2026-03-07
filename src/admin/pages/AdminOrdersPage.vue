@@ -223,14 +223,10 @@ const handleAddCustomer = async () => {
   newCustomer.value = { first_name: '', email: '', phone: '' }
 }
 
-const statusOptions = [
+const statusOptions = computed(() => [
   { value: '', label: 'All Statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'cancelled', label: 'Cancelled' }
-]
+  ...orderStore.statusOptions
+])
 
 const orderChannelFilterOptions = computed(() => [
   { value: '', label: 'All Channels' },
@@ -248,7 +244,7 @@ const filteredOrders = computed(() => {
     )
   }
   if (statusFilter.value) {
-    result = result.filter(o => o.status === statusFilter.value)
+    result = result.filter(o => orderStore.statusValuesMatch(o.status, statusFilter.value))
   }
   if (channelFilter.value) {
     const selected = channelFilter.value.toLowerCase()
@@ -262,14 +258,22 @@ const handleRowClick = (orderId: string) => {
 }
 
 const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    processing: 'bg-blue-100 text-blue-800',
-    shipped: 'bg-purple-100 text-purple-800',
-    delivered: 'bg-green-100 text-green-800',
-    cancelled: 'bg-red-100 text-red-800'
+  if (orderStore.statusValuesMatch(status, 'PENDING') || orderStore.statusValuesMatch(status, 'DRAFT')) {
+    return 'bg-yellow-100 text-yellow-800'
   }
-  return colors[status] || 'bg-gray-100 text-gray-800'
+  if (orderStore.statusValuesMatch(status, 'CONFIRMED') || orderStore.statusValuesMatch(status, 'PROCESSING')) {
+    return 'bg-blue-100 text-blue-800'
+  }
+  if (orderStore.statusValuesMatch(status, 'SHIPPED')) {
+    return 'bg-purple-100 text-purple-800'
+  }
+  if (orderStore.statusValuesMatch(status, 'DELIVERED')) {
+    return 'bg-green-100 text-green-800'
+  }
+  if (orderStore.statusValuesMatch(status, 'CANCELLED')) {
+    return 'bg-red-100 text-red-800'
+  }
+  return 'bg-gray-100 text-gray-800'
 }
 
 const getChannelColor = (channel: string) => {
@@ -321,6 +325,7 @@ const loadSalesChannels = async () => {
 onMounted(() => {
   void inventoryStore.fetchInventory()
   void customerStore.fetchCustomers({ page: 1, page_size: 100 })
+  void orderStore.fetchStatusMetadata()
   void orderStore.fetchOrders()
   void loadSalesChannels()
 })
@@ -616,8 +621,8 @@ onMounted(() => {
             <tbody class="divide-y divide-gray-200">
               <tr
                 v-for="order in filteredOrders"
-                :key="order.id"
-                @click="handleRowClick(order.id)"
+                :key="order.apiId"
+                @click="handleRowClick(order.apiId)"
                 class="hover:bg-gray-50 cursor-pointer transition-colors"
               >
                 <td class="px-4 py-3">
@@ -638,7 +643,7 @@ onMounted(() => {
                 </td>
                 <td class="px-4 py-3">
                   <span :class="[getStatusColor(order.status), 'px-2 py-1 text-xs font-medium rounded capitalize']">
-                    {{ order.status }}
+                    {{ orderStore.getStatusLabel(order.status) }}
                   </span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">
