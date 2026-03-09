@@ -70,4 +70,20 @@ const router = createRouter({
 
 setupAdminGuard(router)
 
+router.onError((error, to) => {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error('Router navigation error:', { to: to?.fullPath || to?.path, message, error })
+
+  const isChunkLoadError =
+    /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk/i.test(message)
+  const isAdminTarget = Boolean(to?.path?.startsWith('/admin'))
+
+  if (isChunkLoadError && isAdminTarget) {
+    const targetPath = to?.fullPath || '/admin/dashboard'
+    if (window.location.pathname + window.location.search !== targetPath) {
+      window.location.assign(targetPath)
+    }
+  }
+})
+
 export default router
