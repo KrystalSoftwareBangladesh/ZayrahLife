@@ -11,14 +11,29 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
+const redirectToAdminDashboard = async () => {
+  try {
+    const failure = await router.replace({ name: 'admin-dashboard' })
+    const isOnDashboard = router.currentRoute.value.name === 'admin-dashboard'
+    if (failure || !isOnDashboard) {
+      throw new Error('Navigation to admin dashboard was not completed.')
+    }
+  } catch (navigationError) {
+    // Fallback to hard navigation for intermittent lazy-route or runtime navigation failures.
+    console.error('Admin redirect failed, using hard redirect:', navigationError)
+    window.location.assign('/admin/dashboard')
+  }
+}
+
 const handleLogin = async () => {
+  if (loading.value) return
   error.value = ''
   loading.value = true
   
   const result = await adminAuth.login(credential.value, password.value)
   
   if (result.success) {
-    router.push({ name: 'admin-dashboard' })
+    await redirectToAdminDashboard()
   } else {
     error.value = result.error || 'Login failed'
   }
