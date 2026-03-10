@@ -8,7 +8,14 @@ import FormSelect from '@/components/admin/FormSelect.vue'
 import StatCard from '@/components/admin/StatCard.vue'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import { useAccountStore } from '@/stores/admin/accountStore'
-import type { AccountType, ChartOfAccountList, ChartOfAccountListParams } from '@/api/types'
+import type {
+  AccountType,
+  AccountingTransactionList,
+  AccountingTransactionListParams,
+  ChartOfAccountList,
+  ChartOfAccountListParams,
+  TransactionStatus
+} from '@/api/types'
 
 type AccountFormState = {
   code: string
@@ -19,15 +26,35 @@ type AccountFormState = {
   is_active: 'true' | 'false'
 }
 
+type TransactionLineFormState = {
+  account_id: string
+  description: string
+  debit_amount: string
+  credit_amount: string
+}
+
+type TransactionFormState = {
+  transaction_date: string
+  reference: string
+  description: string
+  lines: TransactionLineFormState[]
+}
+
 const accountStore = useAccountStore()
 
-const activeTab = ref<'accounts' | 'roadmap'>('accounts')
+const activeTab = ref<'accounts' | 'transactions' | 'roadmap'>('accounts')
+
 const showAccountModal = ref(false)
-const showDeleteModal = ref(false)
+const showDeleteAccountModal = ref(false)
 const editingAccountId = ref<number | null>(null)
 const accountPendingDelete = ref<ChartOfAccountList | null>(null)
 
-const filters = ref<{
+const showTransactionModal = ref(false)
+const showDeleteTransactionModal = ref(false)
+const editingTransactionId = ref<number | null>(null)
+const transactionPendingDelete = ref<AccountingTransactionList | null>(null)
+
+const accountFilters = ref<{
   search: string
   account_type: '' | AccountType
   status: '' | 'true' | 'false'
@@ -37,7 +64,22 @@ const filters = ref<{
   status: ''
 })
 
-const accountForm = ref<AccountFormState>(createEmptyForm())
+const transactionFilters = ref<{
+  search: string
+  status: '' | TransactionStatus
+  account: string
+  transaction_date_min: string
+  transaction_date_max: string
+}>({
+  search: '',
+  status: '',
+  account: '',
+  transaction_date_min: '',
+  transaction_date_max: ''
+})
+
+const accountForm = ref<AccountFormState>(createEmptyAccountForm())
+const transactionForm = ref<TransactionFormState>(createEmptyTransactionForm())
 
 const accountColumns = [
   { key: 'code', label: 'Code', width: '120px' },
@@ -45,6 +87,16 @@ const accountColumns = [
   { key: 'account_type', label: 'Type', width: '140px' },
   { key: 'parent', label: 'Parent', width: '180px' },
   { key: 'is_active', label: 'Status', width: '120px' }
+]
+
+const transactionColumns = [
+  { key: 'transaction_no', label: 'Transaction No', width: '170px' },
+  { key: 'transaction_date', label: 'Date', width: '130px' },
+  { key: 'reference', label: 'Reference', width: '160px' },
+  { key: 'description', label: 'Description' },
+  { key: 'status', label: 'Status', width: '120px' },
+  { key: 'total_debit', label: 'Debit', width: '120px' },
+  { key: 'total_credit', label: 'Credit', width: '120px' }
 ]
 
 const accountTypeOptions = [
@@ -55,21 +107,34 @@ const accountTypeOptions = [
   { value: 'EXPENSE', label: 'Expense' }
 ]
 
-const filterTypeOptions = [
+const accountFilterTypeOptions = [
   { value: '', label: 'All types' },
   ...accountTypeOptions
 ]
 
-const statusFilterOptions = [
+const accountStatusFilterOptions = [
   { value: '', label: 'All statuses' },
   { value: 'true', label: 'Active' },
   { value: 'false', label: 'Inactive' }
 ]
 
-const statusOptions = [
+const accountStatusOptions = [
   { value: 'true', label: 'Active' },
   { value: 'false', label: 'Inactive' }
 ]
+
+const transactionStatusFilterOptions = computed(() => [
+  { value: '', label: 'All statuses' },
+  ...accountStore.transactionStatuses
+])
+
+const accountSelectOptions = computed(() => [
+  { value: '', label: 'All accounts' },
+  ...accountStore.accountOptions.map(account => ({
+    value: String(account.id),
+    label: `${account.code} - ${account.name}`
+  }))
+])
 
 const parentOptions = computed(() => {
   const currentId = editingAccountId.value
@@ -85,7 +150,9 @@ const parentOptions = computed(() => {
   ]
 })
 
-const stats = computed(() => [
+const editableTransaction = computed(() => accountStore.currentTransaction?.status !== 'POSTED')
+
+const moduleStats = computed(() => [
   {
     title: 'Total Accounts',
     value: accountStore.totalAccounts,
@@ -93,17 +160,23 @@ const stats = computed(() => [
     color: 'primary'
   },
   {
-    title: 'Active Accounts',
-    value: accountStore.activeAccounts,
-    icon: 'check',
-    color: 'green'
+    title: 'Draft Entries',
+    value: accountStore.draftTransactions,
+    icon: 'clock',
+    color: 'yellow'
   },
   {
-    title: 'Root Accounts',
-    value: accountStore.rootAccounts,
-    icon: 'users',
-    color: 'blue'
+    title: 'Posted Entries',
+    value: accountStore.postedTransactions,
+    icon: 'check',
+    color: 'green'
   }
+])
+
+const movementStats = computed(() => [
+  { label: 'Debits', value: accountStore.totalDebits },
+  { label: 'Credits', value: accountStore.totalCredits },
+  { label: 'Net Movement', value: accountStore.netMovement }
 ])
 
 const typeSummary = computed(() => [
@@ -118,16 +191,26 @@ const editingAccount = computed(() =>
   accountStore.accounts.find(account => account.id === editingAccountId.value) || null
 )
 
+const editingTransaction = computed(() =>
+  accountStore.transactions.find(transaction => transaction.id === editingTransactionId.value) || null
+)
+
+const lineTotals = computed(() => {
+  const debit = transactionForm.value.lines.reduce((sum, line) => sum + normalizeAmount(line.debit_amount), 0)
+  const credit = transactionForm.value.lines.reduce((sum, line) => sum + normalizeAmount(line.credit_amount), 0)
+  return { debit, credit, balanced: Math.abs(debit - credit) < 0.005 }
+})
+
 const roadmap = [
   {
-    title: 'Phase 1: Core Setup',
-    description: 'Chart of accounts, fiscal periods, opening balances, and role-based accounting permissions.',
-    status: 'In progress'
+    title: 'Phase 1: Master Data',
+    description: 'Chart of accounts and accounting transactions are now API-backed.',
+    status: 'Complete'
   },
   {
-    title: 'Phase 2: Daily Bookkeeping',
-    description: 'Journal entries, recurring vouchers, ledger posting, and source-document attachments.',
-    status: 'Next'
+    title: 'Phase 2: Posting Controls',
+    description: 'Enforce review workflow around draft entries, posting, and period locking.',
+    status: 'In progress'
   },
   {
     title: 'Phase 3: Subledgers',
@@ -141,7 +224,17 @@ const roadmap = [
   }
 ]
 
-function createEmptyForm(): AccountFormState {
+function formatCurrency(value: string | number | undefined): string {
+  const amount = typeof value === 'number' ? value : normalizeAmount(value)
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function normalizeAmount(value: string | undefined): number {
+  const parsed = Number.parseFloat(value || '0')
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function createEmptyAccountForm(): AccountFormState {
   return {
     code: '',
     name: '',
@@ -152,20 +245,38 @@ function createEmptyForm(): AccountFormState {
   }
 }
 
+function createEmptyTransactionLine(): TransactionLineFormState {
+  return {
+    account_id: '',
+    description: '',
+    debit_amount: '',
+    credit_amount: ''
+  }
+}
+
+function createEmptyTransactionForm(): TransactionFormState {
+  return {
+    transaction_date: new Date().toISOString().split('T')[0],
+    reference: '',
+    description: '',
+    lines: [createEmptyTransactionLine(), createEmptyTransactionLine()]
+  }
+}
+
 function normalizeParentId(parentName: string): number | null {
   if (!parentName) return null
   return accountStore.accountOptions.find(account => account.name === parentName)?.id || null
 }
 
 async function refreshAccounts(params: ChartOfAccountListParams = {}): Promise<void> {
-  const resolvedSearch = (params.search ?? filters.value.search) || undefined
-  const resolvedAccountType = (params.account_type ?? filters.value.account_type) || undefined
+  const resolvedSearch = (params.search ?? accountFilters.value.search) || undefined
+  const resolvedAccountType = (params.account_type ?? accountFilters.value.account_type) || undefined
   const resolvedIsActive =
     params.is_active !== undefined
       ? params.is_active
-      : filters.value.status === ''
+      : accountFilters.value.status === ''
         ? undefined
-        : filters.value.status === 'true'
+        : accountFilters.value.status === 'true'
 
   await accountStore.fetchAccounts({
     page: params.page || accountStore.pagination.page,
@@ -176,18 +287,41 @@ async function refreshAccounts(params: ChartOfAccountListParams = {}): Promise<v
   })
 }
 
-async function loadPage(): Promise<void> {
-  await Promise.all([refreshAccounts({ page: 1 }), accountStore.fetchAccountOptions()])
+async function refreshTransactions(params: AccountingTransactionListParams = {}): Promise<void> {
+  const resolvedSearch = (params.search ?? transactionFilters.value.search) || undefined
+  const resolvedStatus = (params.status ?? transactionFilters.value.status) || undefined
+  const resolvedAccount = params.account ?? (transactionFilters.value.account ? Number(transactionFilters.value.account) : undefined)
+  const resolvedDateMin = (params.transaction_date_min ?? transactionFilters.value.transaction_date_min) || undefined
+  const resolvedDateMax = (params.transaction_date_max ?? transactionFilters.value.transaction_date_max) || undefined
+
+  await accountStore.fetchTransactions({
+    page: params.page || accountStore.transactionPagination.page,
+    search: resolvedSearch,
+    status: resolvedStatus,
+    account: resolvedAccount,
+    transaction_date_min: resolvedDateMin,
+    transaction_date_max: resolvedDateMax,
+    ordering: params.ordering || '-transaction_date'
+  })
 }
 
-function openCreateModal(): void {
+async function loadPage(): Promise<void> {
+  await Promise.all([
+    refreshAccounts({ page: 1 }),
+    refreshTransactions({ page: 1 }),
+    accountStore.fetchAccountOptions(),
+    accountStore.fetchTransactionStatuses()
+  ])
+}
+
+function openCreateAccountModal(): void {
   editingAccountId.value = null
-  accountForm.value = createEmptyForm()
+  accountForm.value = createEmptyAccountForm()
   accountStore.clearError()
   showAccountModal.value = true
 }
 
-async function openEditModal(account: ChartOfAccountList): Promise<void> {
+async function openEditAccountModal(account: ChartOfAccountList): Promise<void> {
   editingAccountId.value = account.id
   accountStore.clearError()
 
@@ -228,10 +362,10 @@ async function handleSaveAccount(): Promise<void> {
   await refreshAccounts({ page: editingAccountId.value ? accountStore.pagination.page : 1 })
 }
 
-function promptDelete(account: ChartOfAccountList): void {
+function promptDeleteAccount(account: ChartOfAccountList): void {
   showAccountModal.value = false
   accountPendingDelete.value = account
-  showDeleteModal.value = true
+  showDeleteAccountModal.value = true
 }
 
 async function handleDeleteAccount(): Promise<void> {
@@ -240,17 +374,136 @@ async function handleDeleteAccount(): Promise<void> {
   const success = await accountStore.deleteAccount(accountPendingDelete.value.id)
   if (!success) return
 
-  showDeleteModal.value = false
+  showDeleteAccountModal.value = false
   accountPendingDelete.value = null
 }
 
-async function applyFilters(): Promise<void> {
+function openCreateTransactionModal(): void {
+  editingTransactionId.value = null
+  transactionForm.value = createEmptyTransactionForm()
+  accountStore.clearError()
+  showTransactionModal.value = true
+}
+
+function populateTransactionForm(): void {
+  const transaction = accountStore.currentTransaction
+  if (!transaction) return
+
+  transactionForm.value = {
+    transaction_date: transaction.transaction_date,
+    reference: transaction.reference || '',
+    description: transaction.description || '',
+    lines: transaction.lines.length
+      ? transaction.lines.map(line => ({
+          account_id: String(line.account.id),
+          description: line.description || '',
+          debit_amount: line.debit_amount && line.debit_amount !== '0.00' ? line.debit_amount : '',
+          credit_amount: line.credit_amount && line.credit_amount !== '0.00' ? line.credit_amount : ''
+        }))
+      : [createEmptyTransactionLine(), createEmptyTransactionLine()]
+  }
+}
+
+async function openEditTransactionModal(transaction: AccountingTransactionList): Promise<void> {
+  editingTransactionId.value = transaction.id
+  accountStore.clearError()
+
+  const detail = await accountStore.getTransactionById(transaction.id)
+  if (!detail) return
+
+  populateTransactionForm()
+  showTransactionModal.value = true
+}
+
+function addTransactionLine(): void {
+  transactionForm.value.lines.push(createEmptyTransactionLine())
+}
+
+function removeTransactionLine(index: number): void {
+  if (transactionForm.value.lines.length <= 2) return
+  transactionForm.value.lines.splice(index, 1)
+}
+
+function buildTransactionPayload() {
+  const lines = transactionForm.value.lines
+    .map(line => ({
+      account_id: Number(line.account_id),
+      description: line.description.trim() || null,
+      debit_amount: normalizeAmount(line.debit_amount) ? normalizeAmount(line.debit_amount).toFixed(2) : '0.00',
+      credit_amount: normalizeAmount(line.credit_amount) ? normalizeAmount(line.credit_amount).toFixed(2) : '0.00'
+    }))
+    .filter(line => Number.isFinite(line.account_id) && line.account_id > 0)
+
+  const hasInvalidLine = lines.some(line =>
+    line.account_id <= 0 ||
+    (line.debit_amount === '0.00' && line.credit_amount === '0.00') ||
+    (line.debit_amount !== '0.00' && line.credit_amount !== '0.00')
+  )
+  if (lines.length < 2 || hasInvalidLine || !lineTotals.value.balanced) {
+    return null
+  }
+
+  return {
+    transaction_date: transactionForm.value.transaction_date,
+    reference: transactionForm.value.reference.trim() || null,
+    description: transactionForm.value.description.trim() || null,
+    lines
+  }
+}
+
+async function handleSaveTransaction(): Promise<void> {
+  const payload = buildTransactionPayload()
+  if (!payload || !payload.transaction_date) return
+
+  const success = editingTransactionId.value
+    ? await accountStore.updateTransaction(editingTransactionId.value, payload)
+    : await accountStore.createTransaction(payload)
+
+  if (!success) return
+
+  showTransactionModal.value = false
+  await refreshTransactions({ page: editingTransactionId.value ? accountStore.transactionPagination.page : 1 })
+}
+
+async function handlePostTransaction(): Promise<void> {
+  if (!editingTransactionId.value) return
+
+  const payload = {
+    transaction_date: transactionForm.value.transaction_date,
+    reference: transactionForm.value.reference.trim() || null,
+    description: transactionForm.value.description.trim() || null
+  }
+
+  const success = await accountStore.postTransaction(editingTransactionId.value, payload)
+  if (!success) return
+
+  populateTransactionForm()
+  await refreshTransactions({ page: accountStore.transactionPagination.page })
+}
+
+function promptDeleteTransaction(transaction: AccountingTransactionList): void {
+  showTransactionModal.value = false
+  transactionPendingDelete.value = transaction
+  showDeleteTransactionModal.value = true
+}
+
+async function handleDeleteTransaction(): Promise<void> {
+  if (!transactionPendingDelete.value) return
+
+  const success = await accountStore.deleteTransaction(transactionPendingDelete.value.id)
+  if (!success) return
+
+  showDeleteTransactionModal.value = false
+  transactionPendingDelete.value = null
+}
+
+async function applyAccountFilters(): Promise<void> {
   accountStore.setPage(1)
   await refreshAccounts({ page: 1 })
 }
 
-async function resetFilters(): Promise<void> {
-  filters.value = {
+async function resetAccountFilters(): Promise<void> {
+  accountFilters.value = {
     search: '',
     account_type: '',
     status: ''
@@ -259,14 +512,44 @@ async function resetFilters(): Promise<void> {
   await refreshAccounts({ page: 1, search: undefined, account_type: undefined, is_active: undefined })
 }
 
-async function goToPage(page: number): Promise<void> {
+async function applyTransactionFilters(): Promise<void> {
+  accountStore.setTransactionPage(1)
+  await refreshTransactions({ page: 1 })
+}
+
+async function resetTransactionFilters(): Promise<void> {
+  transactionFilters.value = {
+    search: '',
+    status: '',
+    account: '',
+    transaction_date_min: '',
+    transaction_date_max: ''
+  }
+  accountStore.setTransactionPage(1)
+  await refreshTransactions({
+    page: 1,
+    search: undefined,
+    status: undefined,
+    account: undefined,
+    transaction_date_min: undefined,
+    transaction_date_max: undefined
+  })
+}
+
+async function goToAccountPage(page: number): Promise<void> {
   if (page < 1) return
   accountStore.setPage(page)
   await refreshAccounts({ page })
 }
 
+async function goToTransactionPage(page: number): Promise<void> {
+  if (page < 1) return
+  accountStore.setTransactionPage(page)
+  await refreshTransactions({ page })
+}
+
 onMounted(() => {
-  loadPage()
+  void loadPage()
 })
 </script>
 
@@ -274,9 +557,9 @@ onMounted(() => {
   <div class="space-y-6">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Accounting Workflow</h1>
         <p class="mt-1 text-gray-500">
-          API-backed account master data for the accounting module. Journal and ledger APIs are not in the backend spec yet.
+          Chart of accounts and accounting transactions are API-backed, including draft entry posting.
         </p>
       </div>
 
@@ -288,10 +571,16 @@ onMounted(() => {
           Refresh
         </button>
         <button
-          class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-          @click="openCreateModal"
+          class="px-4 py-2 text-sm font-medium text-primary-600 bg-white border border-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
+          @click="openCreateAccountModal"
         >
           Add Account
+        </button>
+        <button
+          class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+          @click="openCreateTransactionModal"
+        >
+          Add Transaction
         </button>
       </div>
     </div>
@@ -302,7 +591,7 @@ onMounted(() => {
 
     <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
       <StatCard
-        v-for="stat in stats"
+        v-for="stat in moduleStats"
         :key="stat.title"
         :title="stat.title"
         :value="stat.value"
@@ -313,14 +602,16 @@ onMounted(() => {
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[2fr,1fr]">
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-900">Account Structure</h2>
-            <p class="mt-1 text-sm text-gray-500">Current page breakdown by major account class.</p>
+        <h2 class="text-lg font-semibold text-gray-900">Current Movement</h2>
+        <p class="mt-1 text-sm text-gray-500">Totals are calculated from the transactions loaded in the current list view.</p>
+        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div v-for="item in movementStats" :key="item.label" class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ item.label }}</p>
+            <p class="mt-2 text-2xl font-semibold text-gray-900">${{ formatCurrency(item.value) }}</p>
           </div>
         </div>
 
-        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <div
             v-for="item in typeSummary"
             :key="item.label"
@@ -334,9 +625,7 @@ onMounted(() => {
 
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <h2 class="text-lg font-semibold text-gray-900">Accounting Module Plan</h2>
-        <p class="mt-1 text-sm text-gray-500">
-          Implementation sequence based on the current backend coverage in the attached OpenAPI spec.
-        </p>
+        <p class="mt-1 text-sm text-gray-500">Remaining implementation sequence based on the current backend coverage.</p>
         <ul class="mt-4 space-y-3">
           <li v-for="item in roadmap" :key="item.title" class="rounded-lg border border-gray-200 bg-gray-50 p-4">
             <div class="flex items-start justify-between gap-3">
@@ -370,6 +659,17 @@ onMounted(() => {
           <button
             :class="[
               'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+              activeTab === 'transactions'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+            @click="activeTab = 'transactions'"
+          >
+            Transactions
+          </button>
+          <button
+            :class="[
+              'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
               activeTab === 'roadmap'
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -384,30 +684,30 @@ onMounted(() => {
       <div v-if="activeTab === 'accounts'" class="p-6 space-y-6">
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-[2fr,1fr,1fr,auto]">
           <FormInput
-            v-model="filters.search"
+            v-model="accountFilters.search"
             label="Search"
             placeholder="Search by code or account name"
           />
           <FormSelect
-            v-model="filters.account_type"
+            v-model="accountFilters.account_type"
             label="Account Type"
-            :options="filterTypeOptions"
+            :options="accountFilterTypeOptions"
           />
           <FormSelect
-            v-model="filters.status"
+            v-model="accountFilters.status"
             label="Status"
-            :options="statusFilterOptions"
+            :options="accountStatusFilterOptions"
           />
           <div class="flex items-end gap-2">
             <button
               class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-              @click="applyFilters"
+              @click="applyAccountFilters"
             >
               Apply
             </button>
             <button
               class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              @click="resetFilters"
+              @click="resetAccountFilters"
             >
               Reset
             </button>
@@ -418,7 +718,7 @@ onMounted(() => {
           :columns="accountColumns"
           :data="accountStore.accounts"
           :loading="accountStore.loading"
-          @row-click="openEditModal"
+          @row-click="openEditAccountModal"
         >
           <template #code="{ value }">
             <span class="font-mono text-sm text-gray-600">{{ value }}</span>
@@ -447,14 +747,121 @@ onMounted(() => {
             <button
               class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="!accountStore.pagination.hasPrevious || accountStore.loading"
-              @click="goToPage(accountStore.pagination.page - 1)"
+              @click="goToAccountPage(accountStore.pagination.page - 1)"
             >
               Previous
             </button>
             <button
               class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="!accountStore.pagination.hasNext || accountStore.loading"
-              @click="goToPage(accountStore.pagination.page + 1)"
+              @click="goToAccountPage(accountStore.pagination.page + 1)"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="activeTab === 'transactions'" class="p-6 space-y-6">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <FormInput
+            v-model="transactionFilters.search"
+            label="Search"
+            placeholder="Search by description or reference"
+          />
+          <FormSelect
+            v-model="transactionFilters.account"
+            label="Account"
+            :options="accountSelectOptions"
+          />
+          <FormSelect
+            v-model="transactionFilters.status"
+            label="Status"
+            :options="transactionStatusFilterOptions"
+          />
+          <FormInput
+            v-model="transactionFilters.transaction_date_min"
+            label="Date From"
+            type="date"
+          />
+          <FormInput
+            v-model="transactionFilters.transaction_date_max"
+            label="Date To"
+            type="date"
+          />
+        </div>
+
+        <div class="flex gap-2">
+          <button
+            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+            @click="applyTransactionFilters"
+          >
+            Apply Filters
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            @click="resetTransactionFilters"
+          >
+            Reset
+          </button>
+        </div>
+
+        <DataTable
+          :columns="transactionColumns"
+          :data="accountStore.transactions"
+          :loading="accountStore.transactionLoading"
+          @row-click="openEditTransactionModal"
+        >
+          <template #transaction_no="{ value, row }">
+            <div>
+              <div class="font-mono text-sm text-gray-700">{{ value || `Draft #${row.id}` }}</div>
+              <div class="text-xs text-gray-500">ID: {{ row.id }}</div>
+            </div>
+          </template>
+
+          <template #transaction_date="{ value }">
+            {{ new Date(value).toLocaleDateString() }}
+          </template>
+
+          <template #reference="{ value }">
+            <span class="font-mono text-xs text-gray-500">{{ value || '-' }}</span>
+          </template>
+
+          <template #description="{ value }">
+            <span class="text-sm text-gray-700">{{ value || '-' }}</span>
+          </template>
+
+          <template #status="{ value }">
+            <StatusBadge :status="value || accountStore.defaultTransactionStatus" size="sm" />
+          </template>
+
+          <template #total_debit="{ value }">
+            <span class="font-medium text-red-600">${{ formatCurrency(value) }}</span>
+          </template>
+
+          <template #total_credit="{ value }">
+            <span class="font-medium text-green-600">${{ formatCurrency(value) }}</span>
+          </template>
+        </DataTable>
+
+        <div class="flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-gray-500">
+            Showing page {{ accountStore.transactionPagination.page }} of
+            {{ Math.max(1, Math.ceil(accountStore.transactionPagination.count / accountStore.transactionPagination.pageSize)) }}
+          </p>
+
+          <div class="flex items-center gap-2">
+            <button
+              class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!accountStore.transactionPagination.hasPrevious || accountStore.transactionLoading"
+              @click="goToTransactionPage(accountStore.transactionPagination.page - 1)"
+            >
+              Previous
+            </button>
+            <button
+              class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!accountStore.transactionPagination.hasNext || accountStore.transactionLoading"
+              @click="goToTransactionPage(accountStore.transactionPagination.page + 1)"
             >
               Next
             </button>
@@ -516,7 +923,7 @@ onMounted(() => {
           <FormSelect
             v-model="accountForm.is_active"
             label="Status"
-            :options="statusOptions"
+            :options="accountStatusOptions"
           />
           <FormInput
             v-model="accountForm.description"
@@ -536,7 +943,7 @@ onMounted(() => {
           <button
             type="button"
             class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-            @click="editingAccount && promptDelete(editingAccount)"
+            @click="editingAccount && promptDeleteAccount(editingAccount)"
           >
             Delete Account
           </button>
@@ -544,13 +951,174 @@ onMounted(() => {
       </div>
     </FormModal>
 
+    <FormModal
+      :show="showTransactionModal"
+      :title="editingTransactionId ? 'Edit Transaction' : 'Add Transaction'"
+      size="xl"
+      @close="showTransactionModal = false"
+      @submit="handleSaveTransaction"
+    >
+      <div class="space-y-5">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <FormInput
+            v-model="transactionForm.transaction_date"
+            label="Transaction Date"
+            type="date"
+          />
+          <FormInput
+            v-model="transactionForm.reference"
+            label="Reference"
+            placeholder="Invoice / voucher ref"
+          />
+          <FormInput
+            v-model="transactionForm.description"
+            label="Description"
+            placeholder="Narration"
+          />
+        </div>
+
+        <div class="rounded-lg border border-gray-200 overflow-hidden">
+          <div class="grid grid-cols-[2fr,2fr,1.5fr,1.5fr,auto] gap-3 bg-gray-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span>Account</span>
+            <span>Description</span>
+            <span>Debit</span>
+            <span>Credit</span>
+            <span></span>
+          </div>
+
+          <div class="divide-y divide-gray-200">
+            <div
+              v-for="(line, index) in transactionForm.lines"
+              :key="index"
+              class="grid grid-cols-[2fr,2fr,1.5fr,1.5fr,auto] gap-3 px-4 py-3"
+            >
+              <select
+                v-model="line.account_id"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="" disabled>Select an account</option>
+                <option v-for="option in accountSelectOptions.slice(1)" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+
+              <input
+                v-model="line.description"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Line description"
+              />
+
+              <input
+                v-model="line.debit_amount"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="0.00"
+              />
+
+              <input
+                v-model="line.credit_amount"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="0.00"
+              />
+
+              <button
+                type="button"
+                class="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="transactionForm.lines.length <= 2"
+                @click="removeTransactionLine(index)"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+            @click="addTransactionLine"
+          >
+            Add Line
+          </button>
+
+          <div class="flex flex-wrap gap-4 text-sm">
+            <span class="text-red-600 font-medium">Debit: ${{ formatCurrency(lineTotals.debit) }}</span>
+            <span class="text-green-600 font-medium">Credit: ${{ formatCurrency(lineTotals.credit) }}</span>
+            <span :class="lineTotals.balanced ? 'text-green-600' : 'text-red-600'" class="font-medium">
+              {{ lineTotals.balanced ? 'Balanced entry' : 'Debits and credits must match' }}
+            </span>
+          </div>
+        </div>
+
+        <div
+          v-if="editingTransactionId && accountStore.currentTransaction"
+          class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+        >
+          <div class="flex flex-wrap gap-4">
+            <span>Transaction No: <strong class="text-gray-900">{{ accountStore.currentTransaction.transaction_no || `Draft #${accountStore.currentTransaction.id}` }}</strong></span>
+            <span>Status: <strong class="text-gray-900">{{ accountStore.currentTransaction.status }}</strong></span>
+            <span>Total Debit: <strong class="text-gray-900">${{ formatCurrency(accountStore.currentTransaction.total_debit) }}</strong></span>
+            <span>Total Credit: <strong class="text-gray-900">${{ formatCurrency(accountStore.currentTransaction.total_credit) }}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <template #actions>
+        <div class="flex flex-wrap justify-between gap-3 w-full">
+          <div>
+            <button
+              v-if="editingTransactionId"
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+              @click="editingTransaction && promptDeleteTransaction(editingTransaction)"
+            >
+              Delete
+            </button>
+          </div>
+
+          <div class="flex gap-3">
+            <button
+              v-if="editingTransactionId && editableTransaction"
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+              @click="handlePostTransaction"
+            >
+              Post Transaction
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </template>
+    </FormModal>
+
     <ConfirmModal
-      :show="showDeleteModal"
+      :show="showDeleteAccountModal"
       title="Delete Account"
       :message="`Delete ${accountPendingDelete?.code || ''} ${accountPendingDelete?.name || ''}? This cannot be undone.`"
       confirm-text="Delete"
-      @cancel="showDeleteModal = false"
+      @cancel="showDeleteAccountModal = false"
       @confirm="handleDeleteAccount"
+    />
+
+    <ConfirmModal
+      :show="showDeleteTransactionModal"
+      title="Delete Transaction"
+      :message="`Delete ${transactionPendingDelete?.transaction_no || `Draft #${transactionPendingDelete?.id || ''}`}? This cannot be undone.`"
+      confirm-text="Delete"
+      @cancel="showDeleteTransactionModal = false"
+      @confirm="handleDeleteTransaction"
     />
   </div>
 </template>

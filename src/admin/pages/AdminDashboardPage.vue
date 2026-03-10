@@ -28,8 +28,8 @@ const stats = computed(() => [
     trend: 8
   },
   {
-    title: 'Total Expenses',
-    value: `$${accountStore.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    title: 'Posted Debits',
+    value: `$${accountStore.totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
     icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
     color: 'red',
     trend: -5
@@ -48,6 +48,7 @@ const lowStockItems = computed(() => inventoryStore.lowStockItems.slice(0, 5))
 
 onMounted(() => {
   void orderStore.fetchOrders()
+  void accountStore.fetchTransactions({ page: 1, page_size: 100, ordering: '-transaction_date' })
 })
 </script>
 
@@ -183,25 +184,25 @@ onMounted(() => {
         <div class="space-y-4">
           <div>
             <div class="flex justify-between text-sm mb-1">
-              <span class="text-gray-500">Total Income</span>
+              <span class="text-gray-500">Total Credits</span>
               <span class="font-semibold text-green-600">
-                ${{ accountStore.totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                ${{ accountStore.totalCredits.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>
           <div>
             <div class="flex justify-between text-sm mb-1">
-              <span class="text-gray-500">Total Expenses</span>
+              <span class="text-gray-500">Total Debits</span>
               <span class="font-semibold text-red-600">
-                ${{ accountStore.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                ${{ accountStore.totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>
           <div class="pt-4 border-t">
             <div class="flex justify-between">
-              <span class="font-medium text-gray-900">Net Balance</span>
-              <span class="font-bold text-lg" :class="accountStore.netBalance >= 0 ? 'text-green-600' : 'text-red-600'">
-                ${{ accountStore.netBalance.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+              <span class="font-medium text-gray-900">Net Movement</span>
+              <span class="font-bold text-lg" :class="accountStore.netMovement >= 0 ? 'text-green-600' : 'text-red-600'">
+                ${{ accountStore.netMovement.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>

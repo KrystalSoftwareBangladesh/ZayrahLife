@@ -86,6 +86,7 @@ const getStatusColor = (status: string) => {
 
 onMounted(() => {
   void orderStore.fetchOrders()
+  void accountStore.fetchTransactions({ page: 1, page_size: 100, ordering: '-transaction_date' })
 })
 </script>
 
@@ -308,9 +309,9 @@ onMounted(() => {
 
     <div v-if="activeTab === 'financial'" class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Income" :value="`$${accountStore.totalIncome.toLocaleString()}`" icon="trending-up" color="green" />
-        <StatCard title="Total Expenses" :value="`$${accountStore.totalExpenses.toLocaleString()}`" icon="trending-down" color="red" />
-        <StatCard title="Net Balance" :value="`$${accountStore.netBalance.toLocaleString()}`" icon="dollar" :color="accountStore.netBalance >= 0 ? 'green' : 'red'" />
+        <StatCard title="Total Credits" :value="`$${accountStore.totalCredits.toLocaleString()}`" icon="trending-up" color="green" />
+        <StatCard title="Total Debits" :value="`$${accountStore.totalDebits.toLocaleString()}`" icon="trending-down" color="red" />
+        <StatCard title="Net Movement" :value="`$${accountStore.netMovement.toLocaleString()}`" icon="dollar" :color="accountStore.netMovement >= 0 ? 'green' : 'red'" />
         <StatCard title="Gross Profit" :value="`$${grossProfit.toLocaleString()}`" icon="chart" color="blue" />
       </div>
 
@@ -328,12 +329,12 @@ onMounted(() => {
             </div>
             <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
               <span class="font-medium text-red-800">Operating Expenses</span>
-              <span class="font-bold text-red-700">-${{ accountStore.totalExpenses.toLocaleString() }}</span>
+              <span class="font-bold text-red-700">-${{ accountStore.totalDebits.toLocaleString() }}</span>
             </div>
             <div class="flex justify-between items-center p-3 bg-primary-50 rounded-lg border-2 border-primary-200">
               <span class="font-bold text-primary-800">Net Profit</span>
               <span class="font-bold text-primary-700 text-lg">
-                ${{ (totalSales - inventoryStore.inventoryValue * 0.4 - accountStore.totalExpenses).toLocaleString() }}
+                ${{ (totalSales - inventoryStore.inventoryValue * 0.4 - accountStore.totalDebits).toLocaleString() }}
               </span>
             </div>
           </div>
@@ -348,12 +349,20 @@ onMounted(() => {
               class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
             >
               <div>
-                <div class="font-medium text-gray-900">{{ txn.description }}</div>
-                <div class="text-sm text-gray-500">{{ txn.accountName }} | {{ new Date(txn.date).toLocaleDateString() }}</div>
+                <div class="font-medium text-gray-900">{{ txn.description || txn.transaction_no || `Draft #${txn.id}` }}</div>
+                <div class="text-sm text-gray-500">
+                  {{ txn.reference || txn.transaction_no || 'No reference' }} | {{ new Date(txn.transaction_date).toLocaleDateString() }}
+                </div>
               </div>
-              <span :class="[txn.type === 'income' ? 'text-green-600' : 'text-red-600', 'font-bold']">
-                {{ txn.type === 'income' ? '+' : '' }}${{ Math.abs(txn.amount).toLocaleString() }}
-              </span>
+              <div class="text-right">
+                <div class="font-bold text-green-600">+${{ Number(txn.total_credit || 0).toLocaleString() }}</div>
+                <div class="text-sm text-red-600">-${{ Number(txn.total_debit || 0).toLocaleString() }}</div>
+                <div class="mt-1">
+                  <span :class="txn.status === 'POSTED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" class="px-2 py-0.5 text-xs font-medium rounded-full">
+                    {{ txn.status || 'DRAFT' }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

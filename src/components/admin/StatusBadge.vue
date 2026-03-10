@@ -10,6 +10,7 @@ const props = defineProps({
 const statusConfig: Record<string, { bg: string, text: string, label?: string }> = {
   PENDING: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pending' },
   DRAFT: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Draft' },
+  POSTED: { bg: 'bg-green-100', text: 'text-green-800', label: 'Posted' },
   CONFIRMED: { bg: 'bg-cyan-100', text: 'text-cyan-800', label: 'Confirmed' },
   PROCESSING: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Processing' },
   PACKAGED: { bg: 'bg-indigo-100', text: 'text-indigo-800', label: 'Packaged' },
