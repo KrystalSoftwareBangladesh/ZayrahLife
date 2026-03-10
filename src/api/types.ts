@@ -126,6 +126,70 @@ export interface CategoryListParams {
   is_active?: boolean
 }
 
+export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE'
+
+export interface ChartOfAccountList {
+  id: number
+  code: string
+  name: string
+  account_type: AccountType
+  parent: string
+  is_active: boolean
+}
+
+export interface ChartOfAccountDetail {
+  id: number
+  parent: string
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+  is_active: boolean
+  deleted_at: string | null
+  code: string
+  name: string
+  account_type: AccountType
+  description: string | null
+}
+
+export interface ChartOfAccountCreateUpdateResponse {
+  id: number
+  code: string
+  name: string
+  account_type: AccountType
+  description: string | null
+  parent: number | null
+  is_active: boolean
+}
+
+export interface ChartOfAccountCreateRequest {
+  code: string
+  name: string
+  account_type: AccountType
+  description?: string | null
+  parent?: number | null
+  is_active?: boolean
+}
+
+export interface ChartOfAccountUpdateRequest {
+  code?: string
+  name?: string
+  account_type?: AccountType
+  description?: string | null
+  parent?: number | null
+  is_active?: boolean
+}
+
+export interface ChartOfAccountListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  ordering?: string
+  parent?: number
+  is_active?: boolean
+  account_type?: AccountType
+}
+
 export type SupplierPaymentType = 'COD' | 'CREDIT' | 'PREPAID'
 
 export interface SupplierList {

@@ -1,115 +1,212 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { mockAccounts, mockTransactions } from '@/mock/admin/accounts'
-
-interface NewAccount {
-  name: string
-  type: 'income' | 'expense' | 'asset' | 'liability' | 'equity' | 'investment'
-  code?: string
-  description?: string
-}
-
-interface NewTransaction {
-  accountId: number
-  date: string
-  description: string
-  amount: number
-  type: 'income' | 'expense'
-  category?: string
-  reference?: string
-}
+import { computed, ref } from 'vue'
+import { accountsApi } from '@/api/accounts'
+import { mockTransactions } from '@/mock/admin/accounts'
+import type {
+  ApiError,
+  ChartOfAccountCreateRequest,
+  ChartOfAccountDetail,
+  ChartOfAccountList,
+  ChartOfAccountListParams,
+  ChartOfAccountUpdateRequest
+} from '@/api/types'
 
 export const useAccountStore = defineStore('adminAccounts', () => {
-  const accounts = ref([...mockAccounts])
+  const accounts = ref<ChartOfAccountList[]>([])
+  const accountOptions = ref<ChartOfAccountList[]>([])
+  const currentAccount = ref<ChartOfAccountDetail | null>(null)
   const transactions = ref([...mockTransactions])
   const loading = ref(false)
+  const error = ref<string | null>(null)
 
-  const totalIncome = computed(() => {
-    return transactions.value
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0)
+  const pagination = ref({
+    count: 0,
+    page: 1,
+    pageSize: 20,
+    hasNext: false,
+    hasPrevious: false
   })
 
-  const totalExpenses = computed(() => {
-    return Math.abs(transactions.value
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0))
-  })
-
+  const totalAccounts = computed(() => pagination.value.count)
+  const activeAccounts = computed(() => accounts.value.filter(account => account.is_active).length)
+  const rootAccounts = computed(() => accounts.value.filter(account => !account.parent).length)
+  const totalIncome = computed(() =>
+    transactions.value
+      .filter(transaction => transaction.type === 'income')
+      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
+  )
+  const totalExpenses = computed(() =>
+    transactions.value
+      .filter(transaction => transaction.type === 'expense')
+      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
+  )
   const netBalance = computed(() => totalIncome.value - totalExpenses.value)
+  const typeBreakdown = computed(() => ({
+    ASSET: accounts.value.filter(account => account.account_type === 'ASSET').length,
+    LIABILITY: accounts.value.filter(account => account.account_type === 'LIABILITY').length,
+    EQUITY: accounts.value.filter(account => account.account_type === 'EQUITY').length,
+    REVENUE: accounts.value.filter(account => account.account_type === 'REVENUE').length,
+    EXPENSE: accounts.value.filter(account => account.account_type === 'EXPENSE').length
+  }))
 
-  const incomeAccounts = computed(() => accounts.value.filter(a => a.type === 'income'))
-  const expenseAccounts = computed(() => accounts.value.filter(a => a.type === 'expense'))
-  const investmentAccounts = computed(() => accounts.value.filter(a => a.type === 'investment'))
-  const assetAccounts = computed(() => accounts.value.filter(a => a.type === 'asset'))
-  const liabilityAccounts = computed(() => accounts.value.filter(a => a.type === 'liability'))
-  const equityAccounts = computed(() => accounts.value.filter(a => a.type === 'equity'))
+  async function fetchAccounts(params: ChartOfAccountListParams = {}): Promise<void> {
+    loading.value = true
+    error.value = null
 
-  function getTransactionsByAccount(accountId: number) {
-    return transactions.value.filter(t => t.accountId === accountId)
+    try {
+      const response = await accountsApi.list({
+        page: params.page || pagination.value.page,
+        page_size: params.page_size || pagination.value.pageSize,
+        ordering: params.ordering || 'code',
+        ...params
+      })
+
+      accounts.value = response.results
+      pagination.value = {
+        count: response.count,
+        page: params.page || pagination.value.page,
+        pageSize: params.page_size || pagination.value.pageSize,
+        hasNext: !!response.next,
+        hasPrevious: !!response.previous
+      }
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to fetch chart of accounts'
+      accounts.value = []
+    } finally {
+      loading.value = false
+    }
   }
 
-  function getAccountById(id: number) {
-    return accounts.value.find(a => a.id === id)
+  async function fetchAccountOptions(): Promise<void> {
+    try {
+      const items: ChartOfAccountList[] = []
+      let page = 1
+      let hasNext = true
+
+      while (hasNext && page <= 20) {
+        const response = await accountsApi.list({
+          page,
+          page_size: 100,
+          ordering: 'code',
+          is_active: true
+        })
+        items.push(...response.results)
+        hasNext = !!response.next
+        page += 1
+      }
+
+      accountOptions.value = items
+    } catch {
+      accountOptions.value = []
+    }
   }
 
-  function addAccount(data: NewAccount) {
-    const newId = Math.max(...accounts.value.map(a => a.id)) + 1
-    const typePrefix = data.type.toUpperCase().slice(0, 3)
-    const newAccount = {
-      id: newId,
-      name: data.name,
-      code: data.code || `${typePrefix}-${String(newId).padStart(3, '0')}`,
-      type: data.type,
-      balance: 0,
-      currency: 'USD',
-      description: data.description || ''
+  async function getAccountById(id: number): Promise<ChartOfAccountDetail | null> {
+    loading.value = true
+    error.value = null
+
+    try {
+      const account = await accountsApi.getById(id)
+      currentAccount.value = account
+      return account
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to fetch account'
+      return null
+    } finally {
+      loading.value = false
     }
-    accounts.value.push(newAccount)
-    return newAccount
   }
 
-  function addTransaction(data: NewTransaction) {
-    const newId = Math.max(...transactions.value.map(t => t.id)) + 1
-    const amount = data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount)
-    const account = accounts.value.find(a => a.id === data.accountId)
-    
-    const newTransaction = {
-      id: newId,
-      accountId: data.accountId,
-      accountName: account?.name || 'Unknown',
-      type: data.type,
-      amount,
-      description: data.description,
-      category: data.category || 'Other',
-      date: data.date,
-      reference: data.reference || `TXN-${String(newId).padStart(6, '0')}`
+  async function createAccount(data: ChartOfAccountCreateRequest): Promise<boolean> {
+    loading.value = true
+    error.value = null
+
+    try {
+      await accountsApi.create(data)
+      await Promise.all([fetchAccounts({ page: 1 }), fetchAccountOptions()])
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to create account'
+      return false
+    } finally {
+      loading.value = false
     }
-    transactions.value.unshift(newTransaction)
-    
-    if (account) {
-      account.balance += amount
+  }
+
+  async function updateAccount(id: number, data: ChartOfAccountUpdateRequest): Promise<boolean> {
+    loading.value = true
+    error.value = null
+
+    try {
+      await accountsApi.update(id, data)
+      await Promise.all([fetchAccounts(), fetchAccountOptions()])
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to update account'
+      return false
+    } finally {
+      loading.value = false
     }
-    
-    return newTransaction
+  }
+
+  async function deleteAccount(id: number): Promise<boolean> {
+    loading.value = true
+    error.value = null
+
+    try {
+      await accountsApi.delete(id)
+      currentAccount.value = null
+      await Promise.all([fetchAccounts(), fetchAccountOptions()])
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to delete account'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function getAccountNameById(id: number | null): string {
+    if (!id) return 'Root account'
+    return accountOptions.value.find(account => account.id === id)?.name || `#${id}`
+  }
+
+  function setPage(page: number): void {
+    pagination.value.page = page
+  }
+
+  function clearError(): void {
+    error.value = null
   }
 
   return {
     accounts,
+    accountOptions,
+    currentAccount,
     transactions,
     loading,
+    error,
+    pagination,
+    totalAccounts,
+    activeAccounts,
+    rootAccounts,
     totalIncome,
     totalExpenses,
     netBalance,
-    incomeAccounts,
-    expenseAccounts,
-    investmentAccounts,
-    assetAccounts,
-    liabilityAccounts,
-    equityAccounts,
-    getTransactionsByAccount,
+    typeBreakdown,
+    fetchAccounts,
+    fetchAccountOptions,
     getAccountById,
-    addAccount,
-    addTransaction
+    createAccount,
+    updateAccount,
+    deleteAccount,
+    getAccountNameById,
+    setPage,
+    clearError
   }
 })
