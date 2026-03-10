@@ -86,6 +86,11 @@ const adminRoutes = [
         path: 'campaigns',
         name: 'admin-campaigns',
         component: () => import('@/admin/pages/AdminCampaignsPage.vue')
+      },
+      {
+        path: 'tasks',
+        name: 'admin-tasks',
+        component: () => import('@/admin/pages/AdminTasksPage.vue')
       }
     ]
   }
