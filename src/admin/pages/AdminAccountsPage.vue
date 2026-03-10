@@ -10,6 +10,7 @@ import StatusBadge from '@/components/admin/StatusBadge.vue'
 import { useAccountStore } from '@/stores/admin/accountStore'
 import type {
   AccountType,
+  AccountingTransactionDetail,
   AccountingTransactionList,
   AccountingTransactionListParams,
   ChartOfAccountList,
