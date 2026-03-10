@@ -11,7 +11,7 @@
     "build:staging": "vite build --mode staging",
     "build:prod": "vite build --mode production",
     "preview": "vite preview",
-    "lint": "eslint src --ext .vue,.js,.jsx,.ts,.tsx,.cjs,.mjs",
+    "lint": "eslint src --ext .vue,.js,.jsx,.ts,.tsx,.cjs,.mjs --max-warnings 0",
     "lint:fix": "eslint src --ext .vue,.js,.jsx,.ts,.tsx,.cjs,.mjs --fix",
     "type-check": "vue-tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
   },
