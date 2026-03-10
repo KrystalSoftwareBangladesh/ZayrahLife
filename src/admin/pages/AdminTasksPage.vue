@@ -1048,301 +1048,448 @@ function submitSpaceForm() {
             </div>
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:min-w-[520px]">
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">
-              {{ viewMode === 'board' ? 'Active sprint' : 'Unscheduled backlog' }}
-            </p>
-            <p class="mt-2 text-xl font-semibold text-slate-900">
-              {{ viewMode === 'board' ? activeSprint?.name || 'No sprint' : taskStore.backlogTaskCount }}
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              {{
-                viewMode === 'board'
-                  ? 'Only sprint-committed work appears on the board.'
-                  : 'Issues waiting for sprint commitment.'
-              }}
-            </p>
-          </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  {{ viewMode === 'board' ? 'Active sprint' : 'Unscheduled backlog' }}
+                </p>
+                <p class="mt-2 text-xl font-semibold text-slate-900">
+                  {{
+                    viewMode === 'board' ? activeSprint?.name || 'No sprint' : taskStore.backlogTaskCount
+                  }}
+                </p>
+                <p class="mt-1 text-xs text-slate-500">
+                  {{
+                    viewMode === 'board'
+                      ? 'Only sprint-committed work appears on the board.'
+                      : 'Issues waiting for sprint commitment.'
+                  }}
+                </p>
+              </div>
 
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">
-              {{ viewMode === 'board' ? 'Sprint window' : 'Planned sprints' }}
-            </p>
-            <p class="mt-2 text-xl font-semibold text-slate-900">
-              {{
-                viewMode === 'board' && activeSprint
-                  ? formatSprintRange(activeSprint)
-                  : taskStore.plannedSprints.length
-              }}
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              {{
-                viewMode === 'board'
-                  ? 'Board timeline for the current execution cycle.'
-                  : 'Future sprint containers for planned work.'
-              }}
-            </p>
-          </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  {{ viewMode === 'board' ? 'Sprint window' : 'Planned sprints' }}
+                </p>
+                <p class="mt-2 text-xl font-semibold text-slate-900">
+                  {{
+                    viewMode === 'board' && activeSprint
+                      ? formatSprintRange(activeSprint)
+                      : taskStore.plannedSprints.length
+                  }}
+                </p>
+                <p class="mt-1 text-xs text-slate-500">
+                  {{
+                    viewMode === 'board'
+                      ? 'Board timeline for the current execution cycle.'
+                      : 'Future sprint containers for planned work.'
+                  }}
+                </p>
+              </div>
 
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">
-              {{ viewMode === 'board' ? 'Committed points' : 'Backlog points' }}
-            </p>
-            <p class="mt-2 text-xl font-semibold text-slate-900">
-              {{
-                viewMode === 'board'
-                  ? `${taskStore.activeSprintCommittedPoints}/${activeSprint?.capacity || 0}`
-                  : taskStore.backlogStoryPoints
-              }}
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              {{
-                viewMode === 'board'
-                  ? 'Sprint load against available capacity.'
-                  : 'Planning effort still outside a sprint.'
-              }}
-            </p>
-          </div>
-        </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  {{ viewMode === 'board' ? 'Committed points' : 'Backlog points' }}
+                </p>
+                <p class="mt-2 text-xl font-semibold text-slate-900">
+                  {{
+                    viewMode === 'board'
+                      ? `${taskStore.activeSprintCommittedPoints}/${activeSprint?.capacity || 0}`
+                      : taskStore.backlogStoryPoints
+                  }}
+                </p>
+                <p class="mt-1 text-xs text-slate-500">
+                  {{
+                    viewMode === 'board'
+                      ? 'Sprint load against available capacity.'
+                      : 'Planning effort still outside a sprint.'
+                  }}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div
             v-if="viewMode === 'board' && activeSprint"
             class="mt-6 rounded-2xl bg-slate-900 px-5 py-5 text-white"
           >
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div class="max-w-3xl">
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div class="max-w-3xl">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span
+                    class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
+                  >
+                    Sprint goal
+                  </span>
+                  <span
+                    class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
+                  >
+                    {{ formatSprintRange(activeSprint) }}
+                  </span>
+                  <button
+                    class="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                    @click="openEditSprintModal(activeSprint)"
+                  >
+                    Edit sprint
+                  </button>
+                </div>
+                <p class="mt-3 text-sm leading-6 text-white/80">{{ activeSprint.goal }}</p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 lg:min-w-[320px]">
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs uppercase tracking-[0.18em] text-white/60">Done points</p>
+                  <p class="mt-2 text-2xl font-semibold">{{ taskStore.activeSprintDonePoints }}</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs uppercase tracking-[0.18em] text-white/60">Progress</p>
+                  <p class="mt-2 text-2xl font-semibold">{{ taskStore.activeSprintProgress }}%</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-2">
               <span
-                class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
+                v-for="focus in activeSprint.focus"
+                :key="focus"
+                class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/85"
               >
-                Sprint goal
+                {{ focus }}
               </span>
               <span
-                class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
+                v-for="team in taskStore.activeDepartmentLoad"
+                :key="team.value"
+                class="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70"
               >
-                {{ formatSprintRange(activeSprint) }}
+                {{ team.label }}: {{ team.count }}
               </span>
-              <button
-                class="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-white/80 transition hover:bg-white/10"
-                @click="openEditSprintModal(activeSprint)"
-              >
-                Edit sprint
-              </button>
             </div>
-            <p class="mt-3 text-sm leading-6 text-white/80">{{ activeSprint.goal }}</p>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 lg:min-w-[320px]">
-            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p class="text-xs uppercase tracking-[0.18em] text-white/60">Done points</p>
-              <p class="mt-2 text-2xl font-semibold">{{ taskStore.activeSprintDonePoints }}</p>
-            </div>
-            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p class="text-xs uppercase tracking-[0.18em] text-white/60">Progress</p>
-              <p class="mt-2 text-2xl font-semibold">{{ taskStore.activeSprintProgress }}%</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-4 flex flex-wrap gap-2">
-          <span
-            v-for="focus in activeSprint.focus"
-            :key="focus"
-            class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/85"
-          >
-            {{ focus }}
-          </span>
-          <span
-            v-for="team in taskStore.activeDepartmentLoad"
-            :key="team.value"
-            class="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70"
-          >
-            {{ team.label }}: {{ team.count }}
-          </span>
-        </div>
           </div>
 
           <div v-else class="mt-6 flex flex-wrap gap-2">
-        <span
-          v-for="team in backlogDepartmentLoad"
-          :key="team.value"
-          class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"
-        >
-          {{ team.label }}: {{ team.count }}
-        </span>
+            <span
+              v-for="team in backlogDepartmentLoad"
+              :key="team.value"
+              class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"
+            >
+              {{ team.label }}: {{ team.count }}
+            </span>
           </div>
         </section>
 
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-      <StatCard
-        v-for="stat in stats"
-        :key="stat.title"
-        :title="stat.title"
-        :value="stat.value"
-        :icon="stat.icon"
-        :color="stat.color"
-      />
-    </div>
-
-    <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div class="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700">Search issues</label>
-            <input
-              v-model="filters.search"
-              type="text"
-              placeholder="Search key, title, assignee, reference..."
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
-
-          <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700">Team</label>
-            <select
-              v-model="filters.department"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            >
-              <option
-                v-for="option in filterDepartmentOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700">Priority</label>
-            <select
-              v-model="filters.priority"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            >
-              <option
-                v-for="option in filterPriorityOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700">Assignee</label>
-            <select
-              v-model="filters.assignee"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            >
-              <option
-                v-for="option in filterAssigneeOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            v-for="stat in stats"
+            :key="stat.title"
+            :title="stat.title"
+            :value="stat.value"
+            :icon="stat.icon"
+            :color="stat.color"
+          />
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <button
-            v-if="hasActiveFilters"
-            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-            @click="resetFilters"
-          >
-            Reset filters
-          </button>
-          <button
-            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-            @click="openCreateSprintModal"
-          >
-            Create sprint
-          </button>
-          <button
-            class="rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-800"
-            @click="isCreateModalOpen = true"
-          >
-            Create issue
-          </button>
-        </div>
-      </div>
-
-      <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-        <span class="rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-700">
-          {{ viewMode === 'board' ? boardVisibleTaskCount : backlogVisibleTaskCount }} issues in
-          view
-        </span>
-        <span class="rounded-full bg-gray-100 px-3 py-1">
-          {{
-            viewMode === 'board'
-              ? 'Board shows only issues assigned to the active sprint.'
-              : 'Backlog groups unscheduled work and future sprints.'
-          }}
-        </span>
-      </div>
-    </section>
-
-    <template v-if="viewMode === 'board'">
-      <section
-        v-if="activeSprint"
-        class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-      >
-        <div class="overflow-x-auto">
-          <div class="grid min-w-[1120px] grid-cols-4 gap-4 p-4">
-            <div
-              v-for="column in boardColumns"
-              :key="column.id"
-              :class="[
-                column.surfaceClass,
-                column.borderClass,
-                activeDropZone === column.id ? 'ring-2 ring-primary-300' : ''
-              ]"
-              class="rounded-2xl border p-3 transition"
-              @dragover.prevent="activeDropZone = column.id"
-              @dragenter.prevent="activeDropZone = column.id"
-              @dragleave="activeDropZone = null"
-              @drop.prevent="handleDrop(column.id)"
-            >
-              <div class="mb-4 rounded-2xl px-4 py-4" :class="column.accentClass">
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 class="text-lg font-semibold">{{ column.title }}</h2>
-                    <p class="mt-1 text-xs opacity-80">{{ column.description }}</p>
-                  </div>
-                  <span class="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
-                    {{ column.tasks.length }}
-                  </span>
-                </div>
-                <div class="mt-3 flex items-center justify-between text-xs opacity-80">
-                  <span>
-                    WIP limit:
-                    <span class="font-semibold">
-                      {{ column.limit === 99 ? 'Flexible' : column.limit }}
-                    </span>
-                  </span>
-                  <span
-                    v-if="column.limit !== 99 && column.tasks.length > column.limit"
-                    class="font-semibold text-rose-100"
-                  >
-                    Over limit
-                  </span>
-                </div>
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div class="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Search issues</label>
+                <input
+                  v-model="filters.search"
+                  type="text"
+                  placeholder="Search key, title, assignee, reference..."
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                />
               </div>
 
-              <div class="space-y-3">
-                <article
-                  v-for="task in column.tasks"
-                  :key="task.id"
-                  draggable="true"
-                  class="cursor-pointer rounded-2xl border border-white bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                  @click="openTaskDetails(task.id)"
-                  @dragstart="handleDragStart(task.id)"
-                  @dragend="clearDragState"
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Team</label>
+                <select
+                  v-model="filters.department"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
                 >
-                  <div class="flex items-start justify-between gap-3">
+                  <option
+                    v-for="option in filterDepartmentOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Priority</label>
+                <select
+                  v-model="filters.priority"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                >
+                  <option
+                    v-for="option in filterPriorityOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Assignee</label>
+                <select
+                  v-model="filters.assignee"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                >
+                  <option
+                    v-for="option in filterAssigneeOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                v-if="hasActiveFilters"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                @click="resetFilters"
+              >
+                Reset filters
+              </button>
+              <button
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                @click="openCreateSprintModal"
+              >
+                Create sprint
+              </button>
+              <button
+                class="rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-800"
+                @click="isCreateModalOpen = true"
+              >
+                Create issue
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-700">
+              {{ viewMode === 'board' ? boardVisibleTaskCount : backlogVisibleTaskCount }} issues in
+              view
+            </span>
+            <span class="rounded-full bg-gray-100 px-3 py-1">
+              {{
+                viewMode === 'board'
+                  ? 'Board shows only issues assigned to the active sprint.'
+                  : 'Backlog groups unscheduled work and future sprints.'
+              }}
+            </span>
+          </div>
+        </section>
+
+        <template v-if="viewMode === 'board'">
+          <section
+            v-if="activeSprint"
+            class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+          >
+            <div class="overflow-x-auto">
+              <div class="grid min-w-[1120px] grid-cols-4 gap-4 p-4">
+                <div
+                  v-for="column in boardColumns"
+                  :key="column.id"
+                  :class="[
+                    column.surfaceClass,
+                    column.borderClass,
+                    activeDropZone === column.id ? 'ring-2 ring-primary-300' : ''
+                  ]"
+                  class="rounded-2xl border p-3 transition"
+                  @dragover.prevent="activeDropZone = column.id"
+                  @dragenter.prevent="activeDropZone = column.id"
+                  @dragleave="activeDropZone = null"
+                  @drop.prevent="handleDrop(column.id)"
+                >
+                  <div class="mb-4 rounded-2xl px-4 py-4" :class="column.accentClass">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 class="text-lg font-semibold">{{ column.title }}</h2>
+                        <p class="mt-1 text-xs opacity-80">{{ column.description }}</p>
+                      </div>
+                      <span class="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
+                        {{ column.tasks.length }}
+                      </span>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between text-xs opacity-80">
+                      <span>
+                        WIP limit:
+                        <span class="font-semibold">
+                          {{ column.limit === 99 ? 'Flexible' : column.limit }}
+                        </span>
+                      </span>
+                      <span
+                        v-if="column.limit !== 99 && column.tasks.length > column.limit"
+                        class="font-semibold text-rose-100"
+                      >
+                        Over limit
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="space-y-3">
+                    <article
+                      v-for="task in column.tasks"
+                      :key="task.id"
+                      draggable="true"
+                      class="cursor-pointer rounded-2xl border border-white bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                      @click="openTaskDetails(task.id)"
+                      @dragstart="handleDragStart(task.id)"
+                      @dragend="clearDragState"
+                    >
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="flex flex-wrap gap-2">
+                          <span
+                            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                            :class="issueTypeClassMap[task.issueType]"
+                          >
+                            {{ getIssueTypeLabel(task.issueType) }}
+                          </span>
+                          <span
+                            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                            :class="priorityClassMap[task.priority]"
+                          >
+                            {{ task.priority }}
+                          </span>
+                          <span
+                            v-if="task.blocked && task.status !== 'done'"
+                            class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700"
+                          >
+                            Blocked
+                          </span>
+                        </div>
+
+                        <div class="text-right">
+                          <p class="text-[11px] font-semibold text-slate-500">{{ task.id }}</p>
+                          <p class="mt-1 text-[11px] text-slate-500">{{ task.storyPoints }} pts</p>
+                        </div>
+                      </div>
+
+                      <h3 class="mt-3 text-sm font-semibold text-slate-900">{{ task.title }}</h3>
+                      <p class="mt-2 text-xs leading-5 text-slate-600">{{ task.description }}</p>
+
+                      <div class="mt-4 flex flex-wrap gap-2">
+                        <span
+                          class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                          :class="departmentClassMap[task.department]"
+                        >
+                          {{ getDepartmentLabel(task.department) }}
+                        </span>
+                        <span
+                          class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                        >
+                          {{ task.assignee }}
+                        </span>
+                      </div>
+
+                      <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+                        <div class="rounded-xl bg-slate-50 p-3">
+                          <p class="text-slate-500">{{ task.referenceLabel }}</p>
+                          <p class="mt-1 font-semibold text-slate-900">{{ task.referenceValue }}</p>
+                        </div>
+                        <div class="rounded-xl bg-slate-50 p-3">
+                          <p class="text-slate-500">Due</p>
+                          <p class="mt-1 font-semibold text-slate-900">{{ formatDate(task.dueDate) }}</p>
+                        </div>
+                      </div>
+
+                      <div class="mt-4">
+                        <div class="mb-1 flex items-center justify-between text-xs text-slate-500">
+                          <span>Checklist</span>
+                          <span>{{ task.checklistDone }}/{{ task.checklistTotal }}</span>
+                        </div>
+                        <div class="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            class="h-full rounded-full bg-primary-600"
+                            :style="{ width: `${getChecklistPercent(task)}%` }"
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div class="mt-4 flex items-center justify-between gap-3">
+                        <span
+                          class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
+                          :class="getDueState(task).className"
+                        >
+                          {{ getDueState(task).label }}
+                        </span>
+
+                        <select
+                          :value="task.status"
+                          class="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 outline-none transition focus:border-primary-500"
+                          @click.stop
+                          @change.stop="moveTaskFromSelect(task.id, $event)"
+                        >
+                          <option
+                            v-for="option in boardStatusOptions"
+                            :key="option.value"
+                            :value="option.value"
+                          >
+                            {{ option.label }}
+                          </option>
+                        </select>
+                      </div>
+                    </article>
+
+                    <div
+                      v-if="column.tasks.length === 0"
+                      class="rounded-2xl border border-dashed border-gray-300 bg-white/70 px-4 py-10 text-center text-sm text-gray-500"
+                    >
+                      No sprint issues in this stage for the current filter.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            v-else
+            class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm"
+          >
+            <h2 class="text-lg font-semibold text-slate-900">No active sprint</h2>
+            <p class="mt-2 text-sm text-slate-500">
+              Plan issues in backlog first, then activate a sprint to populate the board.
+            </p>
+            <button
+              class="mt-5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              @click="openCreateSprintModal"
+            >
+              Create sprint
+            </button>
+          </section>
+        </template>
+
+        <section v-else class="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Unscheduled backlog</p>
+                <h2 class="mt-2 text-xl font-semibold text-slate-900">Issues ready for planning</h2>
+                <p class="mt-1 text-sm text-slate-500">
+                  These issues are not committed to any sprint yet.
+                </p>
+              </div>
+              <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+                {{ unscheduledBacklogTasks.length }}
+              </span>
+            </div>
+
+            <div class="mt-5 space-y-4">
+              <article
+                v-for="task in unscheduledBacklogTasks"
+                :key="task.id"
+                class="rounded-2xl border border-slate-200 p-4"
+              >
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap gap-2">
                       <span
                         class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
@@ -1357,210 +1504,707 @@ function submitSpaceForm() {
                         {{ task.priority }}
                       </span>
                       <span
-                        v-if="task.blocked && task.status !== 'done'"
-                        class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700"
+                        class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                        :class="departmentClassMap[task.department]"
                       >
-                        Blocked
+                        {{ getDepartmentLabel(task.department) }}
                       </span>
                     </div>
 
-                    <div class="text-right">
-                      <p class="text-[11px] font-semibold text-slate-500">{{ task.id }}</p>
-                      <p class="mt-1 text-[11px] text-slate-500">{{ task.storyPoints }} pts</p>
+                    <div class="mt-3 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 class="text-sm font-semibold text-slate-900">{{ task.title }}</h3>
+                        <p class="mt-2 text-xs leading-5 text-slate-600">{{ task.description }}</p>
+                      </div>
+                      <div class="text-right text-[11px] text-slate-500">
+                        <p class="font-semibold">{{ task.id }}</p>
+                        <p class="mt-1">{{ task.storyPoints }} pts</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <h3 class="mt-3 text-sm font-semibold text-slate-900">{{ task.title }}</h3>
-                  <p class="mt-2 text-xs leading-5 text-slate-600">{{ task.description }}</p>
-
-                  <div class="mt-4 flex flex-wrap gap-2">
-                    <span
-                      class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                      :class="departmentClassMap[task.department]"
-                    >
-                      {{ getDepartmentLabel(task.department) }}
-                    </span>
-                    <span
-                      class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                    >
-                      {{ task.assignee }}
-                    </span>
-                  </div>
-
-                  <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
-                    <div class="rounded-xl bg-slate-50 p-3">
-                      <p class="text-slate-500">{{ task.referenceLabel }}</p>
-                      <p class="mt-1 font-semibold text-slate-900">{{ task.referenceValue }}</p>
-                    </div>
-                    <div class="rounded-xl bg-slate-50 p-3">
-                      <p class="text-slate-500">Due</p>
-                      <p class="mt-1 font-semibold text-slate-900">{{ formatDate(task.dueDate) }}</p>
-                    </div>
-                  </div>
-
-                  <div class="mt-4">
-                    <div class="mb-1 flex items-center justify-between text-xs text-slate-500">
-                      <span>Checklist</span>
-                      <span>{{ task.checklistDone }}/{{ task.checklistTotal }}</span>
-                    </div>
-                    <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        class="h-full rounded-full bg-primary-600"
-                        :style="{ width: `${getChecklistPercent(task)}%` }"
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div class="mt-4 flex items-center justify-between gap-3">
-                    <span
-                      class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
-                      :class="getDueState(task).className"
-                    >
-                      {{ getDueState(task).label }}
-                    </span>
-
-                    <select
-                      :value="task.status"
-                      class="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 outline-none transition focus:border-primary-500"
-                      @click.stop
-                      @change.stop="moveTaskFromSelect(task.id, $event)"
-                    >
-                      <option
-                        v-for="option in boardStatusOptions"
-                        :key="option.value"
-                        :value="option.value"
+                    <div class="mt-4 flex flex-wrap gap-2">
+                      <span
+                        class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
                       >
-                        {{ option.label }}
-                      </option>
-                    </select>
+                        {{ task.assignee }}
+                      </span>
+                      <span
+                        class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                      >
+                        {{ task.referenceLabel }}: {{ task.referenceValue }}
+                      </span>
+                      <span
+                        v-for="tag in task.tags"
+                        :key="tag"
+                        class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                      >
+                        #{{ tag }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="lg:w-[250px]">
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                      <div class="rounded-xl bg-slate-50 p-3">
+                        <p class="text-slate-500">Due</p>
+                        <p class="mt-1 font-semibold text-slate-900">{{ formatDate(task.dueDate) }}</p>
+                      </div>
+                      <div class="rounded-xl bg-slate-50 p-3">
+                        <p class="text-slate-500">Risk</p>
+                        <p class="mt-1 font-semibold text-slate-900">
+                          {{ formatCurrency(task.revenueAtRisk) }}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="mt-3">
+                      <label class="mb-1 block text-sm font-medium text-slate-700">Plan into sprint</label>
+                      <select
+                        :value="task.sprintId || ''"
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                        @change="moveTaskToSprint(task.id, $event)"
+                      >
+                        <option
+                          v-for="option in planningOptions"
+                          :key="option.value || 'backlog'"
+                          :value="option.value"
+                        >
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <button
+                      class="mt-3 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                      @click="openTaskDetails(task.id)"
+                    >
+                      View details
+                    </button>
+                  </div>
+                </div>
+              </article>
+
+              <div
+                v-if="unscheduledBacklogTasks.length === 0"
+                class="rounded-2xl border border-dashed border-gray-300 bg-slate-50 px-4 py-10 text-center text-sm text-gray-500"
+              >
+                No unscheduled backlog issues match the current filter.
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <section
+              v-for="sprint in plannedSprintGroups"
+              :key="sprint.id"
+              class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+            >
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+                      :class="sprintStateClassMap[sprint.status]"
+                    >
+                      {{ sprint.status }}
+                    </span>
+                    <span
+                      class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
+                    >
+                      {{ formatSprintRange(sprint) }}
+                    </span>
+                    <button
+                      class="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                      @click="openEditSprintModal(sprint)"
+                    >
+                      Edit sprint
+                    </button>
+                  </div>
+                  <h3 class="mt-3 text-lg font-semibold text-slate-900">{{ sprint.name }}</h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-600">{{ sprint.goal }}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 sm:w-[220px]">
+                  <div class="rounded-xl bg-slate-50 p-3">
+                    <p class="text-xs uppercase tracking-[0.16em] text-slate-500">Issues</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900">{{ sprint.tasks.length }}</p>
+                  </div>
+                  <div class="rounded-xl bg-slate-50 p-3">
+                    <p class="text-xs uppercase tracking-[0.16em] text-slate-500">Points</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900">
+                      {{ getSprintTaskPoints(sprint.tasks) }}/{{ sprint.capacity }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 flex flex-wrap gap-2">
+                <span
+                  v-for="focus in sprint.focus"
+                  :key="focus"
+                  class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
+                >
+                  {{ focus }}
+                </span>
+              </div>
+
+              <div class="mt-5 space-y-3">
+                <article
+                  v-for="task in sprint.tasks"
+                  :key="task.id"
+                  class="rounded-2xl border border-slate-200 p-4"
+                >
+                  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap gap-2">
+                        <span
+                          class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                          :class="issueTypeClassMap[task.issueType]"
+                        >
+                          {{ getIssueTypeLabel(task.issueType) }}
+                        </span>
+                        <span
+                          class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                          :class="priorityClassMap[task.priority]"
+                        >
+                          {{ task.priority }}
+                        </span>
+                        <span
+                          class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                        >
+                          {{ task.storyPoints }} pts
+                        </span>
+                      </div>
+
+                      <div class="mt-3 flex items-start justify-between gap-3">
+                        <div>
+                          <h4 class="text-sm font-semibold text-slate-900">{{ task.title }}</h4>
+                          <p class="mt-2 text-xs leading-5 text-slate-600">{{ task.description }}</p>
+                        </div>
+                        <div class="text-right text-[11px] text-slate-500">
+                          <p class="font-semibold">{{ task.id }}</p>
+                          <p class="mt-1">{{ getStatusLabel(task.status) }}</p>
+                        </div>
+                      </div>
+
+                      <div class="mt-4 flex flex-wrap gap-2">
+                        <span
+                          class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                          :class="departmentClassMap[task.department]"
+                        >
+                          {{ getDepartmentLabel(task.department) }}
+                        </span>
+                        <span
+                          class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                        >
+                          {{ task.assignee }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="sm:w-[240px]">
+                      <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="rounded-xl bg-slate-50 p-3">
+                          <p class="text-slate-500">Due</p>
+                          <p class="mt-1 font-semibold text-slate-900">{{ formatDate(task.dueDate) }}</p>
+                        </div>
+                        <div class="rounded-xl bg-slate-50 p-3">
+                          <p class="text-slate-500">Risk</p>
+                          <p class="mt-1 font-semibold text-slate-900">
+                            {{ formatCurrency(task.revenueAtRisk) }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="mt-3">
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Re-plan issue</label>
+                        <select
+                          :value="task.sprintId || ''"
+                          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                          @change="moveTaskToSprint(task.id, $event)"
+                        >
+                          <option
+                            v-for="option in planningOptions"
+                            :key="option.value || 'backlog'"
+                            :value="option.value"
+                          >
+                            {{ option.label }}
+                          </option>
+                        </select>
+                      </div>
+
+                      <button
+                        class="mt-3 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                        @click="openTaskDetails(task.id)"
+                      >
+                        View details
+                      </button>
+                    </div>
                   </div>
                 </article>
 
                 <div
-                  v-if="column.tasks.length === 0"
-                  class="rounded-2xl border border-dashed border-gray-300 bg-white/70 px-4 py-10 text-center text-sm text-gray-500"
+                  v-if="sprint.tasks.length === 0"
+                  class="rounded-2xl border border-dashed border-gray-300 bg-slate-50 px-4 py-8 text-center text-sm text-gray-500"
                 >
-                  No sprint issues in this stage for the current filter.
+                  No issues are planned into this sprint for the current filter.
+                </div>
+              </div>
+            </section>
+
+            <section
+              v-if="lastCompletedSprint && lastCompletedSprintMetrics"
+              class="rounded-2xl bg-slate-900 p-5 text-white shadow-sm"
+            >
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em] text-white/60">Last completed sprint</p>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80">
+                      {{ lastCompletedSprint.name }}
+                    </span>
+                    <span class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80">
+                      {{ formatSprintRange(lastCompletedSprint) }}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  class="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                  @click="openEditSprintModal(lastCompletedSprint)"
+                >
+                  Edit sprint
+                </button>
+              </div>
+              <p class="mt-3 text-sm leading-6 text-white/75">{{ lastCompletedSprint.goal }}</p>
+
+              <div class="mt-4 grid grid-cols-3 gap-3">
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs uppercase tracking-[0.16em] text-white/60">Issues</p>
+                  <p class="mt-1 text-xl font-semibold">{{ lastCompletedSprintMetrics.issues }}</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs uppercase tracking-[0.16em] text-white/60">Delivered</p>
+                  <p class="mt-1 text-xl font-semibold">
+                    {{ lastCompletedSprintMetrics.deliveredPoints }} pts
+                  </p>
+                </div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs uppercase tracking-[0.16em] text-white/60">Capacity</p>
+                  <p class="mt-1 text-xl font-semibold">{{ lastCompletedSprint.capacity }}</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </div>
+
+      <FormModal
+        :show="isSpaceModalOpen"
+        :title="spaceModalMode === 'create' ? 'Create Space' : 'Edit Space'"
+        size="lg"
+        @close="closeSpaceModal"
+        @submit="submitSpaceForm"
+      >
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormInput
+            v-model="spaceForm.key"
+            label="Space key"
+            placeholder="Example: OPS"
+            :error="spaceFormErrors.key"
+          />
+          <FormInput
+            v-model="spaceForm.lead"
+            label="Space lead"
+            placeholder="Name of owner"
+            :error="spaceFormErrors.lead"
+          />
+
+          <div class="md:col-span-2">
+            <FormInput
+              v-model="spaceForm.name"
+              label="Space name"
+              placeholder="Example: Operations Command"
+              :error="spaceFormErrors.name"
+            />
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-gray-700">Description</label>
+            <textarea
+              v-model="spaceForm.description"
+              rows="4"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              placeholder="Describe the business domain and what this space owns"
+            ></textarea>
+            <p class="mt-1 text-xs text-slate-500">
+              Use a short uppercase key like Jira. Existing tasks, backlog, and sprints stay scoped
+              to this space.
+            </p>
+          </div>
+        </div>
+      </FormModal>
+
+      <FormModal
+        :show="isCreateModalOpen"
+        :title="currentSpace ? `Create Issue in ${currentSpace.key}` : 'Create Issue'"
+        size="xl"
+        @close="closeCreateModal"
+        @submit="submitCreateTask"
+      >
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div class="md:col-span-2 xl:col-span-3">
+            <FormInput
+              v-model="createForm.title"
+              label="Issue title"
+              placeholder="Example: Review failed COD confirmations"
+              :error="formErrors.title"
+            />
+          </div>
+
+          <FormSelect
+            v-model="createForm.issueType"
+            label="Issue type"
+            :options="issueTypeOptions"
+          />
+          <FormSelect
+            v-model="createForm.department"
+            label="Team"
+            :options="departmentOptions"
+          />
+          <FormSelect
+            v-model="createForm.priority"
+            label="Priority"
+            :options="priorityOptions"
+          />
+
+          <FormInput
+            v-model="createForm.assignee"
+            label="Assignee"
+            placeholder="Name of owner"
+            :error="formErrors.assignee"
+          />
+          <FormInput
+            v-model="createForm.dueDate"
+            label="Due date"
+            type="date"
+            :error="formErrors.dueDate"
+          />
+
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-700">Sprint placement</label>
+            <select
+              v-model="createForm.sprintId"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            >
+              <option
+                v-for="option in planningOptions"
+                :key="option.value || 'backlog'"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
+
+          <FormSelect
+            v-model="createForm.status"
+            label="Initial workflow status"
+            :options="createStatusOptions"
+          />
+
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-700">Story points</label>
+            <input
+              v-model.number="createForm.storyPoints"
+              type="number"
+              min="1"
+              class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              :class="
+                formErrors.storyPoints
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                  : 'border-gray-300'
+              "
+            />
+            <p v-if="formErrors.storyPoints" class="mt-1 text-sm text-red-600">
+              {{ formErrors.storyPoints }}
+            </p>
+          </div>
+
+          <FormInput
+            v-model="createForm.referenceLabel"
+            label="Reference label"
+            placeholder="Order batch, SKU, Campaign..."
+          />
+
+          <div class="md:col-span-2 xl:col-span-3">
+            <FormInput
+              v-model="createForm.referenceValue"
+              label="Reference value"
+              placeholder="Example: ORD-2026-211 or Ramadan hero refresh"
+            />
+          </div>
+
+          <div class="md:col-span-2 xl:col-span-3">
+            <label class="mb-1 block text-sm font-medium text-gray-700">Description</label>
+            <textarea
+              v-model="createForm.description"
+              rows="4"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              placeholder="Short operational context, acceptance note, or expected result"
+            ></textarea>
+          </div>
+
+          <div class="md:col-span-2 xl:col-span-3">
+            <FormInput
+              v-model="createForm.tags"
+              label="Tags"
+              placeholder="comma separated, for example shipping, delay, courier"
+            />
+          </div>
+        </div>
+      </FormModal>
+
+      <FormModal
+        :show="isSprintModalOpen"
+        :title="
+          sprintModalMode === 'create'
+            ? currentSpace
+              ? `Create Sprint in ${currentSpace.key}`
+              : 'Create Sprint'
+            : 'Edit Sprint'
+        "
+        size="lg"
+        @close="closeSprintModal"
+        @submit="submitSprintForm"
+      >
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="md:col-span-2">
+            <FormInput
+              v-model="sprintForm.name"
+              label="Sprint name"
+              placeholder="Example: Sprint 26"
+              :error="sprintFormErrors.name"
+            />
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-gray-700">Goal</label>
+            <textarea
+              v-model="sprintForm.goal"
+              rows="3"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              placeholder="Sprint objective for this business cycle"
+            ></textarea>
+          </div>
+
+          <FormInput
+            v-model="sprintForm.startDate"
+            label="Start date"
+            type="date"
+            :error="sprintFormErrors.startDate"
+          />
+          <FormInput
+            v-model="sprintForm.endDate"
+            label="End date"
+            type="date"
+            :error="sprintFormErrors.endDate"
+          />
+
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-700">Capacity</label>
+            <input
+              v-model.number="sprintForm.capacity"
+              type="number"
+              min="1"
+              class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              :class="
+                sprintFormErrors.capacity
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                  : 'border-gray-300'
+              "
+            />
+            <p v-if="sprintFormErrors.capacity" class="mt-1 text-sm text-red-600">
+              {{ sprintFormErrors.capacity }}
+            </p>
+          </div>
+
+          <FormSelect
+            v-model="sprintForm.status"
+            label="Sprint status"
+            :options="sprintStatusOptions"
+          />
+
+          <div class="md:col-span-2">
+            <FormInput
+              v-model="sprintForm.focus"
+              label="Focus areas"
+              placeholder="comma separated, for example dispatch, inventory, qa"
+            />
+            <p class="mt-1 text-xs text-slate-500">
+              Setting a sprint to active will move the current active sprint back to planned.
+            </p>
+          </div>
+        </div>
+      </FormModal>
+
+      <ConfirmModal
+        :show="Boolean(deleteSpaceSummary)"
+        title="Delete Space"
+        :message="
+          deleteSpaceSummary
+            ? `Delete ${deleteSpaceSummary.name}? This will remove ${deleteSpaceSummary.issueCount} issues and ${deleteSpaceSummary.sprintCount} sprints in this space.`
+            : ''
+        "
+        confirm-text="Delete space"
+        cancel-text="Cancel"
+        variant="danger"
+        @confirm="confirmDeleteSpace"
+        @cancel="closeDeleteSpacePrompt"
+      />
+
+      <BaseModal
+        :show="Boolean(selectedTask)"
+        title="Issue Details"
+        size="xl"
+        @close="closeTaskDetails"
+      >
+        <div v-if="selectedTask" class="space-y-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                  :class="issueTypeClassMap[selectedTask.issueType]"
+                >
+                  {{ getIssueTypeLabel(selectedTask.issueType) }}
+                </span>
+                <span
+                  class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                  :class="priorityClassMap[selectedTask.priority]"
+                >
+                  {{ selectedTask.priority }}
+                </span>
+                <span
+                  class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                  :class="departmentClassMap[selectedTask.department]"
+                >
+                  {{ getDepartmentLabel(selectedTask.department) }}
+                </span>
+              </div>
+
+              <h2 class="mt-3 text-2xl font-semibold text-slate-900">{{ selectedTask.title }}</h2>
+              <p class="mt-2 text-sm leading-6 text-slate-600">{{ selectedTask.description }}</p>
+
+              <div class="mt-4 flex flex-wrap gap-2">
+                <span
+                  v-for="tag in selectedTask.tags"
+                  :key="tag"
+                  class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                >
+                  #{{ tag }}
+                </span>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 lg:min-w-[240px]">
+              <p class="font-medium text-slate-900">Issue key</p>
+              <p class="mt-1">{{ selectedTask.id }}</p>
+              <p class="mt-3 font-medium text-slate-900">Space</p>
+              <p class="mt-1">{{ getSpaceName(selectedTask.spaceId) }}</p>
+              <p class="mt-3 font-medium text-slate-900">Sprint</p>
+              <p class="mt-1">{{ getSprintName(selectedTask.sprintId) }}</p>
+              <p class="mt-3 font-medium text-slate-900">Due</p>
+              <p class="mt-1">{{ getDueState(selectedTask).label }}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl border border-gray-200 p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Story points</p>
+              <p class="mt-2 text-xl font-semibold text-slate-900">{{ selectedTask.storyPoints }}</p>
+              <p class="mt-1 text-sm text-slate-600">Sprint effort estimate</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Status</p>
+              <p class="mt-2 text-xl font-semibold text-slate-900">
+                {{ getStatusLabel(selectedTask.status) }}
+              </p>
+              <p class="mt-1 text-sm text-slate-600">Current workflow position</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Orders affected</p>
+              <p class="mt-2 text-xl font-semibold text-slate-900">
+                {{ selectedTask.ordersAffected }}
+              </p>
+              <p class="mt-1 text-sm text-slate-600">Customer or order flow touched</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 p-4">
+              <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Revenue at risk</p>
+              <p class="mt-2 text-xl font-semibold text-slate-900">
+                {{ formatCurrency(selectedTask.revenueAtRisk) }}
+              </p>
+              <p class="mt-1 text-sm text-slate-600">Potential impact if delayed</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <div class="rounded-2xl border border-gray-200 p-5">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-slate-900">Execution progress</h3>
+                <span class="text-sm font-medium text-slate-500">
+                  {{ selectedTask.checklistDone }}/{{ selectedTask.checklistTotal }} complete
+                </span>
+              </div>
+
+              <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  class="h-full rounded-full bg-primary-600"
+                  :style="{ width: `${getChecklistPercent(selectedTask)}%` }"
+                ></div>
+              </div>
+
+              <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div class="rounded-2xl bg-slate-50 p-4">
+                  <p class="text-sm font-medium text-slate-900">Reference</p>
+                  <p class="mt-1 text-sm text-slate-600">{{ selectedTask.referenceLabel }}</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-900">
+                    {{ selectedTask.referenceValue }}
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                  <p class="text-sm font-medium text-slate-900">Assignee</p>
+                  <p class="mt-1 text-sm text-slate-600">{{ selectedTask.assignee }}</p>
+                  <p class="mt-2 text-sm font-medium text-slate-900">
+                    {{ selectedTask.blocked ? 'Blocked' : 'Clear to proceed' }}
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                  <p class="text-sm font-medium text-slate-900">Created</p>
+                  <p class="mt-1 text-sm text-slate-600">{{ formatDate(selectedTask.createdAt) }}</p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4">
+                  <p class="text-sm font-medium text-slate-900">Completed</p>
+                  <p class="mt-1 text-sm text-slate-600">
+                    {{
+                      selectedTask.completedAt
+                        ? formatDate(selectedTask.completedAt)
+                        : 'Not completed yet'
+                    }}
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      <section
-        v-else
-        class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm"
-      >
-        <h2 class="text-lg font-semibold text-slate-900">No active sprint</h2>
-        <p class="mt-2 text-sm text-slate-500">
-          Plan issues in backlog first, then activate a sprint to populate the board.
-        </p>
-        <button
-          class="mt-5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-          @click="openCreateSprintModal"
-        >
-          Create sprint
-        </button>
-      </section>
-    </template>
-
-    <section v-else class="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-      <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Unscheduled backlog</p>
-            <h2 class="mt-2 text-xl font-semibold text-slate-900">Issues ready for planning</h2>
-            <p class="mt-1 text-sm text-slate-500">
-              These issues are not committed to any sprint yet.
-            </p>
-          </div>
-          <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-            {{ unscheduledBacklogTasks.length }}
-          </span>
-        </div>
-
-        <div class="mt-5 space-y-4">
-          <article
-            v-for="task in unscheduledBacklogTasks"
-            :key="task.id"
-            class="rounded-2xl border border-slate-200 p-4"
-          >
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                    :class="issueTypeClassMap[task.issueType]"
-                  >
-                    {{ getIssueTypeLabel(task.issueType) }}
-                  </span>
-                  <span
-                    class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                    :class="priorityClassMap[task.priority]"
-                  >
-                    {{ task.priority }}
-                  </span>
-                  <span
-                    class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                    :class="departmentClassMap[task.department]"
-                  >
-                    {{ getDepartmentLabel(task.department) }}
-                  </span>
-                </div>
-
-                <div class="mt-3 flex items-start justify-between gap-3">
-                  <div>
-                    <h3 class="text-sm font-semibold text-slate-900">{{ task.title }}</h3>
-                    <p class="mt-2 text-xs leading-5 text-slate-600">{{ task.description }}</p>
-                  </div>
-                  <div class="text-right text-[11px] text-slate-500">
-                    <p class="font-semibold">{{ task.id }}</p>
-                    <p class="mt-1">{{ task.storyPoints }} pts</p>
-                  </div>
-                </div>
-
-                <div class="mt-4 flex flex-wrap gap-2">
-                  <span
-                    class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                  >
-                    {{ task.assignee }}
-                  </span>
-                  <span
-                    class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                  >
-                    {{ task.referenceLabel }}: {{ task.referenceValue }}
-                  </span>
-                  <span
-                    v-for="tag in task.tags"
-                    :key="tag"
-                    class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                  >
-                    #{{ tag }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="lg:w-[250px]">
-                <div class="grid grid-cols-2 gap-3 text-xs">
-                  <div class="rounded-xl bg-slate-50 p-3">
-                    <p class="text-slate-500">Due</p>
-                    <p class="mt-1 font-semibold text-slate-900">{{ formatDate(task.dueDate) }}</p>
-                  </div>
-                  <div class="rounded-xl bg-slate-50 p-3">
-                    <p class="text-slate-500">Risk</p>
-                    <p class="mt-1 font-semibold text-slate-900">
-                      {{ formatCurrency(task.revenueAtRisk) }}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="mt-3">
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Plan into sprint</label>
+            <div class="rounded-2xl border border-gray-200 p-5">
+              <h3 class="text-lg font-semibold text-slate-900">Planning & workflow</h3>
+              <div class="mt-4 space-y-4">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700">Sprint</label>
                   <select
-                    :value="task.sprintId || ''"
+                    :value="selectedTask.sprintId || ''"
                     class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                    @change="moveTaskToSprint(task.id, $event)"
+                    @change="moveSelectedTaskToSprint"
                   >
                     <option
                       v-for="option in planningOptions"
@@ -1572,704 +2216,62 @@ function submitSpaceForm() {
                   </select>
                 </div>
 
-                <button
-                  class="mt-3 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                  @click="openTaskDetails(task.id)"
-                >
-                  View details
-                </button>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700">Workflow status</label>
+                  <select
+                    v-if="selectedTask.sprintId"
+                    :value="selectedTask.status"
+                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+                    @change="moveSelectedTask"
+                  >
+                    <option
+                      v-for="option in boardStatusOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                  <div
+                    v-else
+                    class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600"
+                  >
+                    Backlog issues do not appear on the board until they are assigned to a sprint.
+                  </div>
+                </div>
+
+                <div class="rounded-2xl bg-slate-50 p-4">
+                  <p class="text-sm font-medium text-slate-900">Planning rule</p>
+                  <p class="mt-1 text-sm leading-6 text-slate-600">
+                    Keep new work in backlog until it is committed. Only active sprint work should
+                    move across the board.
+                  </p>
+                </div>
               </div>
             </div>
-          </article>
-
-          <div
-            v-if="unscheduledBacklogTasks.length === 0"
-            class="rounded-2xl border border-dashed border-gray-300 bg-slate-50 px-4 py-10 text-center text-sm text-gray-500"
-          >
-            No unscheduled backlog issues match the current filter.
           </div>
         </div>
-      </div>
 
-      <div class="space-y-6">
-        <section
-          v-for="sprint in plannedSprintGroups"
-          :key="sprint.id"
-          class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
-        >
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span
-                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
-                  :class="sprintStateClassMap[sprint.status]"
-                >
-                  {{ sprint.status }}
-                </span>
-                <span
-                  class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
-                >
-                  {{ formatSprintRange(sprint) }}
-                </span>
-                <button
-                  class="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-                  @click="openEditSprintModal(sprint)"
-                >
-                  Edit sprint
-                </button>
-              </div>
-              <h3 class="mt-3 text-lg font-semibold text-slate-900">{{ sprint.name }}</h3>
-              <p class="mt-2 text-sm leading-6 text-slate-600">{{ sprint.goal }}</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 sm:w-[220px]">
-              <div class="rounded-xl bg-slate-50 p-3">
-                <p class="text-xs uppercase tracking-[0.16em] text-slate-500">Issues</p>
-                <p class="mt-1 text-lg font-semibold text-slate-900">{{ sprint.tasks.length }}</p>
-              </div>
-              <div class="rounded-xl bg-slate-50 p-3">
-                <p class="text-xs uppercase tracking-[0.16em] text-slate-500">Points</p>
-                <p class="mt-1 text-lg font-semibold text-slate-900">
-                  {{ getSprintTaskPoints(sprint.tasks) }}/{{ sprint.capacity }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-4 flex flex-wrap gap-2">
-            <span
-              v-for="focus in sprint.focus"
-              :key="focus"
-              class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
+        <template #footer>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              v-if="selectedTask && selectedTask.status !== 'done'"
+              class="rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
+              @click="toggleSelectedTaskBlocked"
             >
-              {{ focus }}
-            </span>
-          </div>
-
-          <div class="mt-5 space-y-3">
-            <article
-              v-for="task in sprint.tasks"
-              :key="task.id"
-              class="rounded-2xl border border-slate-200 p-4"
-            >
-              <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap gap-2">
-                    <span
-                      class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                      :class="issueTypeClassMap[task.issueType]"
-                    >
-                      {{ getIssueTypeLabel(task.issueType) }}
-                    </span>
-                    <span
-                      class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                      :class="priorityClassMap[task.priority]"
-                    >
-                      {{ task.priority }}
-                    </span>
-                    <span
-                      class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                    >
-                      {{ task.storyPoints }} pts
-                    </span>
-                  </div>
-
-                  <div class="mt-3 flex items-start justify-between gap-3">
-                    <div>
-                      <h4 class="text-sm font-semibold text-slate-900">{{ task.title }}</h4>
-                      <p class="mt-2 text-xs leading-5 text-slate-600">{{ task.description }}</p>
-                    </div>
-                    <div class="text-right text-[11px] text-slate-500">
-                      <p class="font-semibold">{{ task.id }}</p>
-                      <p class="mt-1">{{ getStatusLabel(task.status) }}</p>
-                    </div>
-                  </div>
-
-                  <div class="mt-4 flex flex-wrap gap-2">
-                    <span
-                      class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                      :class="departmentClassMap[task.department]"
-                    >
-                      {{ getDepartmentLabel(task.department) }}
-                    </span>
-                    <span
-                      class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                    >
-                      {{ task.assignee }}
-                    </span>
-                  </div>
-                </div>
-
-                <div class="sm:w-[240px]">
-                  <div class="grid grid-cols-2 gap-3 text-xs">
-                    <div class="rounded-xl bg-slate-50 p-3">
-                      <p class="text-slate-500">Due</p>
-                      <p class="mt-1 font-semibold text-slate-900">{{ formatDate(task.dueDate) }}</p>
-                    </div>
-                    <div class="rounded-xl bg-slate-50 p-3">
-                      <p class="text-slate-500">Risk</p>
-                      <p class="mt-1 font-semibold text-slate-900">
-                        {{ formatCurrency(task.revenueAtRisk) }}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div class="mt-3">
-                    <label class="mb-1 block text-sm font-medium text-slate-700">Re-plan issue</label>
-                    <select
-                      :value="task.sprintId || ''"
-                      class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                      @change="moveTaskToSprint(task.id, $event)"
-                    >
-                      <option
-                        v-for="option in planningOptions"
-                        :key="option.value || 'backlog'"
-                        :value="option.value"
-                      >
-                        {{ option.label }}
-                      </option>
-                    </select>
-                  </div>
-
-                  <button
-                    class="mt-3 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                    @click="openTaskDetails(task.id)"
-                  >
-                    View details
-                  </button>
-                </div>
-              </div>
-            </article>
-
-            <div
-              v-if="sprint.tasks.length === 0"
-              class="rounded-2xl border border-dashed border-gray-300 bg-slate-50 px-4 py-8 text-center text-sm text-gray-500"
-            >
-              No issues are planned into this sprint for the current filter.
-            </div>
-          </div>
-        </section>
-
-        <section
-          v-if="lastCompletedSprint && lastCompletedSprintMetrics"
-          class="rounded-2xl bg-slate-900 p-5 text-white shadow-sm"
-        >
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p class="text-xs uppercase tracking-[0.18em] text-white/60">Last completed sprint</p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <span class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80">
-                  {{ lastCompletedSprint.name }}
-                </span>
-                <span class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80">
-                  {{ formatSprintRange(lastCompletedSprint) }}
-                </span>
-              </div>
-            </div>
+              {{ selectedTask?.blocked ? 'Mark As Clear' : 'Mark As Blocked' }}
+            </button>
+            <span v-else class="text-sm text-gray-400">Completed issues cannot be blocked.</span>
 
             <button
-              class="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-white/80 transition hover:bg-white/10"
-              @click="openEditSprintModal(lastCompletedSprint)"
+              class="rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-800"
+              @click="closeTaskDetails"
             >
-              Edit sprint
+              Close
             </button>
           </div>
-          <p class="mt-3 text-sm leading-6 text-white/75">{{ lastCompletedSprint.goal }}</p>
-
-          <div class="mt-4 grid grid-cols-3 gap-3">
-            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p class="text-xs uppercase tracking-[0.16em] text-white/60">Issues</p>
-              <p class="mt-1 text-xl font-semibold">{{ lastCompletedSprintMetrics.issues }}</p>
-            </div>
-            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p class="text-xs uppercase tracking-[0.16em] text-white/60">Delivered</p>
-              <p class="mt-1 text-xl font-semibold">
-                {{ lastCompletedSprintMetrics.deliveredPoints }} pts
-              </p>
-            </div>
-            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p class="text-xs uppercase tracking-[0.16em] text-white/60">Capacity</p>
-              <p class="mt-1 text-xl font-semibold">{{ lastCompletedSprint.capacity }}</p>
-            </div>
-          </div>
-        </section>
-      </div>
-      </section>
+        </template>
+      </BaseModal>
     </div>
-
-    <FormModal
-      :show="isSpaceModalOpen"
-      :title="spaceModalMode === 'create' ? 'Create Space' : 'Edit Space'"
-      size="lg"
-      @close="closeSpaceModal"
-      @submit="submitSpaceForm"
-    >
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <FormInput
-          v-model="spaceForm.key"
-          label="Space key"
-          placeholder="Example: OPS"
-          :error="spaceFormErrors.key"
-        />
-        <FormInput
-          v-model="spaceForm.lead"
-          label="Space lead"
-          placeholder="Name of owner"
-          :error="spaceFormErrors.lead"
-        />
-
-        <div class="md:col-span-2">
-          <FormInput
-            v-model="spaceForm.name"
-            label="Space name"
-            placeholder="Example: Operations Command"
-            :error="spaceFormErrors.name"
-          />
-        </div>
-
-        <div class="md:col-span-2">
-          <label class="mb-1 block text-sm font-medium text-gray-700">Description</label>
-          <textarea
-            v-model="spaceForm.description"
-            rows="4"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            placeholder="Describe the business domain and what this space owns"
-          ></textarea>
-          <p class="mt-1 text-xs text-slate-500">
-            Use a short uppercase key like Jira. Existing tasks, backlog, and sprints stay scoped
-            to this space.
-          </p>
-        </div>
-      </div>
-    </FormModal>
-
-    <FormModal
-      :show="isCreateModalOpen"
-      :title="currentSpace ? `Create Issue in ${currentSpace.key}` : 'Create Issue'"
-      size="xl"
-      @close="closeCreateModal"
-      @submit="submitCreateTask"
-    >
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <div class="md:col-span-2 xl:col-span-3">
-          <FormInput
-            v-model="createForm.title"
-            label="Issue title"
-            placeholder="Example: Review failed COD confirmations"
-            :error="formErrors.title"
-          />
-        </div>
-
-        <FormSelect
-          v-model="createForm.issueType"
-          label="Issue type"
-          :options="issueTypeOptions"
-        />
-        <FormSelect
-          v-model="createForm.department"
-          label="Team"
-          :options="departmentOptions"
-        />
-        <FormSelect
-          v-model="createForm.priority"
-          label="Priority"
-          :options="priorityOptions"
-        />
-
-        <FormInput
-          v-model="createForm.assignee"
-          label="Assignee"
-          placeholder="Name of owner"
-          :error="formErrors.assignee"
-        />
-        <FormInput
-          v-model="createForm.dueDate"
-          label="Due date"
-          type="date"
-          :error="formErrors.dueDate"
-        />
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700">Sprint placement</label>
-          <select
-            v-model="createForm.sprintId"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-          >
-            <option
-              v-for="option in planningOptions"
-              :key="option.value || 'backlog'"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-        </div>
-
-        <FormSelect
-          v-model="createForm.status"
-          label="Initial workflow status"
-          :options="createStatusOptions"
-        />
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700">Story points</label>
-          <input
-            v-model.number="createForm.storyPoints"
-            type="number"
-            min="1"
-            class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            :class="
-              formErrors.storyPoints
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                : 'border-gray-300'
-            "
-          />
-          <p v-if="formErrors.storyPoints" class="mt-1 text-sm text-red-600">
-            {{ formErrors.storyPoints }}
-          </p>
-        </div>
-
-        <FormInput
-          v-model="createForm.referenceLabel"
-          label="Reference label"
-          placeholder="Order batch, SKU, Campaign..."
-        />
-
-        <div class="md:col-span-2 xl:col-span-3">
-          <FormInput
-            v-model="createForm.referenceValue"
-            label="Reference value"
-            placeholder="Example: ORD-2026-211 or Ramadan hero refresh"
-          />
-        </div>
-
-        <div class="md:col-span-2 xl:col-span-3">
-          <label class="mb-1 block text-sm font-medium text-gray-700">Description</label>
-          <textarea
-            v-model="createForm.description"
-            rows="4"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            placeholder="Short operational context, acceptance note, or expected result"
-          ></textarea>
-        </div>
-
-        <div class="md:col-span-2 xl:col-span-3">
-          <FormInput
-            v-model="createForm.tags"
-            label="Tags"
-            placeholder="comma separated, for example shipping, delay, courier"
-          />
-        </div>
-      </div>
-    </FormModal>
-
-    <FormModal
-      :show="isSprintModalOpen"
-      :title="
-        sprintModalMode === 'create'
-          ? currentSpace
-            ? `Create Sprint in ${currentSpace.key}`
-            : 'Create Sprint'
-          : 'Edit Sprint'
-      "
-      size="lg"
-      @close="closeSprintModal"
-      @submit="submitSprintForm"
-    >
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div class="md:col-span-2">
-          <FormInput
-            v-model="sprintForm.name"
-            label="Sprint name"
-            placeholder="Example: Sprint 26"
-            :error="sprintFormErrors.name"
-          />
-        </div>
-
-        <div class="md:col-span-2">
-          <label class="mb-1 block text-sm font-medium text-gray-700">Goal</label>
-          <textarea
-            v-model="sprintForm.goal"
-            rows="3"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            placeholder="Sprint objective for this business cycle"
-          ></textarea>
-        </div>
-
-        <FormInput
-          v-model="sprintForm.startDate"
-          label="Start date"
-          type="date"
-          :error="sprintFormErrors.startDate"
-        />
-        <FormInput
-          v-model="sprintForm.endDate"
-          label="End date"
-          type="date"
-          :error="sprintFormErrors.endDate"
-        />
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700">Capacity</label>
-          <input
-            v-model.number="sprintForm.capacity"
-            type="number"
-            min="1"
-            class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            :class="
-              sprintFormErrors.capacity
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                : 'border-gray-300'
-            "
-          />
-          <p v-if="sprintFormErrors.capacity" class="mt-1 text-sm text-red-600">
-            {{ sprintFormErrors.capacity }}
-          </p>
-        </div>
-
-        <FormSelect
-          v-model="sprintForm.status"
-          label="Sprint status"
-          :options="sprintStatusOptions"
-        />
-
-        <div class="md:col-span-2">
-          <FormInput
-            v-model="sprintForm.focus"
-            label="Focus areas"
-            placeholder="comma separated, for example dispatch, inventory, qa"
-          />
-          <p class="mt-1 text-xs text-slate-500">
-            Setting a sprint to active will move the current active sprint back to planned.
-          </p>
-        </div>
-      </div>
-    </FormModal>
-
-    <ConfirmModal
-      :show="Boolean(deleteSpaceSummary)"
-      title="Delete Space"
-      :message="
-        deleteSpaceSummary
-          ? `Delete ${deleteSpaceSummary.name}? This will remove ${deleteSpaceSummary.issueCount} issues and ${deleteSpaceSummary.sprintCount} sprints in this space.`
-          : ''
-      "
-      confirm-text="Delete space"
-      cancel-text="Cancel"
-      variant="danger"
-      @confirm="confirmDeleteSpace"
-      @cancel="closeDeleteSpacePrompt"
-    />
-
-    <BaseModal
-      :show="Boolean(selectedTask)"
-      title="Issue Details"
-      size="xl"
-      @close="closeTaskDetails"
-    >
-      <div v-if="selectedTask" class="space-y-6">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div class="flex flex-wrap gap-2">
-              <span
-                class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                :class="issueTypeClassMap[selectedTask.issueType]"
-              >
-                {{ getIssueTypeLabel(selectedTask.issueType) }}
-              </span>
-              <span
-                class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                :class="priorityClassMap[selectedTask.priority]"
-              >
-                {{ selectedTask.priority }}
-              </span>
-              <span
-                class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                :class="departmentClassMap[selectedTask.department]"
-              >
-                {{ getDepartmentLabel(selectedTask.department) }}
-              </span>
-            </div>
-
-            <h2 class="mt-3 text-2xl font-semibold text-slate-900">{{ selectedTask.title }}</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-600">{{ selectedTask.description }}</p>
-
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span
-                v-for="tag in selectedTask.tags"
-                :key="tag"
-                class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-              >
-                #{{ tag }}
-              </span>
-            </div>
-          </div>
-
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 lg:min-w-[240px]">
-            <p class="font-medium text-slate-900">Issue key</p>
-            <p class="mt-1">{{ selectedTask.id }}</p>
-            <p class="mt-3 font-medium text-slate-900">Space</p>
-            <p class="mt-1">{{ getSpaceName(selectedTask.spaceId) }}</p>
-            <p class="mt-3 font-medium text-slate-900">Sprint</p>
-            <p class="mt-1">{{ getSprintName(selectedTask.sprintId) }}</p>
-            <p class="mt-3 font-medium text-slate-900">Due</p>
-            <p class="mt-1">{{ getDueState(selectedTask).label }}</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div class="rounded-2xl border border-gray-200 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Story points</p>
-            <p class="mt-2 text-xl font-semibold text-slate-900">{{ selectedTask.storyPoints }}</p>
-            <p class="mt-1 text-sm text-slate-600">Sprint effort estimate</p>
-          </div>
-          <div class="rounded-2xl border border-gray-200 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Status</p>
-            <p class="mt-2 text-xl font-semibold text-slate-900">
-              {{ getStatusLabel(selectedTask.status) }}
-            </p>
-            <p class="mt-1 text-sm text-slate-600">Current workflow position</p>
-          </div>
-          <div class="rounded-2xl border border-gray-200 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Orders affected</p>
-            <p class="mt-2 text-xl font-semibold text-slate-900">
-              {{ selectedTask.ordersAffected }}
-            </p>
-            <p class="mt-1 text-sm text-slate-600">Customer or order flow touched</p>
-          </div>
-          <div class="rounded-2xl border border-gray-200 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-gray-400">Revenue at risk</p>
-            <p class="mt-2 text-xl font-semibold text-slate-900">
-              {{ formatCurrency(selectedTask.revenueAtRisk) }}
-            </p>
-            <p class="mt-1 text-sm text-slate-600">Potential impact if delayed</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div class="rounded-2xl border border-gray-200 p-5">
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-slate-900">Execution progress</h3>
-              <span class="text-sm font-medium text-slate-500">
-                {{ selectedTask.checklistDone }}/{{ selectedTask.checklistTotal }} complete
-              </span>
-            </div>
-
-            <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
-              <div
-                class="h-full rounded-full bg-primary-600"
-                :style="{ width: `${getChecklistPercent(selectedTask)}%` }"
-              ></div>
-            </div>
-
-            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div class="rounded-2xl bg-slate-50 p-4">
-                <p class="text-sm font-medium text-slate-900">Reference</p>
-                <p class="mt-1 text-sm text-slate-600">{{ selectedTask.referenceLabel }}</p>
-                <p class="mt-1 text-sm font-semibold text-slate-900">
-                  {{ selectedTask.referenceValue }}
-                </p>
-              </div>
-              <div class="rounded-2xl bg-slate-50 p-4">
-                <p class="text-sm font-medium text-slate-900">Assignee</p>
-                <p class="mt-1 text-sm text-slate-600">{{ selectedTask.assignee }}</p>
-                <p class="mt-2 text-sm font-medium text-slate-900">
-                  {{ selectedTask.blocked ? 'Blocked' : 'Clear to proceed' }}
-                </p>
-              </div>
-              <div class="rounded-2xl bg-slate-50 p-4">
-                <p class="text-sm font-medium text-slate-900">Created</p>
-                <p class="mt-1 text-sm text-slate-600">{{ formatDate(selectedTask.createdAt) }}</p>
-              </div>
-              <div class="rounded-2xl bg-slate-50 p-4">
-                <p class="text-sm font-medium text-slate-900">Completed</p>
-                <p class="mt-1 text-sm text-slate-600">
-                  {{
-                    selectedTask.completedAt
-                      ? formatDate(selectedTask.completedAt)
-                      : 'Not completed yet'
-                  }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded-2xl border border-gray-200 p-5">
-            <h3 class="text-lg font-semibold text-slate-900">Planning & workflow</h3>
-            <div class="mt-4 space-y-4">
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Sprint</label>
-                <select
-                  :value="selectedTask.sprintId || ''"
-                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                  @change="moveSelectedTaskToSprint"
-                >
-                  <option
-                    v-for="option in planningOptions"
-                    :key="option.value || 'backlog'"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Workflow status</label>
-                <select
-                  v-if="selectedTask.sprintId"
-                  :value="selectedTask.status"
-                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-                  @change="moveSelectedTask"
-                >
-                  <option
-                    v-for="option in boardStatusOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-                <div
-                  v-else
-                  class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600"
-                >
-                  Backlog issues do not appear on the board until they are assigned to a sprint.
-                </div>
-              </div>
-
-              <div class="rounded-2xl bg-slate-50 p-4">
-                <p class="text-sm font-medium text-slate-900">Planning rule</p>
-                <p class="mt-1 text-sm leading-6 text-slate-600">
-                  Keep new work in backlog until it is committed. Only active sprint work should
-                  move across the board.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            v-if="selectedTask && selectedTask.status !== 'done'"
-            class="rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50"
-            @click="toggleSelectedTaskBlocked"
-          >
-            {{ selectedTask?.blocked ? 'Mark As Clear' : 'Mark As Blocked' }}
-          </button>
-          <span v-else class="text-sm text-gray-400">Completed issues cannot be blocked.</span>
-
-          <button
-            class="rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-800"
-            @click="closeTaskDetails"
-          >
-            Close
-          </button>
-        </div>
-      </template>
-    </BaseModal>
-  </div>
   </div>
 </template>

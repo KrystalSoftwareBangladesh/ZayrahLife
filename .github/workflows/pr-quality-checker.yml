@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Lint
+      - name: Lint (fail on warnings)
         run: pnpm lint
 
       - name: Type Check
