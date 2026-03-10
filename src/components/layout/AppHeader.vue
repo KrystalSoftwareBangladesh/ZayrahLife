@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const cartStore = useCartStore()
 const authStore = useAuthStore()
@@ -51,6 +52,8 @@ const logout = () => {
         </nav>
         
         <div class="flex items-center gap-4">
+          <ThemeToggle />
+
           <RouterLink
             to="/cart"
             class="relative p-2 text-gray-600 hover:text-primary-700 transition-colors"

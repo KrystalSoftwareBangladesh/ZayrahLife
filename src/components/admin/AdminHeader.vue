@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/admin/adminAuth'
 import Calculator from './Calculator.vue'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const router = useRouter()
 const adminAuth = useAdminAuthStore()
@@ -24,6 +25,8 @@ const logout = () => {
       </div>
       
       <div class="flex items-center gap-4">
+        <ThemeToggle />
+
         <div class="relative">
           <button
             @click="showCalculator = !showCalculator"

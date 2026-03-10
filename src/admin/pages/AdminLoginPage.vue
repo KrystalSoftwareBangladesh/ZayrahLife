@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/admin/adminAuth'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const router = useRouter()
 const adminAuth = useAdminAuthStore()
@@ -44,6 +45,10 @@ const handleLogin = async () => {
 
 <template>
   <div class="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+    <div class="absolute top-4 right-4">
+      <ThemeToggle />
+    </div>
+
     <div class="max-w-md w-full">
       <div class="text-center mb-8">
         <img src="/logo.png" alt="ZayrahLife" class="h-16 mx-auto mb-4 brightness-200" />

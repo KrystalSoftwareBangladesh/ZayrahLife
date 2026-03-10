@@ -5,6 +5,33 @@
 :root {
   --color-primary: #16a34a;
   --color-primary-hover: #15803d;
+  --color-page: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-text-primary: #111827;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6b7280;
+  --color-text-quaternary: #9ca3af;
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.08);
+  --color-shadow-md: 0 14px 32px rgb(15 23 42 / 0.12);
+}
+
+html.dark {
+  --color-page: #0f172a;
+  --color-surface: #111827;
+  --color-surface-elevated: #1f2937;
+  --color-surface-muted: #1e293b;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-tertiary: #94a3b8;
+  --color-text-quaternary: #64748b;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-shadow-sm: 0 1px 2px rgb(2 6 23 / 0.45);
+  --color-shadow-md: 0 18px 40px rgb(2 6 23 / 0.45);
 }
 
 * {
@@ -16,11 +43,121 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   line-height: 1.6;
-  color: #1f2937;
+  color: var(--color-text-secondary);
+  background: var(--color-page);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input,
+select,
+textarea {
+  color: var(--color-text-primary);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-tertiary);
 }
 
 .container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem;
+}
+
+.dark .bg-white {
+  background-color: var(--color-surface);
+}
+
+.dark .bg-white\/90 {
+  background-color: rgb(17 24 39 / 0.9);
+}
+
+.dark .bg-gray-50,
+.dark .bg-slate-50 {
+  background-color: var(--color-surface-muted);
+}
+
+.dark .bg-gray-100,
+.dark .bg-slate-100 {
+  background-color: var(--color-surface-elevated);
+}
+
+.dark .text-gray-900,
+.dark .text-slate-900 {
+  color: var(--color-text-primary);
+}
+
+.dark .text-gray-800 {
+  color: #e2e8f0;
+}
+
+.dark .text-gray-700,
+.dark .text-slate-700 {
+  color: #dbe4f0;
+}
+
+.dark .text-gray-600,
+.dark .text-slate-600 {
+  color: var(--color-text-secondary);
+}
+
+.dark .text-gray-500,
+.dark .text-slate-500 {
+  color: var(--color-text-tertiary);
+}
+
+.dark .text-gray-400 {
+  color: var(--color-text-quaternary);
+}
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-slate-200 {
+  border-color: var(--color-border);
+}
+
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--color-border);
+}
+
+.dark .shadow-sm,
+.dark .shadow {
+  box-shadow: var(--color-shadow-sm);
+}
+
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .hover\:shadow-md:hover,
+.dark .hover\:shadow-lg:hover {
+  box-shadow: var(--color-shadow-md);
+}
+
+.dark .hover\:bg-white:hover {
+  background-color: var(--color-surface);
+}
+
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-slate-50:hover {
+  background-color: #253247;
+}
+
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-slate-100:hover {
+  background-color: #334155;
+}
+
+.dark .hover\:text-gray-700:hover,
+.dark .hover\:text-gray-900:hover {
+  color: var(--color-text-primary);
 }
