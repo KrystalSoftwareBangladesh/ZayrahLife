@@ -33,7 +33,16 @@ type TransactionLineFormState = {
   credit_amount: string
 }
 
+type TransactionEntryType =
+  | 'INCOME'
+  | 'EXPENSE'
+  | 'ASSET_PURCHASE'
+  | 'LIABILITY_PAYMENT'
+  | 'EQUITY_FUNDING'
+  | 'CUSTOM'
+
 type TransactionFormState = {
+  transaction_type: TransactionEntryType
   transaction_date: string
   reference: string
   description: string
@@ -123,6 +132,62 @@ const accountStatusOptions = [
   { value: 'false', label: 'Inactive' }
 ]
 
+const transactionTypeOptions: { value: TransactionEntryType; label: string }[] = [
+  { value: 'INCOME', label: 'Add Income' },
+  { value: 'EXPENSE', label: 'Add Expense' },
+  { value: 'ASSET_PURCHASE', label: 'Add Asset' },
+  { value: 'LIABILITY_PAYMENT', label: 'Pay Liability' },
+  { value: 'EQUITY_FUNDING', label: 'Add Equity' },
+  { value: 'CUSTOM', label: 'Custom Journal' }
+]
+
+const transactionTypePresets: Record<
+  Exclude<TransactionEntryType, 'CUSTOM'>,
+  {
+    description: string
+    debitLabel: string
+    debitAccountTypes: AccountType[]
+    creditLabel: string
+    creditAccountTypes: AccountType[]
+  }
+> = {
+  INCOME: {
+    description: 'Debit an asset account and credit a revenue account.',
+    debitLabel: 'Asset Account',
+    debitAccountTypes: ['ASSET'],
+    creditLabel: 'Revenue Account',
+    creditAccountTypes: ['REVENUE']
+  },
+  EXPENSE: {
+    description: 'Debit an expense account and credit an asset account.',
+    debitLabel: 'Expense Account',
+    debitAccountTypes: ['EXPENSE'],
+    creditLabel: 'Asset Account',
+    creditAccountTypes: ['ASSET']
+  },
+  ASSET_PURCHASE: {
+    description: 'Debit an asset account and credit a liability account.',
+    debitLabel: 'Asset Account',
+    debitAccountTypes: ['ASSET'],
+    creditLabel: 'Liability Account',
+    creditAccountTypes: ['LIABILITY']
+  },
+  LIABILITY_PAYMENT: {
+    description: 'Debit a liability account and credit an asset account.',
+    debitLabel: 'Liability Account',
+    debitAccountTypes: ['LIABILITY'],
+    creditLabel: 'Asset Account',
+    creditAccountTypes: ['ASSET']
+  },
+  EQUITY_FUNDING: {
+    description: 'Debit an asset account and credit an equity account.',
+    debitLabel: 'Asset Account',
+    debitAccountTypes: ['ASSET'],
+    creditLabel: 'Equity Account',
+    creditAccountTypes: ['EQUITY']
+  }
+}
+
 const transactionStatusFilterOptions = computed(() => [
   { value: '', label: 'All statuses' },
   ...accountStore.transactionStatuses
@@ -195,6 +260,51 @@ const editingTransaction = computed(() =>
   accountStore.transactions.find(transaction => transaction.id === editingTransactionId.value) || null
 )
 
+const selectedTransactionPreset = computed(() =>
+  transactionForm.value.transaction_type === 'CUSTOM'
+    ? null
+    : transactionTypePresets[transactionForm.value.transaction_type]
+)
+
+const debitAccountOptions = computed(() => {
+  const preset = selectedTransactionPreset.value
+  if (!preset) return []
+
+  return accountStore.accountOptions
+    .filter(account => preset.debitAccountTypes.includes(account.account_type))
+    .map(account => ({
+      value: String(account.id),
+      label: `${account.code} - ${account.name}`
+    }))
+})
+
+const creditAccountOptions = computed(() => {
+  const preset = selectedTransactionPreset.value
+  if (!preset) return []
+
+  return accountStore.accountOptions
+    .filter(account => preset.creditAccountTypes.includes(account.account_type))
+    .map(account => ({
+      value: String(account.id),
+      label: `${account.code} - ${account.name}`
+    }))
+})
+
+const presetAmount = computed({
+  get: () => {
+    const [debitLine, creditLine] = transactionForm.value.lines
+    return debitLine?.debit_amount || creditLine?.credit_amount || ''
+  },
+  set: (value: string) => {
+    if (transactionForm.value.transaction_type === 'CUSTOM') return
+    ensurePresetLines(transactionForm.value.transaction_type)
+    transactionForm.value.lines[0].debit_amount = value
+    transactionForm.value.lines[0].credit_amount = ''
+    transactionForm.value.lines[1].debit_amount = ''
+    transactionForm.value.lines[1].credit_amount = value
+  }
+})
+
 const lineTotals = computed(() => {
   const debit = transactionForm.value.lines.reduce((sum, line) => sum + normalizeAmount(line.debit_amount), 0)
   const credit = transactionForm.value.lines.reduce((sum, line) => sum + normalizeAmount(line.credit_amount), 0)
@@ -256,11 +366,87 @@ function createEmptyTransactionLine(): TransactionLineFormState {
 
 function createEmptyTransactionForm(): TransactionFormState {
   return {
+    transaction_type: 'INCOME',
     transaction_date: new Date().toISOString().split('T')[0],
     reference: '',
     description: '',
-    lines: [createEmptyTransactionLine(), createEmptyTransactionLine()]
+    lines: createPresetLines()
   }
+}
+
+function createPresetLines(existingLines: TransactionLineFormState[] = []): TransactionLineFormState[] {
+  const debitLine = existingLines[0]
+  const creditLine = existingLines[1]
+  const amount = debitLine?.debit_amount || creditLine?.credit_amount || ''
+
+  return [
+    {
+      account_id: debitLine?.account_id || '',
+      description: debitLine?.description || '',
+      debit_amount: amount,
+      credit_amount: ''
+    },
+    {
+      account_id: creditLine?.account_id || '',
+      description: creditLine?.description || '',
+      debit_amount: '',
+      credit_amount: amount
+    }
+  ]
+}
+
+function isAllowedAccountType(accountId: string, allowedTypes: AccountType[]): boolean {
+  if (!accountId) return false
+  const account = accountStore.accountOptions.find(item => String(item.id) === accountId)
+  return !!account && allowedTypes.includes(account.account_type)
+}
+
+function ensurePresetLines(type: TransactionEntryType): void {
+  if (type === 'CUSTOM') {
+    if (!transactionForm.value.lines.length) {
+      transactionForm.value.lines = [createEmptyTransactionLine(), createEmptyTransactionLine()]
+    }
+    return
+  }
+
+  const preset = transactionTypePresets[type]
+  const nextLines = createPresetLines(transactionForm.value.lines)
+
+  if (!isAllowedAccountType(nextLines[0].account_id, preset.debitAccountTypes)) {
+    nextLines[0].account_id = ''
+  }
+
+  if (!isAllowedAccountType(nextLines[1].account_id, preset.creditAccountTypes)) {
+    nextLines[1].account_id = ''
+  }
+
+  transactionForm.value.lines = nextLines
+}
+
+function handleTransactionTypeChange(value: string): void {
+  const type = value as TransactionEntryType
+  transactionForm.value.transaction_type = type
+  ensurePresetLines(type)
+}
+
+function inferTransactionType(lines: AccountingTransactionDetail['lines']): TransactionEntryType {
+  if (lines.length !== 2) return 'CUSTOM'
+
+  const debitLine = lines.find(line => normalizeAmount(line.debit_amount) > 0 && normalizeAmount(line.credit_amount) === 0)
+  const creditLine = lines.find(line => normalizeAmount(line.credit_amount) > 0 && normalizeAmount(line.debit_amount) === 0)
+
+  if (!debitLine || !creditLine) return 'CUSTOM'
+
+  const debitType = debitLine.account.account_type
+  const creditType = creditLine.account.account_type
+
+  if (debitType === 'ASSET' && creditType === 'REVENUE') return 'INCOME'
+  if (debitType === 'EXPENSE' && creditType === 'ASSET') return 'EXPENSE'
+  if (debitType === 'ASSET' && creditType === 'LIABILITY') return 'ASSET_PURCHASE'
+  if (debitType === 'LIABILITY' && creditType === 'ASSET') return 'LIABILITY_PAYMENT'
+  if (debitType === 'ASSET' && creditType === 'EQUITY') return 'EQUITY_FUNDING'
+
+  return 'CUSTOM'
 }
 
 function normalizeParentId(parentName: string): number | null {
@@ -389,7 +575,10 @@ function populateTransactionForm(): void {
   const transaction = accountStore.currentTransaction
   if (!transaction) return
 
+  const transactionType = inferTransactionType(transaction.lines)
+
   transactionForm.value = {
+    transaction_type: transactionType,
     transaction_date: transaction.transaction_date,
     reference: transaction.reference || '',
     description: transaction.description || '',
@@ -400,8 +589,10 @@ function populateTransactionForm(): void {
           debit_amount: line.debit_amount && line.debit_amount !== '0.00' ? line.debit_amount : '',
           credit_amount: line.credit_amount && line.credit_amount !== '0.00' ? line.credit_amount : ''
         }))
-      : [createEmptyTransactionLine(), createEmptyTransactionLine()]
+      : createPresetLines()
   }
+
+  ensurePresetLines(transactionType)
 }
 
 async function openEditTransactionModal(transaction: AccountingTransactionList): Promise<void> {
@@ -959,7 +1150,13 @@ onMounted(() => {
       @submit="handleSaveTransaction"
     >
       <div class="space-y-5">
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <FormSelect
+            :model-value="transactionForm.transaction_type"
+            label="Transaction Type"
+            :options="transactionTypeOptions"
+            @update:model-value="handleTransactionTypeChange"
+          />
           <FormInput
             v-model="transactionForm.transaction_date"
             label="Transaction Date"
@@ -977,7 +1174,55 @@ onMounted(() => {
           />
         </div>
 
-        <div class="rounded-lg border border-gray-200 overflow-hidden">
+        <div
+          v-if="selectedTransactionPreset"
+          class="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4"
+        >
+          <div>
+            <p class="text-sm font-medium text-gray-900">{{ selectedTransactionPreset.description }}</p>
+            <p class="mt-1 text-xs text-gray-500">
+              This entry uses two COA selections only and auto-builds the matching debit and credit lines.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormSelect
+              v-model="transactionForm.lines[0].account_id"
+              :label="selectedTransactionPreset.debitLabel"
+              :options="debitAccountOptions"
+              placeholder="Select debit-side account"
+            />
+            <FormSelect
+              v-model="transactionForm.lines[1].account_id"
+              :label="selectedTransactionPreset.creditLabel"
+              :options="creditAccountOptions"
+              placeholder="Select credit-side account"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <FormInput
+              v-model="presetAmount"
+              label="Amount"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+            />
+            <FormInput
+              v-model="transactionForm.lines[0].description"
+              :label="`${selectedTransactionPreset.debitLabel} Note`"
+              placeholder="Optional line note"
+            />
+            <FormInput
+              v-model="transactionForm.lines[1].description"
+              :label="`${selectedTransactionPreset.creditLabel} Note`"
+              placeholder="Optional line note"
+            />
+          </div>
+        </div>
+
+        <div v-else class="rounded-lg border border-gray-200 overflow-hidden">
           <div class="grid grid-cols-[2fr,2fr,1.5fr,1.5fr,auto] gap-3 bg-gray-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <span>Account</span>
             <span>Description</span>
@@ -1041,6 +1286,7 @@ onMounted(() => {
 
         <div class="flex flex-wrap items-center justify-between gap-3">
           <button
+            v-if="!selectedTransactionPreset"
             type="button"
             class="px-4 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
             @click="addTransactionLine"
