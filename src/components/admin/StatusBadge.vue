@@ -20,6 +20,11 @@ const statusConfig: Record<string, { bg: string, text: string, label?: string }>
   CANCELLED: { bg: 'bg-red-100', text: 'text-red-800', label: 'Cancelled' },
   ACTIVE: { bg: 'bg-green-100', text: 'text-green-800', label: 'Active' },
   INACTIVE: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Inactive' },
+  ASSET: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: 'Asset' },
+  LIABILITY: { bg: 'bg-rose-100', text: 'text-rose-800', label: 'Liability' },
+  EQUITY: { bg: 'bg-violet-100', text: 'text-violet-800', label: 'Equity' },
+  REVENUE: { bg: 'bg-green-100', text: 'text-green-800', label: 'Revenue' },
+  EXPENSE: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Expense' },
   LOW: { bg: 'bg-red-100', text: 'text-red-800', label: 'Low Stock' },
   IN_STOCK: { bg: 'bg-green-100', text: 'text-green-800', label: 'In Stock' },
   OUT_OF_STOCK: { bg: 'bg-red-100', text: 'text-red-800', label: 'Out of Stock' },
@@ -27,7 +32,6 @@ const statusConfig: Record<string, { bg: string, text: string, label?: string }>
   RUNNING: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Running' },
   PAUSED: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Paused' },
   INCOME: { bg: 'bg-green-100', text: 'text-green-800', label: 'Income' },
-  EXPENSE: { bg: 'bg-red-100', text: 'text-red-800', label: 'Expense' },
   INVESTMENT: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Investment' }
 }
 
