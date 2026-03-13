@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { accountsApi } from '@/api/accounts'
 import { transactionsApi } from '@/api/transactions'
 import type {
+  AccountType,
   AccountingTransactionCreateRequest,
   AccountingTransactionDetail,
   AccountingTransactionList,
@@ -21,6 +22,39 @@ import type {
 function parseAmount(value: string | undefined): number {
   const parsed = Number.parseFloat(value || '0')
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function compareValues(a: string | boolean | null | undefined, b: string | boolean | null | undefined): number {
+  if (typeof a === 'boolean' && typeof b === 'boolean') return Number(a) - Number(b)
+  return String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' })
+}
+
+function sortAccounts(items: ChartOfAccountList[], ordering: string): ChartOfAccountList[] {
+  const isDescending = ordering.startsWith('-')
+  const field = isDescending ? ordering.slice(1) : ordering
+  const direction = isDescending ? -1 : 1
+
+  return [...items].sort((left, right) => {
+    let comparison = 0
+
+    switch (field) {
+      case 'name':
+        comparison = compareValues(left.name, right.name)
+        break
+      case 'account_type':
+        comparison = compareValues(left.account_type, right.account_type)
+        break
+      case 'is_active':
+        comparison = compareValues(left.is_active, right.is_active)
+        break
+      case 'code':
+      default:
+        comparison = compareValues(left.code, right.code)
+        break
+    }
+
+    return comparison * direction
+  })
 }
 
 export const useAccountStore = defineStore('adminAccounts', () => {
@@ -97,6 +131,73 @@ export const useAccountStore = defineStore('adminAccounts', () => {
         pageSize: params.page_size || pagination.value.pageSize,
         hasNext: !!response.next,
         hasPrevious: !!response.previous
+      }
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = apiError.message || 'Failed to fetch chart of accounts'
+      accounts.value = []
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchAccountsByTypes(
+    accountTypes: AccountType[],
+    params: Omit<ChartOfAccountListParams, 'account_type'> = {}
+  ): Promise<void> {
+    if (accountTypes.length <= 1) {
+      await fetchAccounts({
+        ...params,
+        account_type: accountTypes[0]
+      })
+      return
+    }
+
+    loading.value = true
+    error.value = null
+
+    try {
+      const page = params.page || pagination.value.page
+      const pageSize = params.page_size || pagination.value.pageSize
+      const ordering = params.ordering || 'code'
+      const mergedItems: ChartOfAccountList[] = []
+      const seenIds = new Set<number>()
+
+      for (const accountType of accountTypes) {
+        let nextPage = 1
+        let hasNext = true
+
+        while (hasNext && nextPage <= 20) {
+          const response = await accountsApi.list({
+            ...params,
+            page: nextPage,
+            page_size: 100,
+            ordering,
+            account_type: accountType
+          })
+
+          for (const account of response.results) {
+            if (seenIds.has(account.id)) continue
+            seenIds.add(account.id)
+            mergedItems.push(account)
+          }
+
+          hasNext = !!response.next
+          nextPage += 1
+        }
+      }
+
+      const orderedItems = sortAccounts(mergedItems, ordering)
+      const startIndex = (page - 1) * pageSize
+      const pagedItems = orderedItems.slice(startIndex, startIndex + pageSize)
+
+      accounts.value = pagedItems
+      pagination.value = {
+        count: orderedItems.length,
+        page,
+        pageSize,
+        hasNext: startIndex + pageSize < orderedItems.length,
+        hasPrevious: page > 1
       }
     } catch (err) {
       const apiError = err as ApiError
@@ -212,7 +313,27 @@ export const useAccountStore = defineStore('adminAccounts', () => {
         ...params
       })
 
-      transactions.value = response.results
+      const baseResults = response.results
+      const needsLineHydration = baseResults.some(transaction => !transaction.lines)
+      const hydratedResults = needsLineHydration
+        ? await Promise.all(
+            baseResults.map(async transaction => {
+              if (transaction.lines) return transaction
+
+              try {
+                const detail = await transactionsApi.getById(transaction.id)
+                return {
+                  ...transaction,
+                  lines: detail.lines
+                }
+              } catch {
+                return transaction
+              }
+            })
+          )
+        : baseResults
+
+      transactions.value = hydratedResults
       transactionPagination.value = {
         count: response.count,
         page: params.page || transactionPagination.value.page,
@@ -370,6 +491,7 @@ export const useAccountStore = defineStore('adminAccounts', () => {
     postedTransactions,
     typeBreakdown,
     fetchAccounts,
+    fetchAccountsByTypes,
     fetchAccountOptions,
     getAccountById,
     createAccount,

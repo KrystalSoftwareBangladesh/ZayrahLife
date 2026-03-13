@@ -1,12 +1,12 @@
 export const mockAccounts = [
-  { id: 1, name: 'Business Checking', code: 'INC-001', type: 'income', balance: 45620.50, currency: 'USD', description: 'Main business checking account' },
-  { id: 2, name: 'Marketing Budget', code: 'EXP-001', type: 'expense', balance: -8500.00, currency: 'USD', description: 'Marketing and advertising expenses' },
-  { id: 3, name: 'Inventory Investment', code: 'INV-001', type: 'investment', balance: 25000.00, currency: 'USD', description: 'Product inventory investments' },
-  { id: 4, name: 'Operating Expenses', code: 'EXP-002', type: 'expense', balance: -12340.00, currency: 'USD', description: 'Day-to-day operating costs' },
-  { id: 5, name: 'Sales Revenue', code: 'INC-002', type: 'income', balance: 78900.00, currency: 'USD', description: 'Revenue from product sales' },
-  { id: 6, name: 'Cash on Hand', code: 'AST-001', type: 'asset', balance: 15000.00, currency: 'USD', description: 'Petty cash and cash reserves' },
-  { id: 7, name: 'Accounts Payable', code: 'LIA-001', type: 'liability', balance: -5000.00, currency: 'USD', description: 'Outstanding supplier payments' },
-  { id: 8, name: 'Owner Equity', code: 'EQU-001', type: 'equity', balance: 100000.00, currency: 'USD', description: 'Owner investment in business' }
+  { id: 1, name: 'Business Checking', code: 'INC-001', type: 'income', balance: 45620.50, currency: 'BDT', description: 'Main business checking account' },
+  { id: 2, name: 'Marketing Budget', code: 'EXP-001', type: 'expense', balance: -8500.00, currency: 'BDT', description: 'Marketing and advertising expenses' },
+  { id: 3, name: 'Inventory Investment', code: 'INV-001', type: 'investment', balance: 25000.00, currency: 'BDT', description: 'Product inventory investments' },
+  { id: 4, name: 'Operating Expenses', code: 'EXP-002', type: 'expense', balance: -12340.00, currency: 'BDT', description: 'Day-to-day operating costs' },
+  { id: 5, name: 'Sales Revenue', code: 'INC-002', type: 'income', balance: 78900.00, currency: 'BDT', description: 'Revenue from product sales' },
+  { id: 6, name: 'Cash on Hand', code: 'AST-001', type: 'asset', balance: 15000.00, currency: 'BDT', description: 'Petty cash and cash reserves' },
+  { id: 7, name: 'Accounts Payable', code: 'LIA-001', type: 'liability', balance: -5000.00, currency: 'BDT', description: 'Outstanding supplier payments' },
+  { id: 8, name: 'Owner Equity', code: 'EQU-001', type: 'equity', balance: 100000.00, currency: 'BDT', description: 'Owner investment in business' }
 ]
 
 export const mockTransactions = [

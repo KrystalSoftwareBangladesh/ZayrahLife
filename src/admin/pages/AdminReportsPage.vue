@@ -116,7 +116,7 @@ onMounted(() => {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Revenue"
-          :value="`$${totalSales.toLocaleString()}`"
+          :value="`৳${totalSales.toLocaleString()}`"
           icon="dollar"
           color="green"
           change="+12.5%"
@@ -137,7 +137,7 @@ onMounted(() => {
         />
         <StatCard
           title="Inventory Value"
-          :value="`$${inventoryStore.inventoryValue.toLocaleString()}`"
+          :value="`৳${inventoryStore.inventoryValue.toLocaleString()}`"
           icon="box"
           color="yellow"
         />
@@ -162,7 +162,7 @@ onMounted(() => {
                 </div>
               </div>
               <span class="text-sm font-bold text-gray-900 min-w-[80px] text-right">
-                ${{ channel.revenue.toLocaleString() }}
+                ৳{{ channel.revenue.toLocaleString() }}
               </span>
             </div>
           </div>
@@ -215,8 +215,8 @@ onMounted(() => {
 
     <div v-if="activeTab === 'sales'" class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Sales" :value="`$${totalSales.toLocaleString()}`" icon="dollar" color="green" />
-        <StatCard title="Average Order" :value="`$${(totalSales / (orderStore.totalOrders || 1)).toFixed(2)}`" icon="chart" color="blue" />
+        <StatCard title="Total Sales" :value="`৳${totalSales.toLocaleString()}`" icon="dollar" color="green" />
+        <StatCard title="Average Order" :value="`৳${(totalSales / (orderStore.totalOrders || 1)).toFixed(2)}`" icon="chart" color="blue" />
         <StatCard title="Pending Orders" :value="orderStore.pendingOrders" icon="clock" color="yellow" />
         <StatCard title="Processing" :value="orderStore.processingOrders" icon="refresh" color="purple" />
       </div>
@@ -244,7 +244,7 @@ onMounted(() => {
                   </div>
                 </td>
                 <td class="px-4 py-3 text-right text-gray-600">{{ product.quantity }}</td>
-                <td class="px-4 py-3 text-right font-medium text-gray-900">${{ product.revenue.toLocaleString() }}</td>
+                <td class="px-4 py-3 text-right font-medium text-gray-900">৳{{ product.revenue.toLocaleString() }}</td>
                 <td class="px-4 py-3 text-right text-gray-600">{{ ((product.revenue / totalSales) * 100).toFixed(1) }}%</td>
               </tr>
             </tbody>
@@ -258,7 +258,7 @@ onMounted(() => {
         <StatCard title="Total Products" :value="inventoryStore.totalProducts" icon="box" color="blue" />
         <StatCard title="Total Stock" :value="inventoryStore.totalStockCount.toLocaleString()" icon="stack" color="green" />
         <StatCard title="Low Stock Items" :value="lowStockProducts.length" icon="alert" color="red" />
-        <StatCard title="Inventory Value" :value="`$${inventoryStore.inventoryValue.toLocaleString()}`" icon="dollar" color="purple" />
+        <StatCard title="Inventory Value" :value="`৳${inventoryStore.inventoryValue.toLocaleString()}`" icon="dollar" color="purple" />
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 p-6">
@@ -309,10 +309,10 @@ onMounted(() => {
 
     <div v-if="activeTab === 'financial'" class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Credits" :value="`$${accountStore.totalCredits.toLocaleString()}`" icon="trending-up" color="green" />
-        <StatCard title="Total Debits" :value="`$${accountStore.totalDebits.toLocaleString()}`" icon="trending-down" color="red" />
-        <StatCard title="Net Movement" :value="`$${accountStore.netMovement.toLocaleString()}`" icon="dollar" :color="accountStore.netMovement >= 0 ? 'green' : 'red'" />
-        <StatCard title="Gross Profit" :value="`$${grossProfit.toLocaleString()}`" icon="chart" color="blue" />
+        <StatCard title="Total Credits" :value="`৳${accountStore.totalCredits.toLocaleString()}`" icon="trending-up" color="green" />
+        <StatCard title="Total Debits" :value="`৳${accountStore.totalDebits.toLocaleString()}`" icon="trending-down" color="red" />
+        <StatCard title="Net Movement" :value="`৳${accountStore.netMovement.toLocaleString()}`" icon="dollar" :color="accountStore.netMovement >= 0 ? 'green' : 'red'" />
+        <StatCard title="Gross Profit" :value="`৳${grossProfit.toLocaleString()}`" icon="chart" color="blue" />
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -321,20 +321,20 @@ onMounted(() => {
           <div class="space-y-4">
             <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
               <span class="font-medium text-green-800">Total Revenue</span>
-              <span class="font-bold text-green-700">${{ totalSales.toLocaleString() }}</span>
+              <span class="font-bold text-green-700">৳{{ totalSales.toLocaleString() }}</span>
             </div>
             <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
               <span class="font-medium text-red-800">Cost of Goods</span>
-              <span class="font-bold text-red-700">-${{ (inventoryStore.inventoryValue * 0.4).toLocaleString() }}</span>
+              <span class="font-bold text-red-700">-৳{{ (inventoryStore.inventoryValue * 0.4).toLocaleString() }}</span>
             </div>
             <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
               <span class="font-medium text-red-800">Operating Expenses</span>
-              <span class="font-bold text-red-700">-${{ accountStore.totalDebits.toLocaleString() }}</span>
+              <span class="font-bold text-red-700">-৳{{ accountStore.totalDebits.toLocaleString() }}</span>
             </div>
             <div class="flex justify-between items-center p-3 bg-primary-50 rounded-lg border-2 border-primary-200">
               <span class="font-bold text-primary-800">Net Profit</span>
               <span class="font-bold text-primary-700 text-lg">
-                ${{ (totalSales - inventoryStore.inventoryValue * 0.4 - accountStore.totalDebits).toLocaleString() }}
+                ৳{{ (totalSales - inventoryStore.inventoryValue * 0.4 - accountStore.totalDebits).toLocaleString() }}
               </span>
             </div>
           </div>
@@ -355,8 +355,8 @@ onMounted(() => {
                 </div>
               </div>
               <div class="text-right">
-                <div class="font-bold text-green-600">+${{ Number(txn.total_credit || 0).toLocaleString() }}</div>
-                <div class="text-sm text-red-600">-${{ Number(txn.total_debit || 0).toLocaleString() }}</div>
+                <div class="font-bold text-green-600">+৳{{ Number(txn.total_credit || 0).toLocaleString() }}</div>
+                <div class="text-sm text-red-600">-৳{{ Number(txn.total_debit || 0).toLocaleString() }}</div>
                 <div class="mt-1">
                   <span :class="txn.status === 'POSTED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" class="px-2 py-0.5 text-xs font-medium rounded-full">
                     {{ txn.status || 'DRAFT' }}

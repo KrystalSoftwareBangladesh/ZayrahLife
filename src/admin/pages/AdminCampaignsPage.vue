@@ -21,19 +21,19 @@ const columns = [
 const stats = computed(() => [
   {
     title: 'Total Budget',
-    value: `$${campaignStore.totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    value: `৳${campaignStore.totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
     icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
     color: 'blue'
   },
   {
     title: 'Total Spend',
-    value: `$${campaignStore.totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    value: `৳${campaignStore.totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
     icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
     color: 'yellow'
   },
   {
     title: 'Campaign Revenue',
-    value: `$${campaignStore.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    value: `৳${campaignStore.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
     icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
     color: 'green'
   },
@@ -107,11 +107,11 @@ const getRoasClass = (roas) => {
           <StatusBadge :status="value" size="sm" />
         </template>
         <template #budget="{ value }">
-          ${{ value.toLocaleString() }}
+          ৳{{ value.toLocaleString() }}
         </template>
         <template #spend="{ row }">
           <div>
-            <span class="font-medium">${{ row.spend.toLocaleString() }}</span>
+            <span class="font-medium">৳{{ row.spend.toLocaleString() }}</span>
             <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
               <div
                 class="bg-primary-600 h-1.5 rounded-full"
@@ -121,7 +121,7 @@ const getRoasClass = (roas) => {
           </div>
         </template>
         <template #revenue="{ value }">
-          <span class="font-medium text-green-600">${{ value.toLocaleString() }}</span>
+          <span class="font-medium text-green-600">৳{{ value.toLocaleString() }}</span>
         </template>
         <template #roas="{ value }">
           <span :class="getRoasClass(value)">{{ value }}x</span>
@@ -160,7 +160,7 @@ const getRoasClass = (roas) => {
           <div class="flex justify-between items-center">
             <span class="text-gray-500">Average CPC</span>
             <span class="font-semibold">
-              ${{ (campaignStore.campaigns.reduce((sum, c) => sum + c.cpc, 0) / campaignStore.campaigns.length).toFixed(2) }}
+              ৳{{ (campaignStore.campaigns.reduce((sum, c) => sum + c.cpc, 0) / campaignStore.campaigns.length).toFixed(2) }}
             </span>
           </div>
         </div>
@@ -173,7 +173,7 @@ const getRoasClass = (roas) => {
             <div class="flex justify-between text-sm mb-1">
               <span class="text-gray-500">Total Investment</span>
               <span class="font-medium text-red-600">
-                -${{ campaignStore.totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                -৳{{ campaignStore.totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>
@@ -181,7 +181,7 @@ const getRoasClass = (roas) => {
             <div class="flex justify-between text-sm mb-1">
               <span class="text-gray-500">Total Returns</span>
               <span class="font-medium text-green-600">
-                +${{ campaignStore.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                +৳{{ campaignStore.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>
@@ -189,7 +189,7 @@ const getRoasClass = (roas) => {
             <div class="flex justify-between">
               <span class="font-medium text-gray-900">Net Profit from Campaigns</span>
               <span class="font-bold text-lg text-green-600">
-                ${{ (campaignStore.totalRevenue - campaignStore.totalSpend).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                ৳{{ (campaignStore.totalRevenue - campaignStore.totalSpend).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>

@@ -230,6 +230,7 @@ export interface AccountingTransactionList {
   transaction_date: string
   reference: string | null
   description: string | null
+  lines?: AccountingTransactionLine[]
   status?: TransactionStatus
   total_debit?: string
   total_credit?: string

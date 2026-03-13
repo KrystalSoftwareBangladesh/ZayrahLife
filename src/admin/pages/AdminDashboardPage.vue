@@ -22,14 +22,14 @@ const stats = computed(() => [
   },
   {
     title: 'Total Revenue',
-    value: `$${orderStore.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    value: `৳${orderStore.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
     icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
     color: 'green',
     trend: 8
   },
   {
     title: 'Posted Debits',
-    value: `$${accountStore.totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    value: `৳${accountStore.totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
     icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
     color: 'red',
     trend: -5
@@ -90,7 +90,7 @@ onMounted(() => {
               <p class="text-sm text-gray-500">{{ order.customerName }}</p>
             </div>
             <div class="text-right">
-              <p class="font-medium text-gray-900">${{ order.total.toFixed(2) }}</p>
+              <p class="font-medium text-gray-900">৳{{ order.total.toFixed(2) }}</p>
               <span
                 :class="{
                   'bg-yellow-100 text-yellow-800': order.status === 'pending',
@@ -164,7 +164,7 @@ onMounted(() => {
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Inventory Value</h3>
         <div class="text-3xl font-bold text-gray-900 mb-2">
-          ${{ inventoryStore.inventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+          ৳{{ inventoryStore.inventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
         </div>
         <p class="text-gray-500 text-sm">Total value of current stock</p>
         <div class="mt-4 pt-4 border-t">
@@ -186,7 +186,7 @@ onMounted(() => {
             <div class="flex justify-between text-sm mb-1">
               <span class="text-gray-500">Total Credits</span>
               <span class="font-semibold text-green-600">
-                ${{ accountStore.totalCredits.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                ৳{{ accountStore.totalCredits.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>
@@ -194,7 +194,7 @@ onMounted(() => {
             <div class="flex justify-between text-sm mb-1">
               <span class="text-gray-500">Total Debits</span>
               <span class="font-semibold text-red-600">
-                ${{ accountStore.totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                ৳{{ accountStore.totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>
@@ -202,7 +202,7 @@ onMounted(() => {
             <div class="flex justify-between">
               <span class="font-medium text-gray-900">Net Movement</span>
               <span class="font-bold text-lg" :class="accountStore.netMovement >= 0 ? 'text-green-600' : 'text-red-600'">
-                ${{ accountStore.netMovement.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                ৳{{ accountStore.netMovement.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </span>
             </div>
           </div>

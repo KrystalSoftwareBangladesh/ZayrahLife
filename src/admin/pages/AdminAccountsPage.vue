@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import DataTable from '@/components/admin/DataTable.vue'
 import FormInput from '@/components/admin/FormInput.vue'
@@ -12,6 +12,7 @@ import type {
   AccountType,
   AccountingTransactionDetail,
   AccountingTransactionList,
+  AccountingTransactionLine,
   AccountingTransactionListParams,
   ChartOfAccountList,
   ChartOfAccountListParams,
@@ -66,11 +67,11 @@ const transactionPendingDelete = ref<AccountingTransactionList | null>(null)
 
 const accountFilters = ref<{
   search: string
-  account_type: '' | AccountType
+  account_type: AccountType[]
   status: '' | 'true' | 'false'
 }>({
   search: '',
-  account_type: '',
+  account_type: [],
   status: ''
 })
 
@@ -90,6 +91,8 @@ const transactionFilters = ref<{
 
 const accountForm = ref<AccountFormState>(createEmptyAccountForm())
 const transactionForm = ref<TransactionFormState>(createEmptyTransactionForm())
+const suppressAccountFilterWatch = ref(false)
+let accountSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const accountColumns = [
   { key: 'code', label: 'Code', width: '120px' },
@@ -102,6 +105,8 @@ const accountColumns = [
 const transactionColumns = [
   { key: 'transaction_no', label: 'Transaction No', width: '170px' },
   { key: 'transaction_date', label: 'Date', width: '130px' },
+  { key: 'debit_account', label: 'Debit Account', width: '220px' },
+  { key: 'credit_account', label: 'Credit Account', width: '220px' },
   { key: 'reference', label: 'Reference', width: '160px' },
   { key: 'description', label: 'Description' },
   { key: 'status', label: 'Status', width: '120px' },
@@ -117,10 +122,14 @@ const accountTypeOptions = [
   { value: 'EXPENSE', label: 'Expense' }
 ]
 
-const accountFilterTypeOptions = [
-  { value: '', label: 'All types' },
-  ...accountTypeOptions
-]
+const accountFilterTypePills = [
+  { value: '', label: 'All', badge: 'A', badgeClass: 'bg-slate-200 text-slate-700' },
+  { value: 'ASSET', label: 'Asset', badge: 'S', badgeClass: 'bg-emerald-100 text-emerald-700' },
+  { value: 'LIABILITY', label: 'Liability', badge: 'L', badgeClass: 'bg-amber-100 text-amber-700' },
+  { value: 'EQUITY', label: 'Equity', badge: 'E', badgeClass: 'bg-violet-100 text-violet-700' },
+  { value: 'REVENUE', label: 'Revenue', badge: 'R', badgeClass: 'bg-sky-100 text-sky-700' },
+  { value: 'EXPENSE', label: 'Expense', badge: 'X', badgeClass: 'bg-rose-100 text-rose-700' }
+] as const
 
 const accountStatusFilterOptions = [
   { value: '', label: 'All statuses' },
@@ -450,6 +459,36 @@ function inferTransactionType(lines: AccountingTransactionDetail['lines']): Tran
   return 'CUSTOM'
 }
 
+function getTransactionPrimaryLine(
+  transaction: AccountingTransactionList,
+  direction: 'debit' | 'credit'
+): AccountingTransactionLine | null {
+  const lines = transaction.lines || []
+
+  return (
+    lines.find(line =>
+      direction === 'debit' ? normalizeAmount(line.debit_amount) > 0 : normalizeAmount(line.credit_amount) > 0
+    ) || null
+  )
+}
+
+function getTransactionAdditionalLineCount(
+  transaction: AccountingTransactionList,
+  direction: 'debit' | 'credit'
+): number {
+  const lines = transaction.lines || []
+  const matchingLines = lines.filter(line =>
+    direction === 'debit' ? normalizeAmount(line.debit_amount) > 0 : normalizeAmount(line.credit_amount) > 0
+  )
+
+  return Math.max(0, matchingLines.length - 1)
+}
+
+function formatTransactionAccount(line: AccountingTransactionLine | null): string {
+  if (!line) return '-'
+  return `${line.account.code} - ${line.account.name}`
+}
+
 function normalizeParentId(parentName: string): number | null {
   if (!parentName) return null
   return accountStore.accountOptions.find(account => account.name === parentName)?.id || null
@@ -457,7 +496,10 @@ function normalizeParentId(parentName: string): number | null {
 
 async function refreshAccounts(params: ChartOfAccountListParams = {}): Promise<void> {
   const resolvedSearch = (params.search ?? accountFilters.value.search) || undefined
-  const resolvedAccountType = (params.account_type ?? accountFilters.value.account_type) || undefined
+  const resolvedAccountTypes =
+    params.account_type !== undefined
+      ? [params.account_type]
+      : accountFilters.value.account_type
   const resolvedIsActive =
     params.is_active !== undefined
       ? params.is_active
@@ -465,12 +507,21 @@ async function refreshAccounts(params: ChartOfAccountListParams = {}): Promise<v
         ? undefined
         : accountFilters.value.status === 'true'
 
-  await accountStore.fetchAccounts({
+  const requestParams = {
     page: params.page || accountStore.pagination.page,
     search: resolvedSearch,
-    account_type: resolvedAccountType,
     is_active: resolvedIsActive,
     ordering: params.ordering || 'code'
+  }
+
+  if (resolvedAccountTypes.length > 1) {
+    await accountStore.fetchAccountsByTypes(resolvedAccountTypes, requestParams)
+    return
+  }
+
+  await accountStore.fetchAccounts({
+    ...requestParams,
+    account_type: resolvedAccountTypes[0]
   })
 }
 
@@ -689,19 +740,20 @@ async function handleDeleteTransaction(): Promise<void> {
   transactionPendingDelete.value = null
 }
 
-async function applyAccountFilters(): Promise<void> {
-  accountStore.setPage(1)
-  await refreshAccounts({ page: 1 })
-}
-
 async function resetAccountFilters(): Promise<void> {
+  suppressAccountFilterWatch.value = true
+  if (accountSearchDebounceTimer) {
+    clearTimeout(accountSearchDebounceTimer)
+    accountSearchDebounceTimer = null
+  }
   accountFilters.value = {
     search: '',
-    account_type: '',
+    account_type: [],
     status: ''
   }
   accountStore.setPage(1)
   await refreshAccounts({ page: 1, search: undefined, account_type: undefined, is_active: undefined })
+  suppressAccountFilterWatch.value = false
 }
 
 async function applyTransactionFilters(): Promise<void> {
@@ -743,6 +795,42 @@ async function goToTransactionPage(page: number): Promise<void> {
 onMounted(() => {
   void loadPage()
 })
+
+watch(
+  () => accountFilters.value.search,
+  value => {
+    if (suppressAccountFilterWatch.value) return
+    if (accountSearchDebounceTimer) clearTimeout(accountSearchDebounceTimer)
+
+    accountSearchDebounceTimer = setTimeout(() => {
+      accountStore.setPage(1)
+      void refreshAccounts({ page: 1, search: value || undefined })
+    }, 250)
+  }
+)
+
+watch(
+  () => [accountFilters.value.account_type, accountFilters.value.status],
+  () => {
+    if (suppressAccountFilterWatch.value) return
+    accountStore.setPage(1)
+    void refreshAccounts({ page: 1 })
+  }
+)
+
+function toggleAccountTypeFilter(value: '' | AccountType): void {
+  if (!value) {
+    accountFilters.value.account_type = []
+    return
+  }
+
+  if (accountFilters.value.account_type.includes(value)) {
+    accountFilters.value.account_type = accountFilters.value.account_type.filter(type => type !== value)
+    return
+  }
+
+  accountFilters.value.account_type = [...accountFilters.value.account_type, value]
+}
 </script>
 
 <template>
@@ -799,7 +887,7 @@ onMounted(() => {
         <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div v-for="item in movementStats" :key="item.label" class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
             <p class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ item.label }}</p>
-            <p class="mt-2 text-2xl font-semibold text-gray-900">${{ formatCurrency(item.value) }}</p>
+            <p class="mt-2 text-2xl font-semibold text-gray-900">৳{{ formatCurrency(item.value) }}</p>
           </div>
         </div>
 
@@ -874,29 +962,57 @@ onMounted(() => {
       </div>
 
       <div v-if="activeTab === 'accounts'" class="p-6 space-y-6">
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[2fr,1fr,1fr,auto]">
-          <FormInput
-            v-model="accountFilters.search"
-            label="Search"
-            placeholder="Search by code or account name"
-          />
-          <FormSelect
-            v-model="accountFilters.account_type"
-            label="Account Type"
-            :options="accountFilterTypeOptions"
-          />
-          <FormSelect
-            v-model="accountFilters.status"
-            label="Status"
-            :options="accountStatusFilterOptions"
-          />
-          <div class="flex items-end gap-2">
-            <button
-              class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-              @click="applyAccountFilters"
-            >
-              Apply
-            </button>
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <div class="min-w-0 lg:flex-1">
+            <FormInput
+              v-model="accountFilters.search"
+              label="Search"
+              placeholder="Search by code or account name"
+            />
+          </div>
+          <div class="shrink-0">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+            <div class="inline-flex h-[38px] items-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1">
+              <button
+                v-for="option in accountFilterTypePills"
+                :key="option.value"
+                type="button"
+                :title="option.label"
+                :aria-label="option.label"
+                :class="[
+                  'group relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
+                  (option.value === '' && accountFilters.account_type.length === 0) || accountFilters.account_type.includes(option.value)
+                    ? 'border-primary-600 bg-primary-600 text-white shadow-sm'
+                    : 'border-transparent bg-white text-gray-600 hover:border-gray-200 hover:text-gray-900'
+                ]"
+                @click="toggleAccountTypeFilter(option.value)"
+              >
+                <span
+                  :class="[
+                    'inline-flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-semibold',
+                    ((option.value === '' && accountFilters.account_type.length === 0) || accountFilters.account_type.includes(option.value))
+                      ? 'bg-white/20 text-white'
+                      : option.badgeClass
+                  ]"
+                >
+                  {{ option.badge }}
+                </span>
+                <span
+                  class="pointer-events-none absolute -bottom-9 left-1/2 z-10 -translate-x-1/2 rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+                >
+                  {{ option.label }}
+                </span>
+              </button>
+            </div>
+          </div>
+          <div class="shrink-0 lg:w-44">
+            <FormSelect
+              v-model="accountFilters.status"
+              label="Status"
+              :options="accountStatusFilterOptions"
+            />
+          </div>
+          <div class="flex items-end gap-2 shrink-0">
             <button
               class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               @click="resetAccountFilters"
@@ -1015,6 +1131,30 @@ onMounted(() => {
             {{ new Date(value).toLocaleDateString() }}
           </template>
 
+          <template #debit_account="{ row }">
+            <div class="whitespace-normal">
+              <div class="text-sm text-gray-800">{{ formatTransactionAccount(getTransactionPrimaryLine(row, 'debit')) }}</div>
+              <div
+                v-if="getTransactionAdditionalLineCount(row, 'debit')"
+                class="text-xs text-gray-500"
+              >
+                +{{ getTransactionAdditionalLineCount(row, 'debit') }} more debit line<span v-if="getTransactionAdditionalLineCount(row, 'debit') > 1">s</span>
+              </div>
+            </div>
+          </template>
+
+          <template #credit_account="{ row }">
+            <div class="whitespace-normal">
+              <div class="text-sm text-gray-800">{{ formatTransactionAccount(getTransactionPrimaryLine(row, 'credit')) }}</div>
+              <div
+                v-if="getTransactionAdditionalLineCount(row, 'credit')"
+                class="text-xs text-gray-500"
+              >
+                +{{ getTransactionAdditionalLineCount(row, 'credit') }} more credit line<span v-if="getTransactionAdditionalLineCount(row, 'credit') > 1">s</span>
+              </div>
+            </div>
+          </template>
+
           <template #reference="{ value }">
             <span class="font-mono text-xs text-gray-500">{{ value || '-' }}</span>
           </template>
@@ -1028,11 +1168,11 @@ onMounted(() => {
           </template>
 
           <template #total_debit="{ value }">
-            <span class="font-medium text-red-600">${{ formatCurrency(value) }}</span>
+            <span class="font-medium text-red-600">৳{{ formatCurrency(value) }}</span>
           </template>
 
           <template #total_credit="{ value }">
-            <span class="font-medium text-green-600">${{ formatCurrency(value) }}</span>
+            <span class="font-medium text-green-600">৳{{ formatCurrency(value) }}</span>
           </template>
         </DataTable>
 
@@ -1296,8 +1436,8 @@ onMounted(() => {
           </button>
 
           <div class="flex flex-wrap gap-4 text-sm">
-            <span class="text-red-600 font-medium">Debit: ${{ formatCurrency(lineTotals.debit) }}</span>
-            <span class="text-green-600 font-medium">Credit: ${{ formatCurrency(lineTotals.credit) }}</span>
+            <span class="text-red-600 font-medium">Debit: ৳{{ formatCurrency(lineTotals.debit) }}</span>
+            <span class="text-green-600 font-medium">Credit: ৳{{ formatCurrency(lineTotals.credit) }}</span>
             <span :class="lineTotals.balanced ? 'text-green-600' : 'text-red-600'" class="font-medium">
               {{ lineTotals.balanced ? 'Balanced entry' : 'Debits and credits must match' }}
             </span>
@@ -1311,8 +1451,8 @@ onMounted(() => {
           <div class="flex flex-wrap gap-4">
             <span>Transaction No: <strong class="text-gray-900">{{ accountStore.currentTransaction.transaction_no || `Draft #${accountStore.currentTransaction.id}` }}</strong></span>
             <span>Status: <strong class="text-gray-900">{{ accountStore.currentTransaction.status }}</strong></span>
-            <span>Total Debit: <strong class="text-gray-900">${{ formatCurrency(accountStore.currentTransaction.total_debit) }}</strong></span>
-            <span>Total Credit: <strong class="text-gray-900">${{ formatCurrency(accountStore.currentTransaction.total_credit) }}</strong></span>
+            <span>Total Debit: <strong class="text-gray-900">৳{{ formatCurrency(accountStore.currentTransaction.total_debit) }}</strong></span>
+            <span>Total Credit: <strong class="text-gray-900">৳{{ formatCurrency(accountStore.currentTransaction.total_credit) }}</strong></span>
           </div>
         </div>
       </div>
