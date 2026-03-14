@@ -465,6 +465,10 @@ export const useAccountStore = defineStore('adminAccounts', () => {
     error.value = null
   }
 
+  function clearCurrentTransaction(): void {
+    currentTransaction.value = null
+  }
+
   return {
     accounts,
     accountOptions,
@@ -507,6 +511,7 @@ export const useAccountStore = defineStore('adminAccounts', () => {
     getAccountNameById,
     setPage,
     setTransactionPage,
-    clearError
+    clearError,
+    clearCurrentTransaction
   }
 })

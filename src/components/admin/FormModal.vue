@@ -2,7 +2,8 @@
 defineProps({
   show: { type: Boolean, required: true },
   title: { type: String, default: 'Add New' },
-  size: { type: String, default: 'md' }
+  size: { type: String, default: 'md' },
+  zIndexClass: { type: String, default: 'z-50' }
 })
 
 defineEmits(['close', 'submit'])
@@ -18,7 +19,7 @@ const sizeClasses = {
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div v-if="show" :class="zIndexClass" class="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
         <div class="fixed inset-0 bg-black/50" @click="$emit('close')"></div>
         <div :class="sizeClasses[size]" class="relative bg-white rounded-lg shadow-xl w-full my-8">
           <div class="flex items-center justify-between p-4 border-b border-gray-200">

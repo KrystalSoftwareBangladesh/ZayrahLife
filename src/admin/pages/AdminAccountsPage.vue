@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import DataTable from '@/components/admin/DataTable.vue'
 import FormInput from '@/components/admin/FormInput.vue'
@@ -50,9 +51,16 @@ type TransactionFormState = {
   lines: TransactionLineFormState[]
 }
 
-const accountStore = useAccountStore()
+type AccountingTab = 'accounts' | 'transactions' | 'roadmap'
+type AccountCreationContext = {
+  accountType: AccountType | null
+}
 
-const activeTab = ref<'accounts' | 'transactions' | 'roadmap'>('accounts')
+const accountStore = useAccountStore()
+const route = useRoute()
+const router = useRouter()
+
+const activeTab = ref<AccountingTab>('accounts')
 
 const showAccountModal = ref(false)
 const showDeleteAccountModal = ref(false)
@@ -91,7 +99,11 @@ const transactionFilters = ref<{
 const accountForm = ref<AccountFormState>(createEmptyAccountForm())
 const transactionForm = ref<TransactionFormState>(createEmptyTransactionForm())
 const suppressAccountFilterWatch = ref(false)
+const suppressTransactionFilterWatch = ref(false)
+const suppressRouteSync = ref(false)
+const accountCreationContext = ref<AccountCreationContext | null>(null)
 let accountSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let transactionSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const accountColumns = [
   { key: 'code', label: 'Code', width: '120px' },
@@ -216,7 +228,7 @@ const parentOptions = computed(() => {
   return [
     { value: '', label: 'Root account' },
     ...accountStore.accountOptions
-      .filter(account => account.id !== currentId)
+      .filter(account => account.id !== currentId && account.account_type === accountForm.value.account_type)
       .map(account => ({
         value: String(account.id),
         label: `${account.code} - ${account.name}`
@@ -262,11 +274,21 @@ const typeSummary = computed(() => [
 ])
 
 const editingAccount = computed(() =>
-  accountStore.accounts.find(account => account.id === editingAccountId.value) || null
+  accountStore.accounts.find(account => account.id === editingAccountId.value) ||
+  (accountStore.currentAccount
+    ? {
+        id: accountStore.currentAccount.id,
+        code: accountStore.currentAccount.code,
+        name: accountStore.currentAccount.name,
+        account_type: accountStore.currentAccount.account_type,
+        parent: accountStore.currentAccount.parent,
+        is_active: accountStore.currentAccount.is_active
+      }
+    : null)
 )
 
 const editingTransaction = computed(() =>
-  accountStore.transactions.find(transaction => transaction.id === editingTransactionId.value) || null
+  accountStore.transactions.find(transaction => transaction.id === editingTransactionId.value) || accountStore.currentTransaction || null
 )
 
 const selectedTransactionPreset = computed(() =>
@@ -360,6 +382,13 @@ function createEmptyAccountForm(): AccountFormState {
     parent: '',
     description: '',
     is_active: 'true'
+  }
+}
+
+function createAccountFormFromContext(context: AccountCreationContext | null = null): AccountFormState {
+  return {
+    ...createEmptyAccountForm(),
+    account_type: context?.accountType || 'ASSET'
   }
 }
 
@@ -492,6 +521,54 @@ function normalizeParentId(parentName: string): number | null {
   return accountStore.accountOptions.find(account => account.name === parentName)?.id || null
 }
 
+function normalizeAccountingTab(value: unknown): AccountingTab {
+  return value === 'transactions' || value === 'roadmap' ? value : 'accounts'
+}
+
+function parseQueryId(value: unknown): number | null {
+  if (typeof value !== 'string') return null
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+async function syncRouteState(): Promise<void> {
+  if (suppressRouteSync.value) return
+
+  const nextQuery = { ...route.query }
+  nextQuery.tab = activeTab.value
+
+  if (showAccountModal.value && editingAccountId.value) {
+    nextQuery.account = String(editingAccountId.value)
+  } else {
+    delete nextQuery.account
+  }
+
+  if (showTransactionModal.value && editingTransactionId.value) {
+    nextQuery.transaction = String(editingTransactionId.value)
+  } else {
+    delete nextQuery.transaction
+  }
+
+  if (activeTab.value !== 'accounts') delete nextQuery.account
+  if (activeTab.value !== 'transactions') delete nextQuery.transaction
+
+  const currentTab = typeof route.query.tab === 'string' ? route.query.tab : undefined
+  const currentAccount = typeof route.query.account === 'string' ? route.query.account : undefined
+  const currentTransaction = typeof route.query.transaction === 'string' ? route.query.transaction : undefined
+
+  if (
+    currentTab === nextQuery.tab &&
+    currentAccount === nextQuery.account &&
+    currentTransaction === nextQuery.transaction
+  ) {
+    return
+  }
+
+  suppressRouteSync.value = true
+  await router.replace({ query: nextQuery })
+  suppressRouteSync.value = false
+}
+
 async function refreshAccounts(params: ChartOfAccountListParams = {}): Promise<void> {
   const resolvedSearch = (params.search ?? accountFilters.value.search) || undefined
   const resolvedAccountTypes =
@@ -550,18 +627,49 @@ async function loadPage(): Promise<void> {
   ])
 }
 
-function openCreateAccountModal(): void {
+function closeAccountModal(): void {
+  showAccountModal.value = false
   editingAccountId.value = null
-  accountForm.value = createEmptyAccountForm()
+  accountCreationContext.value = null
+}
+
+function closeTransactionModal(): void {
+  showTransactionModal.value = false
+  editingTransactionId.value = null
+  accountStore.clearCurrentTransaction()
+}
+
+function setActiveTab(tab: AccountingTab): void {
+  activeTab.value = tab
+
+  if (tab !== 'accounts') {
+    showAccountModal.value = false
+    editingAccountId.value = null
+  }
+
+  if (tab !== 'transactions') {
+    showTransactionModal.value = false
+    editingTransactionId.value = null
+  }
+}
+
+function openCreateAccountModal(fromTransaction = false, context: AccountCreationContext | null = null): void {
+  if (!fromTransaction) {
+    setActiveTab('accounts')
+  }
+  accountCreationContext.value = context
+  editingAccountId.value = null
+  accountForm.value = createAccountFormFromContext(context)
   accountStore.clearError()
   showAccountModal.value = true
 }
 
-async function openEditAccountModal(account: ChartOfAccountList): Promise<void> {
-  editingAccountId.value = account.id
+async function openAccountDetailById(id: number): Promise<void> {
+  setActiveTab('accounts')
+  editingAccountId.value = id
   accountStore.clearError()
 
-  const detail = await accountStore.getAccountById(account.id)
+  const detail = await accountStore.getAccountById(id)
   if (!detail) return
 
   accountForm.value = {
@@ -575,6 +683,10 @@ async function openEditAccountModal(account: ChartOfAccountList): Promise<void> 
   showAccountModal.value = true
 }
 
+async function openEditAccountModal(account: ChartOfAccountList): Promise<void> {
+  await openAccountDetailById(account.id)
+}
+
 async function handleSaveAccount(): Promise<void> {
   const payload = {
     name: accountForm.value.name.trim(),
@@ -586,14 +698,16 @@ async function handleSaveAccount(): Promise<void> {
 
   if (!payload.name) return
 
-  const success = editingAccountId.value
+  const isEditingAccount = !!editingAccountId.value
+  const currentAccountPage = accountStore.pagination.page
+  const success = isEditingAccount && editingAccountId.value
     ? await accountStore.updateAccount(editingAccountId.value, payload)
     : await accountStore.createAccount(payload)
 
   if (!success) return
 
-  showAccountModal.value = false
-  await refreshAccounts({ page: editingAccountId.value ? accountStore.pagination.page : 1 })
+  closeAccountModal()
+  await refreshAccounts({ page: isEditingAccount ? currentAccountPage : 1 })
 }
 
 function promptDeleteAccount(account: ChartOfAccountList): void {
@@ -613,7 +727,9 @@ async function handleDeleteAccount(): Promise<void> {
 }
 
 function openCreateTransactionModal(): void {
+  setActiveTab('transactions')
   editingTransactionId.value = null
+  accountStore.clearCurrentTransaction()
   transactionForm.value = createEmptyTransactionForm()
   accountStore.clearError()
   showTransactionModal.value = true
@@ -643,15 +759,24 @@ function populateTransactionForm(): void {
   ensurePresetLines(transactionType)
 }
 
-async function openEditTransactionModal(transaction: AccountingTransactionList): Promise<void> {
-  editingTransactionId.value = transaction.id
+function openCreateAccountFromTransaction(accountType: AccountType | null = null): void {
+  openCreateAccountModal(true, { accountType })
+}
+
+async function openTransactionDetailById(id: number): Promise<void> {
+  setActiveTab('transactions')
+  editingTransactionId.value = id
   accountStore.clearError()
 
-  const detail = await accountStore.getTransactionById(transaction.id)
+  const detail = await accountStore.getTransactionById(id)
   if (!detail) return
 
   populateTransactionForm()
   showTransactionModal.value = true
+}
+
+async function openEditTransactionModal(transaction: AccountingTransactionList): Promise<void> {
+  await openTransactionDetailById(transaction.id)
 }
 
 function addTransactionLine(): void {
@@ -752,12 +877,12 @@ async function resetAccountFilters(): Promise<void> {
   suppressAccountFilterWatch.value = false
 }
 
-async function applyTransactionFilters(): Promise<void> {
-  accountStore.setTransactionPage(1)
-  await refreshTransactions({ page: 1 })
-}
-
 async function resetTransactionFilters(): Promise<void> {
+  suppressTransactionFilterWatch.value = true
+  if (transactionSearchDebounceTimer) {
+    clearTimeout(transactionSearchDebounceTimer)
+    transactionSearchDebounceTimer = null
+  }
   transactionFilters.value = {
     search: '',
     status: '',
@@ -774,6 +899,7 @@ async function resetTransactionFilters(): Promise<void> {
     transaction_date_min: undefined,
     transaction_date_max: undefined
   })
+  suppressTransactionFilterWatch.value = false
 }
 
 async function goToAccountPage(page: number): Promise<void> {
@@ -788,8 +914,34 @@ async function goToTransactionPage(page: number): Promise<void> {
   await refreshTransactions({ page })
 }
 
-onMounted(() => {
-  void loadPage()
+async function applyRouteState(): Promise<void> {
+  const tab = normalizeAccountingTab(route.query.tab)
+  const accountId = parseQueryId(route.query.account)
+  const transactionId = parseQueryId(route.query.transaction)
+
+  suppressRouteSync.value = true
+
+  if (transactionId) {
+    await openTransactionDetailById(transactionId)
+  } else if (accountId) {
+    await openAccountDetailById(accountId)
+  } else {
+    setActiveTab(tab)
+    closeAccountModal()
+    closeTransactionModal()
+  }
+
+  if (!transactionId && !accountId) {
+    activeTab.value = tab
+  }
+
+  suppressRouteSync.value = false
+}
+
+onMounted(async () => {
+  await loadPage()
+  await applyRouteState()
+  await syncRouteState()
 })
 
 watch(
@@ -811,6 +963,59 @@ watch(
     if (suppressAccountFilterWatch.value) return
     accountStore.setPage(1)
     void refreshAccounts({ page: 1 })
+  }
+)
+
+watch(
+  () => accountForm.value.account_type,
+  () => {
+    if (!accountForm.value.parent) return
+    const parentStillValid = parentOptions.value.some(option => option.value === accountForm.value.parent)
+    if (!parentStillValid) {
+      accountForm.value.parent = ''
+    }
+  }
+)
+
+watch(
+  () => transactionFilters.value.search,
+  value => {
+    if (suppressTransactionFilterWatch.value) return
+    if (transactionSearchDebounceTimer) clearTimeout(transactionSearchDebounceTimer)
+
+    transactionSearchDebounceTimer = setTimeout(() => {
+      accountStore.setTransactionPage(1)
+      void refreshTransactions({ page: 1, search: value || undefined })
+    }, 250)
+  }
+)
+
+watch(
+  () => [
+    transactionFilters.value.account,
+    transactionFilters.value.status,
+    transactionFilters.value.transaction_date_min,
+    transactionFilters.value.transaction_date_max
+  ],
+  () => {
+    if (suppressTransactionFilterWatch.value) return
+    accountStore.setTransactionPage(1)
+    void refreshTransactions({ page: 1 })
+  }
+)
+
+watch(
+  () => [activeTab.value, showAccountModal.value, editingAccountId.value, showTransactionModal.value, editingTransactionId.value],
+  () => {
+    void syncRouteState()
+  }
+)
+
+watch(
+  () => [route.query.tab, route.query.account, route.query.transaction],
+  async () => {
+    if (suppressRouteSync.value) return
+    await applyRouteState()
   }
 )
 
@@ -936,7 +1141,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             ]"
-            @click="activeTab = 'accounts'"
+            @click="setActiveTab('accounts')"
           >
             Chart of Accounts
           </button>
@@ -947,7 +1152,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             ]"
-            @click="activeTab = 'transactions'"
+            @click="setActiveTab('transactions')"
           >
             Transactions
           </button>
@@ -958,7 +1163,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             ]"
-            @click="activeTab = 'roadmap'"
+            @click="setActiveTab('roadmap')"
           >
             Roadmap
           </button>
@@ -1105,12 +1310,6 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
 
         <div class="flex gap-2">
           <button
-            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-            @click="applyTransactionFilters"
-          >
-            Apply Filters
-          </button>
-          <button
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             @click="resetTransactionFilters"
           >
@@ -1225,7 +1424,8 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
     <FormModal
       :show="showAccountModal"
       :title="editingAccountId ? 'Edit Account' : 'Add New Account'"
-      @close="showAccountModal = false"
+      :z-index-class="showTransactionModal ? 'z-[60]' : 'z-50'"
+      @close="closeAccountModal"
       @submit="handleSaveAccount"
     >
       <div class="space-y-4">
@@ -1284,7 +1484,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
       :show="showTransactionModal"
       :title="editingTransactionId ? 'Edit Transaction' : 'Add Transaction'"
       size="xl"
-      @close="showTransactionModal = false"
+      @close="closeTransactionModal"
       @submit="handleSaveTransaction"
     >
       <div class="space-y-5">
@@ -1293,22 +1493,26 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
             :model-value="transactionForm.transaction_type"
             label="Transaction Type"
             :options="transactionTypeOptions"
+            :disabled="!editableTransaction"
             @update:model-value="handleTransactionTypeChange"
           />
           <FormInput
             v-model="transactionForm.transaction_date"
             label="Transaction Date"
             type="date"
+            :disabled="!editableTransaction"
           />
           <FormInput
             v-model="transactionForm.reference"
             label="Reference"
             placeholder="Invoice / voucher ref"
+            :disabled="!editableTransaction"
           />
           <FormInput
             v-model="transactionForm.description"
             label="Description"
             placeholder="Narration"
+            :disabled="!editableTransaction"
           />
         </div>
 
@@ -1324,18 +1528,52 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
           </div>
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormSelect
-              v-model="transactionForm.lines[0].account_id"
-              :label="selectedTransactionPreset.debitLabel"
-              :options="debitAccountOptions"
-              placeholder="Select debit-side account"
-            />
-            <FormSelect
-              v-model="transactionForm.lines[1].account_id"
-              :label="selectedTransactionPreset.creditLabel"
-              :options="creditAccountOptions"
-              placeholder="Select credit-side account"
-            />
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <FormSelect
+                  v-model="transactionForm.lines[0].account_id"
+                  :label="selectedTransactionPreset.debitLabel"
+                  :options="debitAccountOptions"
+                  placeholder="Select debit-side account"
+                  :disabled="!editableTransaction"
+                />
+              </div>
+              <button
+                v-if="editableTransaction"
+                type="button"
+                class="mb-0.5 inline-flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 transition-colors hover:bg-primary-50"
+                title="Create account"
+                aria-label="Create account"
+                @click="openCreateAccountFromTransaction(selectedTransactionPreset.debitAccountTypes[0] || null)"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <FormSelect
+                  v-model="transactionForm.lines[1].account_id"
+                  :label="selectedTransactionPreset.creditLabel"
+                  :options="creditAccountOptions"
+                  placeholder="Select credit-side account"
+                  :disabled="!editableTransaction"
+                />
+              </div>
+              <button
+                v-if="editableTransaction"
+                type="button"
+                class="mb-0.5 inline-flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 transition-colors hover:bg-primary-50"
+                title="Create account"
+                aria-label="Create account"
+                @click="openCreateAccountFromTransaction(selectedTransactionPreset.creditAccountTypes[0] || null)"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1346,16 +1584,19 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
               step="0.01"
               min="0"
               placeholder="0.00"
+              :disabled="!editableTransaction"
             />
             <FormInput
               v-model="transactionForm.lines[0].description"
               :label="`${selectedTransactionPreset.debitLabel} Note`"
               placeholder="Optional line note"
+              :disabled="!editableTransaction"
             />
             <FormInput
               v-model="transactionForm.lines[1].description"
               :label="`${selectedTransactionPreset.creditLabel} Note`"
               placeholder="Optional line note"
+              :disabled="!editableTransaction"
             />
           </div>
         </div>
@@ -1375,20 +1616,38 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
               :key="index"
               class="grid grid-cols-[2fr,2fr,1.5fr,1.5fr,auto] gap-3 px-4 py-3"
             >
-              <select
-                v-model="line.account_id"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="" disabled>Select an account</option>
-                <option v-for="option in accountSelectOptions.slice(1)" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
+              <div class="flex items-center gap-2">
+                <select
+                  v-model="line.account_id"
+                  :disabled="!editableTransaction"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  :class="!editableTransaction ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'"
+                >
+                  <option value="" disabled>Select an account</option>
+                  <option v-for="option in accountSelectOptions.slice(1)" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+                <button
+                  v-if="editableTransaction"
+                  type="button"
+                  class="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 transition-colors hover:bg-primary-50"
+                  title="Create account"
+                  aria-label="Create account"
+                  @click="openCreateAccountFromTransaction(null)"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
 
               <input
                 v-model="line.description"
                 type="text"
+                :disabled="!editableTransaction"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                :class="!editableTransaction ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'"
                 placeholder="Line description"
               />
 
@@ -1397,7 +1656,9 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
                 type="number"
                 step="0.01"
                 min="0"
+                :disabled="!editableTransaction"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                :class="!editableTransaction ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'"
                 placeholder="0.00"
               />
 
@@ -1406,11 +1667,14 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
                 type="number"
                 step="0.01"
                 min="0"
+                :disabled="!editableTransaction"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                :class="!editableTransaction ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'"
                 placeholder="0.00"
               />
 
               <button
+                v-if="editableTransaction"
                 type="button"
                 class="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="transactionForm.lines.length <= 2"
@@ -1424,7 +1688,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
 
         <div class="flex flex-wrap items-center justify-between gap-3">
           <button
-            v-if="!selectedTransactionPreset"
+            v-if="!selectedTransactionPreset && editableTransaction"
             type="button"
             class="px-4 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
             @click="addTransactionLine"
@@ -1458,7 +1722,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
         <div class="flex flex-wrap justify-between gap-3 w-full">
           <div>
             <button
-              v-if="editingTransactionId"
+              v-if="editingTransactionId && editableTransaction"
               type="button"
               class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
               @click="editingTransaction && promptDeleteTransaction(editingTransaction)"
@@ -1477,6 +1741,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
               Post Transaction
             </button>
             <button
+              v-if="editableTransaction"
               type="submit"
               class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
             >
