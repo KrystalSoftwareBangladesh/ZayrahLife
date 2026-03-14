@@ -831,6 +831,14 @@ function toggleAccountTypeFilter(value: '' | AccountType): void {
 
   accountFilters.value.account_type = [...accountFilters.value.account_type, value]
 }
+
+function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
+  if (!value) {
+    return accountFilters.value.account_type.length === 0
+  }
+
+  return accountFilters.value.account_type.includes(value)
+}
 </script>
 
 <template>
@@ -981,7 +989,7 @@ function toggleAccountTypeFilter(value: '' | AccountType): void {
                 :aria-label="option.label"
                 :class="[
                   'group relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
-                  (option.value === '' && accountFilters.account_type.length === 0) || accountFilters.account_type.includes(option.value)
+                  isAccountTypeFilterSelected(option.value)
                     ? 'border-primary-600 bg-primary-600 text-white shadow-sm'
                     : 'border-transparent bg-white text-gray-600 hover:border-gray-200 hover:text-gray-900'
                 ]"
@@ -990,7 +998,7 @@ function toggleAccountTypeFilter(value: '' | AccountType): void {
                 <span
                   :class="[
                     'inline-flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-semibold',
-                    ((option.value === '' && accountFilters.account_type.length === 0) || accountFilters.account_type.includes(option.value))
+                    isAccountTypeFilterSelected(option.value)
                       ? 'bg-white/20 text-white'
                       : option.badgeClass
                   ]"
