@@ -163,7 +163,7 @@ export interface ChartOfAccountCreateUpdateResponse {
 }
 
 export interface ChartOfAccountCreateRequest {
-  code: string
+  code?: string
   name: string
   account_type: AccountType
   description?: string | null

@@ -20,7 +20,6 @@ import type {
 } from '@/api/types'
 
 type AccountFormState = {
-  code: string
   name: string
   account_type: AccountType
   parent: string
@@ -356,7 +355,6 @@ function normalizeAmount(value: string | undefined): number {
 
 function createEmptyAccountForm(): AccountFormState {
   return {
-    code: '',
     name: '',
     account_type: 'ASSET',
     parent: '',
@@ -567,7 +565,6 @@ async function openEditAccountModal(account: ChartOfAccountList): Promise<void> 
   if (!detail) return
 
   accountForm.value = {
-    code: detail.code,
     name: detail.name,
     account_type: detail.account_type,
     parent: normalizeParentId(detail.parent)?.toString() || '',
@@ -580,7 +577,6 @@ async function openEditAccountModal(account: ChartOfAccountList): Promise<void> 
 
 async function handleSaveAccount(): Promise<void> {
   const payload = {
-    code: accountForm.value.code.trim(),
     name: accountForm.value.name.trim(),
     account_type: accountForm.value.account_type,
     parent: accountForm.value.parent ? Number(accountForm.value.parent) : null,
@@ -588,7 +584,7 @@ async function handleSaveAccount(): Promise<void> {
     is_active: accountForm.value.is_active === 'true'
   }
 
-  if (!payload.code || !payload.name) return
+  if (!payload.name) return
 
   const success = editingAccountId.value
     ? await accountStore.updateAccount(editingAccountId.value, payload)
@@ -1233,18 +1229,11 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
       @submit="handleSaveAccount"
     >
       <div class="space-y-4">
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormInput
-            v-model="accountForm.code"
-            label="Account Code"
-            placeholder="e.g. 1100"
-          />
-          <FormInput
-            v-model="accountForm.name"
-            label="Account Name"
-            placeholder="e.g. Cash in Bank"
-          />
-        </div>
+        <FormInput
+          v-model="accountForm.name"
+          label="Account Name"
+          placeholder="e.g. Cash in Bank"
+        />
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormSelect
