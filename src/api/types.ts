@@ -202,6 +202,16 @@ export interface TransactionStatusListResponse {
   statuses: TransactionStatusOption[]
 }
 
+export interface TransactionTypeOption {
+  value: string
+  label: string
+}
+
+export interface TransactionTypeListResponse {
+  default: string
+  types: TransactionTypeOption[]
+}
+
 export interface TransactionAccount {
   id: number
   code: string

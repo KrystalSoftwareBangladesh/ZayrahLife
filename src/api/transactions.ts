@@ -7,7 +7,8 @@ import type {
   AccountingTransactionPostRequest,
   AccountingTransactionUpdateRequest,
   PaginatedResponse,
-  TransactionStatusListResponse
+  TransactionStatusListResponse,
+  TransactionTypeListResponse
 } from './types'
 
 function buildQueryString(params: AccountingTransactionListParams): string {
@@ -54,6 +55,10 @@ export const transactionsApi = {
 
   async getStatuses(): Promise<TransactionStatusListResponse> {
     return http.get<TransactionStatusListResponse>('/api/v1/transactions/statuses/')
+  },
+
+  async getTypes(): Promise<TransactionTypeListResponse> {
+    return http.get<TransactionTypeListResponse>('/api/v1/transactions/types/')
   }
 }
 

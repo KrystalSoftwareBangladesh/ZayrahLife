@@ -9,6 +9,7 @@ import FormSelect from '@/components/admin/FormSelect.vue'
 import StatCard from '@/components/admin/StatCard.vue'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import { useAccountStore } from '@/stores/admin/accountStore'
+import { useTransactionTypesStore } from '@/stores/admin/transactionTypesStore'
 import type {
   AccountType,
   AccountingTransactionDetail,
@@ -35,13 +36,7 @@ type TransactionLineFormState = {
   credit_amount: string
 }
 
-type TransactionEntryType =
-  | 'INCOME'
-  | 'EXPENSE'
-  | 'ASSET_PURCHASE'
-  | 'LIABILITY_PAYMENT'
-  | 'EQUITY_FUNDING'
-  | 'CUSTOM'
+type TransactionEntryType = string
 
 type TransactionFormState = {
   transaction_type: TransactionEntryType
@@ -57,6 +52,7 @@ type AccountCreationContext = {
 }
 
 const accountStore = useAccountStore()
+const transactionTypesStore = useTransactionTypesStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -153,61 +149,9 @@ const accountStatusOptions = [
   { value: 'false', label: 'Inactive' }
 ]
 
-const transactionTypeOptions: { value: TransactionEntryType; label: string }[] = [
-  { value: 'INCOME', label: 'Add Income' },
-  { value: 'EXPENSE', label: 'Add Expense' },
-  { value: 'ASSET_PURCHASE', label: 'Add Asset' },
-  { value: 'LIABILITY_PAYMENT', label: 'Pay Liability' },
-  { value: 'EQUITY_FUNDING', label: 'Add Equity' },
-  { value: 'CUSTOM', label: 'Custom Journal' }
-]
+const transactionTypeOptions = computed(() => transactionTypesStore.typeOptions)
 
-const transactionTypePresets: Record<
-  Exclude<TransactionEntryType, 'CUSTOM'>,
-  {
-    description: string
-    debitLabel: string
-    debitAccountTypes: AccountType[]
-    creditLabel: string
-    creditAccountTypes: AccountType[]
-  }
-> = {
-  INCOME: {
-    description: 'Debit an asset account and credit a revenue account.',
-    debitLabel: 'Asset Account',
-    debitAccountTypes: ['ASSET'],
-    creditLabel: 'Revenue Account',
-    creditAccountTypes: ['REVENUE']
-  },
-  EXPENSE: {
-    description: 'Debit an expense account and credit an asset account.',
-    debitLabel: 'Expense Account',
-    debitAccountTypes: ['EXPENSE'],
-    creditLabel: 'Asset Account',
-    creditAccountTypes: ['ASSET']
-  },
-  ASSET_PURCHASE: {
-    description: 'Debit an asset account and credit a liability account.',
-    debitLabel: 'Asset Account',
-    debitAccountTypes: ['ASSET'],
-    creditLabel: 'Liability Account',
-    creditAccountTypes: ['LIABILITY']
-  },
-  LIABILITY_PAYMENT: {
-    description: 'Debit a liability account and credit an asset account.',
-    debitLabel: 'Liability Account',
-    debitAccountTypes: ['LIABILITY'],
-    creditLabel: 'Asset Account',
-    creditAccountTypes: ['ASSET']
-  },
-  EQUITY_FUNDING: {
-    description: 'Debit an asset account and credit an equity account.',
-    debitLabel: 'Asset Account',
-    debitAccountTypes: ['ASSET'],
-    creditLabel: 'Equity Account',
-    creditAccountTypes: ['EQUITY']
-  }
-}
+const transactionTypePresets = computed(() => transactionTypesStore.typePresets)
 
 const transactionStatusFilterOptions = computed(() => [
   { value: '', label: 'All statuses' },
@@ -291,11 +235,7 @@ const editingTransaction = computed(() =>
   accountStore.transactions.find(transaction => transaction.id === editingTransactionId.value) || accountStore.currentTransaction || null
 )
 
-const selectedTransactionPreset = computed(() =>
-  transactionForm.value.transaction_type === 'CUSTOM'
-    ? null
-    : transactionTypePresets[transactionForm.value.transaction_type]
-)
+const selectedTransactionPreset = computed(() => transactionTypesStore.getPresetByValue(transactionForm.value.transaction_type) || null)
 
 const debitAccountOptions = computed(() => {
   const preset = selectedTransactionPreset.value
@@ -327,7 +267,7 @@ const presetAmount = computed({
     return debitLine?.debit_amount || creditLine?.credit_amount || ''
   },
   set: (value: string) => {
-    if (transactionForm.value.transaction_type === 'CUSTOM') return
+    if (!selectedTransactionPreset.value) return
     ensurePresetLines(transactionForm.value.transaction_type)
     transactionForm.value.lines[0].debit_amount = value
     transactionForm.value.lines[0].credit_amount = ''
@@ -402,13 +342,21 @@ function createEmptyTransactionLine(): TransactionLineFormState {
 }
 
 function createEmptyTransactionForm(): TransactionFormState {
+  const initialType = getDefaultTransactionType()
+
   return {
-    transaction_type: 'INCOME',
+    transaction_type: initialType,
     transaction_date: new Date().toISOString().split('T')[0],
     reference: '',
     description: '',
-    lines: createPresetLines()
+    lines: createInitialTransactionLines(initialType)
   }
+}
+
+function createInitialTransactionLines(type: TransactionEntryType): TransactionLineFormState[] {
+  return transactionTypesStore.getPresetByValue(type)
+    ? createPresetLines()
+    : [createEmptyTransactionLine(), createEmptyTransactionLine()]
 }
 
 function createPresetLines(existingLines: TransactionLineFormState[] = []): TransactionLineFormState[] {
@@ -438,15 +386,37 @@ function isAllowedAccountType(accountId: string, allowedTypes: AccountType[]): b
   return !!account && allowedTypes.includes(account.account_type)
 }
 
+function getDefaultTransactionType(): TransactionEntryType {
+  if (transactionTypesStore.getTypeByValue(transactionTypesStore.defaultType)) {
+    return transactionTypesStore.defaultType
+  }
+
+  return transactionTypesStore.typeOptions[0]?.value || 'CUSTOM'
+}
+
+function getFreeformTransactionType(preferredType?: string): TransactionEntryType {
+  if (preferredType && transactionTypesStore.getTypeByValue(preferredType) && !transactionTypesStore.getPresetByValue(preferredType)) {
+    return preferredType
+  }
+
+  const defaultType = getDefaultTransactionType()
+  if (!transactionTypesStore.getPresetByValue(defaultType)) {
+    return defaultType
+  }
+
+  const freeformOption = transactionTypesStore.typeOptions.find(option => !transactionTypesStore.getPresetByValue(option.value))
+  return freeformOption?.value || 'CUSTOM'
+}
+
 function ensurePresetLines(type: TransactionEntryType): void {
-  if (type === 'CUSTOM') {
+  const preset = transactionTypesStore.getPresetByValue(type)
+  if (!preset) {
     if (!transactionForm.value.lines.length) {
       transactionForm.value.lines = [createEmptyTransactionLine(), createEmptyTransactionLine()]
     }
     return
   }
 
-  const preset = transactionTypePresets[type]
   const nextLines = createPresetLines(transactionForm.value.lines)
 
   if (!isAllowedAccountType(nextLines[0].account_id, preset.debitAccountTypes)) {
@@ -467,23 +437,26 @@ function handleTransactionTypeChange(value: string): void {
 }
 
 function inferTransactionType(lines: AccountingTransactionDetail['lines']): TransactionEntryType {
-  if (lines.length !== 2) return 'CUSTOM'
+  if (lines.length !== 2) return getFreeformTransactionType()
 
   const debitLine = lines.find(line => normalizeAmount(line.debit_amount) > 0 && normalizeAmount(line.credit_amount) === 0)
   const creditLine = lines.find(line => normalizeAmount(line.credit_amount) > 0 && normalizeAmount(line.debit_amount) === 0)
 
-  if (!debitLine || !creditLine) return 'CUSTOM'
+  if (!debitLine || !creditLine) return getFreeformTransactionType()
 
   const debitType = debitLine.account.account_type
   const creditType = creditLine.account.account_type
 
-  if (debitType === 'ASSET' && creditType === 'REVENUE') return 'INCOME'
-  if (debitType === 'EXPENSE' && creditType === 'ASSET') return 'EXPENSE'
-  if (debitType === 'ASSET' && creditType === 'LIABILITY') return 'ASSET_PURCHASE'
-  if (debitType === 'LIABILITY' && creditType === 'ASSET') return 'LIABILITY_PAYMENT'
-  if (debitType === 'ASSET' && creditType === 'EQUITY') return 'EQUITY_FUNDING'
+  const matchingTypes = Object.entries(transactionTypePresets.value).filter(([, preset]) =>
+    preset.debitAccountTypes.includes(debitType) &&
+    preset.creditAccountTypes.includes(creditType)
+  )
 
-  return 'CUSTOM'
+  if (matchingTypes.length === 1) {
+    return matchingTypes[0][0]
+  }
+
+  return getFreeformTransactionType()
 }
 
 function getTransactionPrimaryLine(
@@ -623,7 +596,8 @@ async function loadPage(): Promise<void> {
     refreshAccounts({ page: 1 }),
     refreshTransactions({ page: 1 }),
     accountStore.fetchAccountOptions(),
-    accountStore.fetchTransactionStatuses()
+    accountStore.fetchTransactionStatuses(),
+    transactionTypesStore.loadTypes()
   ])
 }
 
@@ -1061,7 +1035,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
         </button>
         <button
           class="px-4 py-2 text-sm font-medium text-primary-600 bg-white border border-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
-          @click="openCreateAccountModal"
+          @click="() => openCreateAccountModal()"
         >
           Add Account
         </button>
