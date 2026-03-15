@@ -33,7 +33,16 @@ const statusConfig: Record<string, { bg: string, text: string, label?: string }>
   RUNNING: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Running' },
   PAUSED: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Paused' },
   INCOME: { bg: 'bg-green-100', text: 'text-green-800', label: 'Income' },
-  INVESTMENT: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Investment' }
+  JOURNAL: { bg: 'bg-slate-100', text: 'text-slate-800', label: 'Journal' },
+  PAYMENT: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Payment' },
+  RECEIPT: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: 'Receipt' },
+  INVESTMENT: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Investment' },
+  OWNER_WITHDRAWAL: { bg: 'bg-rose-100', text: 'text-rose-800', label: 'Owner Withdrawal' },
+  PURCHASE: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Purchase' },
+  SALE: { bg: 'bg-lime-100', text: 'text-lime-800', label: 'Sale' },
+  ADJUSTMENT: { bg: 'bg-violet-100', text: 'text-violet-800', label: 'Adjustment' },
+  OPENING_BALANCE: { bg: 'bg-cyan-100', text: 'text-cyan-800', label: 'Opening Balance' },
+  TRANSFER: { bg: 'bg-sky-100', text: 'text-sky-800', label: 'Transfer' }
 }
 
 const config = computed(() => {

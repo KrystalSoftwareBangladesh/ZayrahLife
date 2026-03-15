@@ -1497,7 +1497,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
           <div>
             <p class="text-sm font-medium text-gray-900">{{ selectedTransactionPreset.description }}</p>
             <p class="mt-1 text-xs text-gray-500">
-              This entry uses two COA selections only and auto-builds the matching debit and credit lines.
+              Choose the business accounts below. The system will prepare the matching debit and credit entry automatically.
             </p>
           </div>
 
@@ -1508,7 +1508,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
                   v-model="transactionForm.lines[0].account_id"
                   :label="selectedTransactionPreset.debitLabel"
                   :options="debitAccountOptions"
-                  placeholder="Select debit-side account"
+                  placeholder="Select account"
                   :disabled="!editableTransaction"
                 />
               </div>
@@ -1531,7 +1531,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
                   v-model="transactionForm.lines[1].account_id"
                   :label="selectedTransactionPreset.creditLabel"
                   :options="creditAccountOptions"
-                  placeholder="Select credit-side account"
+                  placeholder="Select account"
                   :disabled="!editableTransaction"
                 />
               </div>
@@ -1553,7 +1553,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <FormInput
               v-model="presetAmount"
-              label="Amount"
+              :label="selectedTransactionPreset.amountLabel"
               type="number"
               step="0.01"
               min="0"
@@ -1562,13 +1562,13 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
             />
             <FormInput
               v-model="transactionForm.lines[0].description"
-              :label="`${selectedTransactionPreset.debitLabel} Note`"
+              :label="selectedTransactionPreset.debitNoteLabel"
               placeholder="Optional line note"
               :disabled="!editableTransaction"
             />
             <FormInput
               v-model="transactionForm.lines[1].description"
-              :label="`${selectedTransactionPreset.creditLabel} Note`"
+              :label="selectedTransactionPreset.creditNoteLabel"
               placeholder="Optional line note"
               :disabled="!editableTransaction"
             />
