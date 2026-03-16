@@ -1,4 +1,6 @@
 <script setup>
+defineOptions({ inheritAttrs: false })
+
 defineProps({
   modelValue: { type: [String, Number], default: '' },
   label: { type: String, default: '' },
@@ -17,6 +19,7 @@ defineEmits(['update:modelValue'])
       {{ label }}
     </label>
     <input
+      v-bind="$attrs"
       :type="type"
       :value="modelValue"
       :placeholder="placeholder"

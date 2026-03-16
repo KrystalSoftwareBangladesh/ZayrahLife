@@ -23,7 +23,8 @@ const iconMap = {
   check: 'M5 13l4 4L19 7',
   clock: 'M12 8v4l3 3M12 22a10 10 0 100-20 10 10 0 000 20z',
   file: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.6a2 2 0 011.4.6l3.4 3.4a2 2 0 01.6 1.4V19a2 2 0 01-2 2z',
-  dollar: 'M12 1v22m5-18H9.5a3.5 3.5 0 000 7H14.5a3.5 3.5 0 010 7H7',
+  dollar: 'text:৳',
+  bdt: 'text:৳',
   alert: 'M12 9v4m0 4h.01M10.3 3.8l-8 14A1 1 0 003.2 19h17.6a1 1 0 00.9-1.5l-8-14a1 1 0 00-1.8 0z'
 }
 
@@ -31,6 +32,9 @@ const resolvedIcon = computed(() => {
   if (!props.icon) return ''
   return iconMap[props.icon] || props.icon
 })
+
+const isTextIcon = computed(() => typeof resolvedIcon.value === 'string' && resolvedIcon.value.startsWith('text:'))
+const resolvedIconText = computed(() => (isTextIcon.value ? resolvedIcon.value.slice(5) : ''))
 </script>
 
 <template>
@@ -56,7 +60,8 @@ const resolvedIcon = computed(() => {
         </div>
       </div>
       <div v-if="icon" :class="[colorClasses[color]]" class="w-12 h-12 rounded-lg flex items-center justify-center">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span v-if="isTextIcon" class="text-xl font-bold leading-none">{{ resolvedIconText }}</span>
+        <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="resolvedIcon" />
         </svg>
       </div>

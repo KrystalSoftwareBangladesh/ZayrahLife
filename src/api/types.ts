@@ -163,7 +163,7 @@ export interface ChartOfAccountCreateUpdateResponse {
 }
 
 export interface ChartOfAccountCreateRequest {
-  code: string
+  code?: string
   name: string
   account_type: AccountType
   description?: string | null
@@ -188,6 +188,106 @@ export interface ChartOfAccountListParams {
   parent?: number
   is_active?: boolean
   account_type?: AccountType
+}
+
+export type TransactionStatus = 'DRAFT' | 'POSTED'
+
+export interface TransactionStatusOption {
+  value: TransactionStatus
+  label: string
+}
+
+export interface TransactionStatusListResponse {
+  default: TransactionStatus
+  statuses: TransactionStatusOption[]
+}
+
+export interface TransactionTypeOption {
+  value: string
+  label: string
+}
+
+export interface TransactionTypeListResponse {
+  default: string
+  types: TransactionTypeOption[]
+}
+
+export interface TransactionAccount {
+  id: number
+  code: string
+  name: string
+  account_type: AccountType
+}
+
+export interface AccountingTransactionLine {
+  id: number
+  account: TransactionAccount
+  description: string | null
+  debit_amount: string
+  credit_amount: string
+}
+
+export interface AccountingTransactionLineRequest {
+  account_id: number
+  description?: string | null
+  debit_amount?: string
+  credit_amount?: string
+}
+
+export interface AccountingTransactionList {
+  id: number
+  transaction_no: string | null
+  transaction_date: string
+  reference: string | null
+  description: string | null
+  lines?: AccountingTransactionLine[]
+  status?: TransactionStatus
+  total_debit?: string
+  total_credit?: string
+}
+
+export interface AccountingTransactionDetail extends AccountingTransactionList {
+  lines: AccountingTransactionLine[]
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+  is_active: boolean
+  deleted_at: string | null
+  status: TransactionStatus
+  total_debit: string
+  total_credit: string
+}
+
+export interface AccountingTransactionCreateRequest {
+  transaction_date: string
+  reference?: string | null
+  description?: string | null
+  lines: AccountingTransactionLineRequest[]
+}
+
+export interface AccountingTransactionUpdateRequest {
+  transaction_date?: string
+  reference?: string | null
+  description?: string | null
+  lines?: AccountingTransactionLineRequest[]
+}
+
+export interface AccountingTransactionPostRequest {
+  transaction_date: string
+  reference?: string | null
+  description?: string | null
+}
+
+export interface AccountingTransactionListParams {
+  account?: number
+  page?: number
+  page_size?: number
+  search?: string
+  ordering?: string
+  status?: TransactionStatus
+  transaction_date_min?: string
+  transaction_date_max?: string
 }
 
 export type SupplierPaymentType = 'COD' | 'CREDIT' | 'PREPAID'

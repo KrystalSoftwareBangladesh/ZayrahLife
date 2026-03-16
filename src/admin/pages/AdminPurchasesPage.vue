@@ -319,7 +319,7 @@ onMounted(async () => {
       <StatCard title="Total Purchases" :value="purchaseStore.totalPurchases" icon="file" color="blue" />
       <StatCard title="Draft" :value="purchaseStore.pendingPurchases" icon="clock" color="yellow" />
       <StatCard title="Confirmed" :value="purchaseStore.confirmedPurchases" icon="check" color="green" />
-      <StatCard title="Page Total" :value="`$${purchaseStore.pageTotalAmount.toLocaleString()}`" icon="dollar" color="purple" />
+      <StatCard title="Page Total" :value="`৳${purchaseStore.pageTotalAmount.toLocaleString()}`" icon="dollar" color="purple" />
     </div>
 
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
