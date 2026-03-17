@@ -12,6 +12,7 @@ import { useAccountStore } from '@/stores/admin/accountStore'
 import { useTransactionTypesStore } from '@/stores/admin/transactionTypesStore'
 import type {
   AccountType,
+  ChartOfAccountDetail,
   AccountingTransactionDetail,
   AccountingTransactionList,
   AccountingTransactionLine,
@@ -27,6 +28,10 @@ type AccountFormState = {
   parent: string
   description: string
   is_active: 'true' | 'false'
+  create_opening_balance_now: boolean
+  opening_balance: string
+  opening_date: string
+  opening_contra_account_id: string
 }
 
 type TransactionLineFormState = {
@@ -50,6 +55,10 @@ type AccountingTab = 'accounts' | 'transactions' | 'roadmap'
 type AccountCreationContext = {
   accountType: AccountType | null
 }
+
+const BUSINESS_DATE = '2026-03-17'
+const OPENING_BALANCE_PROMPT_TYPES: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY']
+const IMPORTANT_OPENING_BALANCE_KEYWORDS = ['bank', 'cash', 'inventory', 'payable', 'capital', 'owner']
 
 const accountStore = useAccountStore()
 const transactionTypesStore = useTransactionTypesStore()
@@ -94,6 +103,8 @@ const transactionFilters = ref<{
 
 const accountForm = ref<AccountFormState>(createEmptyAccountForm())
 const transactionForm = ref<TransactionFormState>(createEmptyTransactionForm())
+const accountFormValidationMessage = ref('')
+const accountFormSuccessMessage = ref('')
 const suppressAccountFilterWatch = ref(false)
 const suppressTransactionFilterWatch = ref(false)
 const suppressRouteSync = ref(false)
@@ -178,6 +189,84 @@ const parentOptions = computed(() => {
         label: `${account.code} - ${account.name}`
       }))
   ]
+})
+
+const supportsOpeningBalance = computed(() =>
+  OPENING_BALANCE_PROMPT_TYPES.includes(accountForm.value.account_type)
+)
+
+const canManageOpeningBalanceInForm = computed(() => supportsOpeningBalance.value && !editingAccountId.value)
+
+const hasExistingOpeningBalance = computed(() => {
+  const currentAccount = accountStore.currentAccount
+  if (!currentAccount) return false
+
+  return !!(currentAccount.opening_balance && normalizeAmount(currentAccount.opening_balance) > 0)
+})
+
+const shouldHighlightOpeningBalance = computed(() => {
+  if (!supportsOpeningBalance.value) return false
+  const normalizedName = accountForm.value.name.trim().toLowerCase()
+  return IMPORTANT_OPENING_BALANCE_KEYWORDS.some(keyword => normalizedName.includes(keyword))
+})
+
+const openingContraAccounts = computed(() =>
+  accountStore.accountOptions.filter(account => account.account_type === 'EQUITY' && account.is_active)
+)
+
+const openingContraAccountOptions = computed(() => [
+  { value: '', label: 'Select contra account' },
+  ...openingContraAccounts.value.map(account => ({
+    value: String(account.id),
+    label: `${account.code} - ${account.name}`
+  }))
+])
+
+const openingBalancePreviewText = computed(() => {
+  if (!supportsOpeningBalance.value) return ''
+  if (!accountForm.value.create_opening_balance_now) return 'Leave this off if the account starts at zero.'
+
+  const amount = normalizeAmount(accountForm.value.opening_balance)
+  if (amount <= 0) return 'Enter an amount above zero to create the opening journal entry.'
+
+  const contraAccount = openingContraAccounts.value.find(
+    account => String(account.id) === accountForm.value.opening_contra_account_id
+  )
+  const contraLabel = contraAccount?.name || 'the default contra account'
+
+  if (accountForm.value.account_type === 'ASSET') {
+    return `This will debit this account and credit ${contraLabel}.`
+  }
+
+  return `This will credit this account and debit ${contraLabel}.`
+})
+
+const accountNeedsOpeningBalanceBanner = computed(() =>
+  !!editingAccountId.value && supportsOpeningBalance.value && !hasExistingOpeningBalance.value
+)
+
+const existingOpeningBalanceSummary = computed(() => {
+  const currentAccount = accountStore.currentAccount
+  if (!currentAccount?.opening_balance) return null
+
+  const amount = normalizeAmount(currentAccount.opening_balance)
+  if (amount <= 0) return null
+
+  return {
+    amount,
+    date: currentAccount.opening_date || '',
+    contraAccountName: currentAccount.opening_contra_account_name || '',
+    transactionId: currentAccount.opening_transaction?.id || null,
+    transactionNo: currentAccount.opening_transaction?.transaction_no || null
+  }
+})
+
+const accountSubmitLabel = computed(() => {
+  if (editingAccountId.value) return 'Save Account Changes'
+  if (canManageOpeningBalanceInForm.value && accountForm.value.create_opening_balance_now) {
+    return 'Save Account and Opening Balance'
+  }
+  return 'Save Account'
 })
 
 const editableTransaction = computed(() => accountStore.currentTransaction?.status !== 'POSTED')
@@ -310,9 +399,36 @@ function formatCurrency(value: string | number | undefined): string {
   return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function formatDisplayDate(value: string | undefined): string {
+  if (!value) return '-'
+  const date = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('en-CA')
+}
+
 function normalizeAmount(value: string | undefined): number {
   const parsed = Number.parseFloat(value || '0')
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function isFutureBusinessDate(value: string): boolean {
+  return !!value && value > BUSINESS_DATE
+}
+
+function findDefaultOpeningContraAccountId(): string {
+  const exactMatch = openingContraAccounts.value.find(account =>
+    account.name.trim().toLowerCase() === 'opening balance equity'
+  )
+
+  if (exactMatch) return String(exactMatch.id)
+
+  const partialMatch = openingContraAccounts.value.find(account =>
+    account.name.trim().toLowerCase().includes('opening balance')
+  )
+
+  if (partialMatch) return String(partialMatch.id)
+
+  return openingContraAccounts.value[0] ? String(openingContraAccounts.value[0].id) : ''
 }
 
 function createEmptyAccountForm(): AccountFormState {
@@ -321,15 +437,45 @@ function createEmptyAccountForm(): AccountFormState {
     account_type: 'ASSET',
     parent: '',
     description: '',
-    is_active: 'true'
+    is_active: 'true',
+    create_opening_balance_now: false,
+    opening_balance: '',
+    opening_date: BUSINESS_DATE,
+    opening_contra_account_id: ''
   }
 }
 
 function createAccountFormFromContext(context: AccountCreationContext | null = null): AccountFormState {
-  return {
+  const form = {
     ...createEmptyAccountForm(),
     account_type: context?.accountType || 'ASSET'
   }
+
+  if (OPENING_BALANCE_PROMPT_TYPES.includes(form.account_type)) {
+    form.opening_contra_account_id = findDefaultOpeningContraAccountId()
+  }
+
+  return form
+}
+
+function createAccountFormFromDetail(detail: ChartOfAccountDetail): AccountFormState {
+  const form = {
+    name: detail.name,
+    account_type: detail.account_type,
+    parent: normalizeParentId(detail.parent)?.toString() || '',
+    description: detail.description || '',
+    is_active: detail.is_active ? 'true' : 'false',
+    create_opening_balance_now: false,
+    opening_balance: '',
+    opening_date: detail.opening_date || BUSINESS_DATE,
+    opening_contra_account_id: detail.opening_contra_account_id ? String(detail.opening_contra_account_id) : ''
+  } satisfies AccountFormState
+
+  if (OPENING_BALANCE_PROMPT_TYPES.includes(form.account_type) && !form.opening_contra_account_id) {
+    form.opening_contra_account_id = findDefaultOpeningContraAccountId()
+  }
+
+  return form
 }
 
 function createEmptyTransactionLine(): TransactionLineFormState {
@@ -605,6 +751,7 @@ function closeAccountModal(): void {
   showAccountModal.value = false
   editingAccountId.value = null
   accountCreationContext.value = null
+  accountFormValidationMessage.value = ''
 }
 
 function closeTransactionModal(): void {
@@ -634,6 +781,8 @@ function openCreateAccountModal(fromTransaction = false, context: AccountCreatio
   accountCreationContext.value = context
   editingAccountId.value = null
   accountForm.value = createAccountFormFromContext(context)
+  accountFormSuccessMessage.value = ''
+  accountFormValidationMessage.value = ''
   accountStore.clearError()
   showAccountModal.value = true
 }
@@ -646,13 +795,9 @@ async function openAccountDetailById(id: number): Promise<void> {
   const detail = await accountStore.getAccountById(id)
   if (!detail) return
 
-  accountForm.value = {
-    name: detail.name,
-    account_type: detail.account_type,
-    parent: normalizeParentId(detail.parent)?.toString() || '',
-    description: detail.description || '',
-    is_active: detail.is_active ? 'true' : 'false'
-  }
+  accountForm.value = createAccountFormFromDetail(detail)
+  accountFormSuccessMessage.value = ''
+  accountFormValidationMessage.value = ''
 
   showAccountModal.value = true
 }
@@ -661,24 +806,83 @@ async function openEditAccountModal(account: ChartOfAccountList): Promise<void> 
   await openAccountDetailById(account.id)
 }
 
+function validateAccountForm(): boolean {
+  accountFormValidationMessage.value = ''
+
+  if (!accountForm.value.name.trim()) {
+    accountFormValidationMessage.value = 'Account name is required.'
+    return false
+  }
+
+  if (!canManageOpeningBalanceInForm.value || !accountForm.value.create_opening_balance_now) {
+    return true
+  }
+
+  const openingAmount = normalizeAmount(accountForm.value.opening_balance)
+
+  if (openingAmount <= 0) {
+    accountFormValidationMessage.value = 'Please enter an opening balance above zero or leave journal entry creation turned off.'
+    return false
+  }
+
+  if (!accountForm.value.opening_date) {
+    accountFormValidationMessage.value = 'Please choose the opening balance date.'
+    return false
+  }
+
+  if (isFutureBusinessDate(accountForm.value.opening_date)) {
+    accountFormValidationMessage.value = `Opening balance date cannot be after ${BUSINESS_DATE}.`
+    return false
+  }
+
+  return true
+}
+
 async function handleSaveAccount(): Promise<void> {
-  const payload = {
+  if (!validateAccountForm()) return
+
+  const openingBalanceEnabled = canManageOpeningBalanceInForm.value && accountForm.value.create_opening_balance_now
+  const createPayload = {
     name: accountForm.value.name.trim(),
     account_type: accountForm.value.account_type,
     parent: accountForm.value.parent ? Number(accountForm.value.parent) : null,
     description: accountForm.value.description.trim() || null,
-    is_active: accountForm.value.is_active === 'true'
+    is_active: accountForm.value.is_active === 'true',
+    ...(openingBalanceEnabled
+      ? {
+          opening_balance: normalizeAmount(accountForm.value.opening_balance).toFixed(2),
+          opening_date: accountForm.value.opening_date,
+          ...(accountForm.value.opening_contra_account_id
+            ? { opening_contra_account_id: Number(accountForm.value.opening_contra_account_id) }
+            : {})
+        }
+      : {})
+  }
+  const updatePayload = {
+    name: createPayload.name,
+    account_type: createPayload.account_type,
+    parent: createPayload.parent,
+    description: createPayload.description,
+    is_active: createPayload.is_active
   }
 
-  if (!payload.name) return
+  if (!createPayload.name) return
 
   const isEditingAccount = !!editingAccountId.value
   const currentAccountPage = accountStore.pagination.page
-  const success = isEditingAccount && editingAccountId.value
-    ? await accountStore.updateAccount(editingAccountId.value, payload)
-    : await accountStore.createAccount(payload)
+  const result = isEditingAccount && editingAccountId.value
+    ? await accountStore.updateAccount(editingAccountId.value, updatePayload)
+    : await accountStore.createAccount(createPayload)
 
-  if (!success) return
+  if (!result) return
+
+  accountFormSuccessMessage.value = isEditingAccount
+    ? 'Account updated successfully.'
+    : openingBalanceEnabled
+      ? result.opening_transaction?.transaction_no
+        ? `Account and opening balance saved successfully. Journal entry ${result.opening_transaction.transaction_no} was created.`
+        : 'Account and opening balance saved successfully.'
+      : 'Account created successfully.'
 
   closeAccountModal()
   await refreshAccounts({ page: isEditingAccount ? currentAccountPage : 1 })
@@ -942,12 +1146,33 @@ watch(
 
 watch(
   () => accountForm.value.account_type,
-  () => {
-    if (!accountForm.value.parent) return
-    const parentStillValid = parentOptions.value.some(option => option.value === accountForm.value.parent)
-    if (!parentStillValid) {
-      accountForm.value.parent = ''
+  value => {
+    if (accountForm.value.parent) {
+      const parentStillValid = parentOptions.value.some(option => option.value === accountForm.value.parent)
+      if (!parentStillValid) {
+        accountForm.value.parent = ''
+      }
     }
+
+    if (OPENING_BALANCE_PROMPT_TYPES.includes(value)) {
+      if (!accountForm.value.opening_contra_account_id) {
+        accountForm.value.opening_contra_account_id = findDefaultOpeningContraAccountId()
+      }
+      return
+    }
+
+    accountForm.value.create_opening_balance_now = false
+    accountForm.value.opening_balance = ''
+    accountForm.value.opening_date = BUSINESS_DATE
+    accountForm.value.opening_contra_account_id = ''
+  }
+)
+
+watch(
+  () => openingContraAccounts.value.map(account => account.id).join(','),
+  () => {
+    if (!supportsOpeningBalance.value || accountForm.value.opening_contra_account_id) return
+    accountForm.value.opening_contra_account_id = findDefaultOpeningContraAccountId()
   }
 )
 
@@ -1050,6 +1275,13 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
 
     <div v-if="accountStore.error" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       {{ accountStore.error }}
+    </div>
+
+    <div
+      v-if="accountFormSuccessMessage"
+      class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+    >
+      {{ accountFormSuccessMessage }}
     </div>
 
     <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -1403,6 +1635,13 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
       @submit="handleSaveAccount"
     >
       <div class="space-y-4">
+        <div
+          v-if="accountFormValidationMessage"
+          class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {{ accountFormValidationMessage }}
+        </div>
+
         <FormInput
           v-model="accountForm.name"
           label="Account Name"
@@ -1442,16 +1681,159 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
           Parent editing is inferred from the current list because the account detail API returns the parent name, not the parent ID.
         </div>
 
-        <div v-if="editingAccountId" class="flex justify-end">
-          <button
-            type="button"
-            class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-            @click="editingAccount && promptDeleteAccount(editingAccount)"
-          >
-            Delete Account
-          </button>
+        <div
+          v-if="accountNeedsOpeningBalanceBanner"
+          class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900"
+        >
+          <div class="flex flex-col gap-2">
+            <p class="font-semibold">This account has no starting balance yet.</p>
+            <p class="text-amber-800">This may affect your balance sheet accuracy.</p>
+            <div>
+              <p class="text-amber-800">
+                The current API payload only supports opening balance during account creation, so this screen can show the warning but cannot post a new opening journal entry yet.
+              </p>
+            </div>
+          </div>
         </div>
+
+        <div
+          v-if="existingOpeningBalanceSummary"
+          class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900"
+        >
+          <p class="font-semibold">
+            Opening balance: ৳{{ formatCurrency(existingOpeningBalanceSummary.amount) }}
+            <span class="font-normal">as of {{ formatDisplayDate(existingOpeningBalanceSummary.date) }}</span>
+          </p>
+          <p v-if="existingOpeningBalanceSummary.contraAccountName" class="mt-1 text-emerald-800">
+            Contra account: {{ existingOpeningBalanceSummary.contraAccountName }}
+          </p>
+          <p
+            v-if="existingOpeningBalanceSummary.transactionNo || existingOpeningBalanceSummary.transactionId"
+            class="mt-1 text-emerald-800"
+          >
+            Journal entry:
+            {{ existingOpeningBalanceSummary.transactionNo || `#${existingOpeningBalanceSummary.transactionId}` }}
+          </p>
+          <p class="mt-2 text-emerald-800">
+            Opening balances are read-only here once created. Use a separate adjustment entry if you need to correct it.
+          </p>
+        </div>
+
+        <section
+          v-if="supportsOpeningBalance"
+          :class="[
+            'rounded-2xl border px-4 py-4 sm:px-5',
+            shouldHighlightOpeningBalance
+              ? 'border-primary-200 bg-gradient-to-br from-sky-50 via-white to-emerald-50'
+              : 'border-slate-200 bg-slate-50'
+          ]"
+        >
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 class="text-base font-semibold text-slate-900">Opening Balance</h4>
+              <p class="mt-1 text-sm text-slate-600">
+                Setting an opening balance creates a journal entry so your reports start correctly.
+              </p>
+            </div>
+            <label
+              v-if="canManageOpeningBalanceInForm && !existingOpeningBalanceSummary"
+              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
+            >
+              <input
+                v-model="accountForm.create_opening_balance_now"
+                type="checkbox"
+                class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              >
+              Create journal entry now
+            </label>
+          </div>
+
+          <div v-if="!existingOpeningBalanceSummary" class="mt-4 space-y-4">
+            <div v-if="!openingContraAccounts.length" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              No active equity account is available for the opening balance contra side yet. Create one first, then return to this account.
+            </div>
+
+            <div
+              v-if="canManageOpeningBalanceInForm && accountForm.create_opening_balance_now"
+              class="grid grid-cols-1 gap-4 md:grid-cols-3"
+            >
+              <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Opening Balance Amount</label>
+                <div class="flex h-[42px] items-center overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500">
+                  <span class="border-r border-gray-200 bg-slate-50 px-3 text-sm font-medium text-slate-600">৳</span>
+                  <input
+                    v-model="accountForm.opening_balance"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    class="w-full border-0 px-3 py-2 text-sm focus:outline-none focus:ring-0"
+                  >
+                </div>
+              </div>
+
+              <FormInput
+                v-model="accountForm.opening_date"
+                label="Opening Balance Date"
+                type="date"
+                :max="BUSINESS_DATE"
+              />
+
+              <FormSelect
+                v-model="accountForm.opening_contra_account_id"
+                label="Contra Account"
+                :options="openingContraAccountOptions"
+              />
+            </div>
+
+            <div class="rounded-lg border border-sky-100 bg-white px-4 py-3 text-sm text-slate-700">
+              {{
+                canManageOpeningBalanceInForm
+                  ? openingBalancePreviewText
+                  : 'Opening balance details can be supplied when the account is first created. Existing accounts currently show status only.'
+              }}
+            </div>
+
+            <p
+              v-if="canManageOpeningBalanceInForm && accountForm.create_opening_balance_now"
+              class="text-xs text-slate-500"
+            >
+              Contra account is optional. Leave it blank to let the system use the default contra account automatically.
+            </p>
+          </div>
+        </section>
       </div>
+
+      <template #actions>
+        <div class="flex w-full flex-wrap justify-between gap-3">
+          <div>
+            <button
+              v-if="editingAccountId"
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+              @click="editingAccount && promptDeleteAccount(editingAccount)"
+            >
+              Delete Account
+            </button>
+          </div>
+
+          <div class="flex gap-3">
+            <button
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              @click="closeAccountModal"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              {{ accountSubmitLabel }}
+            </button>
+          </div>
+        </div>
+      </template>
     </FormModal>
 
     <FormModal

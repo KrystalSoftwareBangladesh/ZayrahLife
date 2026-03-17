@@ -137,6 +137,12 @@ export interface ChartOfAccountList {
   is_active: boolean
 }
 
+export interface ChartOfAccountOpeningTransactionSummary {
+  id: number
+  transaction_no: string | null
+  transaction_date: string
+}
+
 export interface ChartOfAccountDetail {
   id: number
   parent: string
@@ -150,6 +156,11 @@ export interface ChartOfAccountDetail {
   name: string
   account_type: AccountType
   description: string | null
+  opening_balance?: string | null
+  opening_date?: string | null
+  opening_contra_account_id?: number | null
+  opening_contra_account_name?: string | null
+  opening_transaction?: ChartOfAccountOpeningTransactionSummary | null
 }
 
 export interface ChartOfAccountCreateUpdateResponse {
@@ -160,6 +171,11 @@ export interface ChartOfAccountCreateUpdateResponse {
   description: string | null
   parent: number | null
   is_active: boolean
+  opening_balance?: string | null
+  opening_date?: string | null
+  opening_contra_account_id?: number | null
+  opening_contra_account_name?: string | null
+  opening_transaction?: ChartOfAccountOpeningTransactionSummary | null
 }
 
 export interface ChartOfAccountCreateRequest {
@@ -169,6 +185,9 @@ export interface ChartOfAccountCreateRequest {
   description?: string | null
   parent?: number | null
   is_active?: boolean
+  opening_balance?: string | null
+  opening_date?: string | null
+  opening_contra_account_id?: number | null
 }
 
 export interface ChartOfAccountUpdateRequest {

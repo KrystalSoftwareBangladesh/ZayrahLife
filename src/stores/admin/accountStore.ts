@@ -12,6 +12,7 @@ import type {
   AccountingTransactionUpdateRequest,
   ApiError,
   ChartOfAccountCreateRequest,
+  ChartOfAccountCreateUpdateResponse,
   ChartOfAccountDetail,
   ChartOfAccountList,
   ChartOfAccountListParams,
@@ -249,35 +250,35 @@ export const useAccountStore = defineStore('adminAccounts', () => {
     }
   }
 
-  async function createAccount(data: ChartOfAccountCreateRequest): Promise<boolean> {
+  async function createAccount(data: ChartOfAccountCreateRequest): Promise<ChartOfAccountCreateUpdateResponse | null> {
     loading.value = true
     error.value = null
 
     try {
-      await accountsApi.create(data)
+      const response = await accountsApi.create(data)
       await Promise.all([fetchAccounts({ page: 1 }), fetchAccountOptions()])
-      return true
+      return response
     } catch (err) {
       const apiError = err as ApiError
       error.value = apiError.message || 'Failed to create account'
-      return false
+      return null
     } finally {
       loading.value = false
     }
   }
 
-  async function updateAccount(id: number, data: ChartOfAccountUpdateRequest): Promise<boolean> {
+  async function updateAccount(id: number, data: ChartOfAccountUpdateRequest): Promise<ChartOfAccountCreateUpdateResponse | null> {
     loading.value = true
     error.value = null
 
     try {
-      await accountsApi.update(id, data)
+      const response = await accountsApi.update(id, data)
       await Promise.all([fetchAccounts(), fetchAccountOptions()])
-      return true
+      return response
     } catch (err) {
       const apiError = err as ApiError
       error.value = apiError.message || 'Failed to update account'
-      return false
+      return null
     } finally {
       loading.value = false
     }
