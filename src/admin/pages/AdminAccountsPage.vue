@@ -269,6 +269,11 @@ const accountSubmitLabel = computed(() => {
   return 'Save Account'
 })
 
+const selectedTransactionAccountName = computed(() => {
+  if (!transactionFilters.value.account) return ''
+  return accountStore.accountOptions.find(account => String(account.id) === transactionFilters.value.account)?.name || ''
+})
+
 const editableTransaction = computed(() => accountStore.currentTransaction?.status !== 'POSTED')
 
 const moduleStats = computed(() => [
@@ -1080,6 +1085,29 @@ async function resetTransactionFilters(): Promise<void> {
   suppressTransactionFilterWatch.value = false
 }
 
+async function showTransactionsForAccount(accountId: number): Promise<void> {
+  suppressTransactionFilterWatch.value = true
+  transactionFilters.value = {
+    search: '',
+    status: '',
+    account: String(accountId),
+    transaction_date_min: '',
+    transaction_date_max: ''
+  }
+  accountStore.setTransactionPage(1)
+  setActiveTab('transactions')
+  closeAccountModal()
+  await refreshTransactions({
+    page: 1,
+    search: undefined,
+    status: undefined,
+    account: accountId,
+    transaction_date_min: undefined,
+    transaction_date_max: undefined
+  })
+  suppressTransactionFilterWatch.value = false
+}
+
 async function goToAccountPage(page: number): Promise<void> {
   if (page < 1) return
   accountStore.setPage(page)
@@ -1486,6 +1514,27 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
       </div>
 
       <div v-else-if="activeTab === 'transactions'" class="p-6 space-y-6">
+        <div
+          v-if="transactionFilters.account"
+          class="flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p class="text-sm font-semibold text-sky-900">
+              Showing transaction history for
+              <span class="font-bold">{{ selectedTransactionAccountName || `account #${transactionFilters.account}` }}</span>
+            </p>
+            <p class="mt-1 text-sm text-sky-800">
+              This list is paginated and filtered using the selected account ID.
+            </p>
+          </div>
+          <button
+            class="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-sky-700 border border-sky-200 transition-colors hover:bg-sky-100"
+            @click="resetTransactionFilters"
+          >
+            Clear Account Filter
+          </button>
+        </div>
+
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
           <FormInput
             v-model="transactionFilters.search"
@@ -1807,14 +1856,24 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
       <template #actions>
         <div class="flex w-full flex-wrap justify-between gap-3">
           <div>
-            <button
-              v-if="editingAccountId"
-              type="button"
-              class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-              @click="editingAccount && promptDeleteAccount(editingAccount)"
-            >
-              Delete Account
-            </button>
+            <div class="flex flex-wrap gap-3">
+              <button
+                v-if="editingAccountId"
+                type="button"
+                class="px-4 py-2 text-sm font-medium text-sky-700 bg-sky-50 rounded-lg hover:bg-sky-100 transition-colors"
+                @click="editingAccountId && showTransactionsForAccount(editingAccountId)"
+              >
+                View Transactions
+              </button>
+              <button
+                v-if="editingAccountId"
+                type="button"
+                class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                @click="editingAccount && promptDeleteAccount(editingAccount)"
+              >
+                Delete Account
+              </button>
+            </div>
           </div>
 
           <div class="flex gap-3">
