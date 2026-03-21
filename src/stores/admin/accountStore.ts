@@ -310,7 +310,7 @@ export const useAccountStore = defineStore('adminAccounts', () => {
       const response = await transactionsApi.list({
         page: params.page || transactionPagination.value.page,
         page_size: params.page_size || transactionPagination.value.pageSize,
-        ordering: params.ordering || '-transaction_date',
+        ordering: params.ordering || '-transaction_datetime',
         ...params
       })
 

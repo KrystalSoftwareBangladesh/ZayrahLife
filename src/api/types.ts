@@ -492,7 +492,9 @@ export interface PurchaseItemRequest {
 
 export interface PurchaseList {
   id: number
-  supplier: SupplierList
+  supplier: SupplierList | number
+  account?: ChartOfAccountList | number | null
+  account_id?: number | null
   purchase_date: string
   invoice_number: string | null
   status: PurchaseStatus
@@ -509,7 +511,9 @@ export interface PurchaseDetailItem {
 
 export interface PurchaseDetail {
   id: number
-  supplier: SupplierList
+  supplier: SupplierList | number
+  account?: ChartOfAccountList | number | null
+  account_id?: number | null
   items: PurchaseDetailItem[]
   created_at: string
   updated_at: string
@@ -529,6 +533,7 @@ export interface PurchaseDetail {
 
 export interface PurchaseCreateRequest {
   supplier: number
+  account_id: number
   purchase_date: string
   invoice_number?: string | null
   discount_amount?: string
@@ -539,6 +544,7 @@ export interface PurchaseCreateRequest {
 
 export interface PurchaseUpdateRequest {
   supplier?: number
+  account_id?: number
   purchase_date?: string
   invoice_number?: string | null
   discount_amount?: string

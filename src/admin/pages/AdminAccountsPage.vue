@@ -738,7 +738,7 @@ async function refreshTransactions(params: AccountingTransactionListParams = {})
     account: resolvedAccount,
     transaction_date_min: resolvedDateMin,
     transaction_date_max: resolvedDateMax,
-    ordering: params.ordering || '-transaction_date'
+    ordering: params.ordering || '-transaction_datetime'
   })
 }
 
