@@ -48,7 +48,7 @@ const lowStockItems = computed(() => inventoryStore.lowStockItems.slice(0, 5))
 
 onMounted(() => {
   void orderStore.fetchOrders()
-  void accountStore.fetchTransactions({ page: 1, page_size: 100, ordering: '-transaction_date' })
+  void accountStore.fetchTransactions({ page: 1, page_size: 100, ordering: '-transaction_datetime' })
 })
 </script>
 

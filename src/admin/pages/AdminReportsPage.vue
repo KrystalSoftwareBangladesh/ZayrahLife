@@ -86,7 +86,7 @@ const getStatusColor = (status: string) => {
 
 onMounted(() => {
   void orderStore.fetchOrders()
-  void accountStore.fetchTransactions({ page: 1, page_size: 100, ordering: '-transaction_date' })
+  void accountStore.fetchTransactions({ page: 1, page_size: 100, ordering: '-transaction_datetime' })
 })
 </script>
 
