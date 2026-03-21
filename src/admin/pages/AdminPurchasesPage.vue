@@ -378,7 +378,7 @@ onMounted(async () => {
       <StatCard title="Total Purchases" :value="purchaseStore.totalPurchases" icon="file" color="blue" />
       <StatCard title="Draft" :value="purchaseStore.pendingPurchases" icon="clock" color="yellow" />
       <StatCard title="Confirmed" :value="purchaseStore.confirmedPurchases" icon="check" color="green" />
-      <StatCard title="Page Total" :value="`৳${purchaseStore.pageTotalAmount.toLocaleString()}`" icon="dollar" color="purple" />
+      <StatCard title="Page Total" :value="`৳${purchaseStore.pageTotalAmount.toLocaleString()}`" icon="bdt" color="purple" />
     </div>
 
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -415,7 +415,7 @@ onMounted(async () => {
         <StatusBadge :status="value?.toLowerCase() || 'unknown'" />
       </template>
       <template #total_amount="{ value }">
-        <span class="font-medium">${{ Number(value || 0).toFixed(2) }}</span>
+        <span class="font-medium">৳{{ Number(value || 0).toFixed(2) }}</span>
       </template>
       <template #actions="{ row }">
         <div class="flex items-center gap-2">
@@ -504,8 +504,8 @@ onMounted(async () => {
             </div>
           </div>
           <div class="text-right mt-3 space-y-1 text-sm">
-            <div class="text-gray-600">Subtotal: ${{ createSubtotal.toFixed(2) }}</div>
-            <div class="font-bold text-gray-900">Total: ${{ createTotal.toFixed(2) }}</div>
+            <div class="text-gray-600">Subtotal: ৳{{ createSubtotal.toFixed(2) }}</div>
+            <div class="font-bold text-gray-900">Total: ৳{{ createTotal.toFixed(2) }}</div>
           </div>
         </div>
 
@@ -604,8 +604,8 @@ onMounted(async () => {
                   <td class="px-4 py-2">{{ item.product_variant.sku }}</td>
                   <td class="px-4 py-2">{{ item.product_variant.color || '-' }} / {{ item.product_variant.size || '-' }}</td>
                   <td class="px-4 py-2 text-right">{{ item.quantity }}</td>
-                  <td class="px-4 py-2 text-right">${{ Number(item.unit_cost).toFixed(2) }}</td>
-                  <td class="px-4 py-2 text-right font-medium">${{ Number(item.line_total).toFixed(2) }}</td>
+                  <td class="px-4 py-2 text-right">৳{{ Number(item.unit_cost).toFixed(2) }}</td>
+                  <td class="px-4 py-2 text-right font-medium">৳{{ Number(item.line_total).toFixed(2) }}</td>
                 </tr>
               </tbody>
             </table>
