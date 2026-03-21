@@ -15,7 +15,6 @@ import type {
   ChartOfAccountDetail,
   AccountingTransactionDetail,
   AccountingTransactionList,
-  AccountingTransactionLine,
   AccountingTransactionListParams,
   ChartOfAccountList,
   ChartOfAccountListParams,
@@ -613,31 +612,24 @@ function inferTransactionType(lines: AccountingTransactionDetail['lines']): Tran
 function getTransactionPrimaryLine(
   transaction: AccountingTransactionList,
   direction: 'debit' | 'credit'
-): AccountingTransactionLine | null {
-  const lines = transaction.lines || []
+): string {
+  const account = direction === 'debit'
+    ? transaction.primary_debit_account
+    : transaction.primary_credit_account
 
-  return (
-    lines.find(line =>
-      direction === 'debit' ? normalizeAmount(line.debit_amount) > 0 : normalizeAmount(line.credit_amount) > 0
-    ) || null
-  )
+  if (!account) return '-'
+  return `${account.code} - ${account.name}`
 }
 
 function getTransactionAdditionalLineCount(
   transaction: AccountingTransactionList,
   direction: 'debit' | 'credit'
 ): number {
-  const lines = transaction.lines || []
-  const matchingLines = lines.filter(line =>
-    direction === 'debit' ? normalizeAmount(line.debit_amount) > 0 : normalizeAmount(line.credit_amount) > 0
-  )
+  const lineCount = direction === 'debit'
+    ? transaction.debit_line_count
+    : transaction.credit_line_count
 
-  return Math.max(0, matchingLines.length - 1)
-}
-
-function formatTransactionAccount(line: AccountingTransactionLine | null): string {
-  if (!line) return '-'
-  return `${line.account.code} - ${line.account.name}`
+  return Math.max(0, Number(lineCount || 0) - 1)
 }
 
 function normalizeParentId(parentName: string): number | null {
@@ -1591,7 +1583,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
 
           <template #debit_account="{ row }">
             <div class="whitespace-normal">
-              <div class="text-sm text-gray-800">{{ formatTransactionAccount(getTransactionPrimaryLine(row, 'debit')) }}</div>
+              <div class="text-sm text-gray-800">{{ getTransactionPrimaryLine(row, 'debit') }}</div>
               <div
                 v-if="getTransactionAdditionalLineCount(row, 'debit')"
                 class="text-xs text-gray-500"
@@ -1603,7 +1595,7 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
 
           <template #credit_account="{ row }">
             <div class="whitespace-normal">
-              <div class="text-sm text-gray-800">{{ formatTransactionAccount(getTransactionPrimaryLine(row, 'credit')) }}</div>
+              <div class="text-sm text-gray-800">{{ getTransactionPrimaryLine(row, 'credit') }}</div>
               <div
                 v-if="getTransactionAdditionalLineCount(row, 'credit')"
                 class="text-xs text-gray-500"

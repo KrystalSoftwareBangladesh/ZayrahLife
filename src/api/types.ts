@@ -238,6 +238,12 @@ export interface TransactionAccount {
   account_type: AccountType
 }
 
+export interface TransactionAccountSummary {
+  id: number
+  code: string
+  name: string
+}
+
 export interface AccountingTransactionLine {
   id: number
   account: TransactionAccount
@@ -257,12 +263,18 @@ export interface AccountingTransactionList {
   id: number
   transaction_no: string | null
   transaction_date: string
+  transaction_datetime?: string
+  transaction_type?: string
   reference: string | null
   description: string | null
-  lines?: AccountingTransactionLine[]
   status?: TransactionStatus
   total_debit?: string
   total_credit?: string
+  primary_debit_account?: TransactionAccountSummary | null
+  primary_credit_account?: TransactionAccountSummary | null
+  debit_line_count?: number
+  credit_line_count?: number
+  lines?: AccountingTransactionLine[]
 }
 
 export interface AccountingTransactionDetail extends AccountingTransactionList {
