@@ -314,27 +314,7 @@ export const useAccountStore = defineStore('adminAccounts', () => {
         ...params
       })
 
-      const baseResults = response.results
-      const needsLineHydration = baseResults.some(transaction => !transaction.lines)
-      const hydratedResults = needsLineHydration
-        ? await Promise.all(
-            baseResults.map(async transaction => {
-              if (transaction.lines) return transaction
-
-              try {
-                const detail = await transactionsApi.getById(transaction.id)
-                return {
-                  ...transaction,
-                  lines: detail.lines
-                }
-              } catch {
-                return transaction
-              }
-            })
-          )
-        : baseResults
-
-      transactions.value = hydratedResults
+      transactions.value = response.results
       transactionPagination.value = {
         count: response.count,
         page: params.page || transactionPagination.value.page,
