@@ -7,9 +7,10 @@ import FormSelect from '@/components/admin/FormSelect.vue'
 import FormModal from '@/components/admin/FormModal.vue'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import StatCard from '@/components/admin/StatCard.vue'
+import { useAccountStore } from '@/stores/admin/accountStore'
 import { useSupplierStore } from '@/stores/admin/supplierStore'
 import { usePurchaseStore } from '@/stores/admin/purchaseStore'
-import type { PurchaseStatus, PurchaseUpdateRequest } from '@/api/types'
+import type { ChartOfAccountList, PurchaseDetail, PurchaseStatus, PurchaseUpdateRequest, SupplierList } from '@/api/types'
 
 interface PurchaseItemForm {
   productId: number
@@ -20,6 +21,7 @@ interface PurchaseItemForm {
 }
 
 const supplierStore = useSupplierStore()
+const accountStore = useAccountStore()
 const purchaseStore = usePurchaseStore()
 
 const searchQuery = ref('')
@@ -33,6 +35,7 @@ const variantOptionsMap = ref<Record<number, Array<{ value: number; label: strin
 
 const newPurchase = ref({
   supplierId: 0,
+  accountId: 0,
   purchaseDate: new Date().toISOString().split('T')[0],
   invoiceNumber: '',
   discountAmount: 0,
@@ -43,6 +46,7 @@ const newPurchase = ref({
 
 const editForm = ref({
   supplierId: 0,
+  accountId: 0,
   purchaseDate: '',
   invoiceNumber: '',
   discountAmount: 0,
@@ -54,6 +58,7 @@ const editForm = ref({
 const columns = [
   { key: 'id', label: 'Purchase ID' },
   { key: 'supplier', label: 'Supplier' },
+  { key: 'account', label: 'Account' },
   { key: 'purchase_date', label: 'Date', width: '120px' },
   { key: 'status', label: 'Status', width: '120px' },
   { key: 'total_amount', label: 'Total', width: '120px' },
@@ -74,7 +79,49 @@ const supplierOptions = computed(() =>
   }))
 )
 
+const accountOptions = computed(() =>
+  accountStore.accountOptions.map(account => ({
+    value: account.id,
+    label: `${account.code} - ${account.name}`
+  }))
+)
+
 const productOptions = computed(() => purchaseStore.productOptions)
+
+const getSupplierId = (supplier: SupplierList | number | null | undefined) => {
+  if (typeof supplier === 'number') return supplier
+  return supplier?.id || 0
+}
+
+const getSupplierName = (supplier: SupplierList | number | null | undefined) => {
+  if (typeof supplier === 'number') {
+    return supplierStore.activeSuppliers.find(item => item.id === supplier)?.name || `Supplier #${supplier}`
+  }
+  return supplier?.name || '-'
+}
+
+const getPurchaseAccountId = (purchase: Pick<PurchaseDetail, 'account_id' | 'account'> | null | undefined) => {
+  if (!purchase) return 0
+  if (typeof purchase.account_id === 'number') return purchase.account_id
+  if (typeof purchase.account === 'number') return purchase.account
+  return purchase.account?.id || 0
+}
+
+const getAccountLabelById = (accountId: number) => {
+  if (!accountId) return '-'
+  const account = accountStore.accountOptions.find((item: ChartOfAccountList) => item.id === accountId)
+  return account ? `${account.code} - ${account.name}` : `Account #${accountId}`
+}
+
+const canSubmitCreatePurchase = computed(() => {
+  const supplierId = Number(newPurchase.value.supplierId)
+  const accountId = Number(newPurchase.value.accountId)
+  if (!supplierId || !accountId || !newPurchase.value.purchaseDate) return false
+
+  return newPurchase.value.items.some(item =>
+    Number(item.variantId) > 0 && Number(item.quantity) > 0 && Number(item.unitCost) >= 0
+  )
+})
 
 const filteredPurchases = computed(() => {
   let result = purchaseStore.purchases
@@ -82,7 +129,8 @@ const filteredPurchases = computed(() => {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(purchase =>
       String(purchase.id).includes(query) ||
-      purchase.supplier.name.toLowerCase().includes(query)
+      getSupplierName(purchase.supplier).toLowerCase().includes(query) ||
+      getAccountLabelById(getPurchaseAccountId(purchase)).toLowerCase().includes(query)
     )
   }
   return result
@@ -99,6 +147,7 @@ const createTotal = computed(() => {
 const resetCreateForm = () => {
   newPurchase.value = {
     supplierId: 0,
+    accountId: 0,
     purchaseDate: new Date().toISOString().split('T')[0],
     invoiceNumber: '',
     discountAmount: 0,
@@ -133,7 +182,7 @@ const removeItem = (index: number) => {
 }
 
 const onProductSelect = async (index: number) => {
-  const productId = newPurchase.value.items[index].productId
+  const productId = Number(newPurchase.value.items[index].productId)
   if (!productId) return
 
   await purchaseStore.fetchVariantOptions(productId)
@@ -144,26 +193,30 @@ const onProductSelect = async (index: number) => {
 
 const onVariantSelect = (index: number) => {
   const options = variantOptionsMap.value[index] || []
-  const selected = options.find(option => option.value === newPurchase.value.items[index].variantId)
+  const selected = options.find(option => Number(option.value) === Number(newPurchase.value.items[index].variantId))
   if (selected) {
     newPurchase.value.items[index].sku = selected.sku
   }
 }
 
 const handleCreatePurchase = async () => {
-  if (!newPurchase.value.supplierId || !newPurchase.value.purchaseDate) return
-  const validItems = newPurchase.value.items.filter(item => item.variantId && item.quantity > 0)
+  const supplierId = Number(newPurchase.value.supplierId)
+  const accountId = Number(newPurchase.value.accountId)
+  if (!supplierId || !accountId || !newPurchase.value.purchaseDate) return
+
+  const validItems = newPurchase.value.items.filter(item => Number(item.variantId) > 0 && Number(item.quantity) > 0)
   if (validItems.length === 0) return
 
   const success = await purchaseStore.createPurchase({
-    supplier: newPurchase.value.supplierId,
+    supplier: supplierId,
+    account_id: accountId,
     purchase_date: newPurchase.value.purchaseDate,
     invoice_number: newPurchase.value.invoiceNumber || null,
     discount_amount: String(newPurchase.value.discountAmount || 0),
     tax_amount: String(newPurchase.value.taxAmount || 0),
     notes: newPurchase.value.notes || null,
     items: validItems.map(item => ({
-      product_variant_id: item.variantId,
+      product_variant_id: Number(item.variantId),
       quantity: item.quantity,
       unit_cost: String(item.unitCost)
     }))
@@ -181,7 +234,8 @@ const openPurchaseDetail = async (row: { id: number }) => {
   if (!detail) return
 
   editForm.value = {
-    supplierId: detail.supplier.id,
+    supplierId: getSupplierId(detail.supplier),
+    accountId: getPurchaseAccountId(detail),
     purchaseDate: detail.purchase_date,
     invoiceNumber: detail.invoice_number || '',
     discountAmount: Number(detail.discount_amount || 0),
@@ -194,13 +248,19 @@ const openPurchaseDetail = async (row: { id: number }) => {
 
 const buildStatusPayload = () => {
   if (!purchaseStore.currentPurchase) return null
+
+  const supplierId = Number(editForm.value.supplierId)
+  const accountId = Number(editForm.value.accountId)
+  if (!supplierId || !accountId || !editForm.value.purchaseDate) return null
+
   return {
-    supplier: purchaseStore.currentPurchase.supplier.id,
-    purchase_date: purchaseStore.currentPurchase.purchase_date,
-    invoice_number: purchaseStore.currentPurchase.invoice_number,
-    discount_amount: purchaseStore.currentPurchase.discount_amount,
-    tax_amount: purchaseStore.currentPurchase.tax_amount,
-    notes: purchaseStore.currentPurchase.notes,
+    supplier: supplierId,
+    account_id: accountId,
+    purchase_date: editForm.value.purchaseDate,
+    invoice_number: editForm.value.invoiceNumber || null,
+    discount_amount: String(editForm.value.discountAmount || 0),
+    tax_amount: String(editForm.value.taxAmount || 0),
+    notes: editForm.value.notes || null,
     items: purchaseStore.currentPurchase.items.map(item => ({
       product_variant_id: item.product_variant.id,
       quantity: item.quantity,
@@ -212,10 +272,17 @@ const buildStatusPayload = () => {
 const handleUpdatePurchase = async () => {
   if (!selectedPurchaseId.value || !purchaseStore.currentPurchase) return
 
+  const nextSupplierId = Number(editForm.value.supplierId)
+  const nextAccountId = Number(editForm.value.accountId)
+  if (!nextSupplierId || !nextAccountId || !editForm.value.purchaseDate) return
+
   const current = purchaseStore.currentPurchase
   const payload: PurchaseUpdateRequest = {}
+  const currentSupplierId = getSupplierId(current.supplier)
+  const currentAccountId = getPurchaseAccountId(current)
 
-  if (editForm.value.supplierId !== current.supplier.id) payload.supplier = editForm.value.supplierId
+  if (nextSupplierId !== currentSupplierId) payload.supplier = nextSupplierId
+  if (nextAccountId !== currentAccountId) payload.account_id = nextAccountId
   if (editForm.value.purchaseDate !== current.purchase_date) payload.purchase_date = editForm.value.purchaseDate
   if ((editForm.value.invoiceNumber || null) !== (current.invoice_number || null)) {
     payload.invoice_number = editForm.value.invoiceNumber || null
@@ -285,6 +352,7 @@ const handlePageChange = (page: number) => {
 
 onMounted(async () => {
   await Promise.all([
+    accountStore.fetchAccountOptions(),
     supplierStore.fetchSuppliers({ page_size: 100 }),
     purchaseStore.fetchProductOptions(),
     purchaseStore.fetchPurchases()
@@ -344,7 +412,10 @@ onMounted(async () => {
         <span class="font-mono font-medium text-primary-600">PO-{{ value }}</span>
       </template>
       <template #supplier="{ value }">
-        {{ value?.name || '-' }}
+        {{ getSupplierName(value) }}
+      </template>
+      <template #account="{ row }">
+        {{ getAccountLabelById(getPurchaseAccountId(row)) }}
       </template>
       <template #purchase_date="{ value }">
         {{ value ? new Date(value).toLocaleDateString() : '-' }}
@@ -402,14 +473,17 @@ onMounted(async () => {
     >
       <div class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
-          <FormSelect v-model="newPurchase.supplierId" label="Supplier" :options="supplierOptions" />
-          <FormInput v-model="newPurchase.purchaseDate" type="date" label="Purchase Date" />
+          <FormSelect v-model="newPurchase.supplierId" label="Supplier" :options="supplierOptions" placeholder="Select supplier" />
+          <FormSelect v-model="newPurchase.accountId" label="Account" :options="accountOptions" placeholder="Select account" />
         </div>
         <div class="grid grid-cols-2 gap-4">
+          <FormInput v-model="newPurchase.purchaseDate" type="date" label="Purchase Date" />
           <FormInput v-model="newPurchase.invoiceNumber" label="Invoice Number" />
-          <FormInput v-model.number="newPurchase.discountAmount" type="number" step="0.01" label="Discount" />
         </div>
-        <FormInput v-model.number="newPurchase.taxAmount" type="number" step="0.01" label="Tax" />
+        <div class="grid grid-cols-2 gap-4">
+          <FormInput v-model.number="newPurchase.discountAmount" type="number" step="0.01" label="Discount" />
+          <FormInput v-model.number="newPurchase.taxAmount" type="number" step="0.01" label="Tax" />
+        </div>
 
         <div class="border-t pt-4">
           <div class="flex items-center justify-between mb-3">
@@ -444,6 +518,22 @@ onMounted(async () => {
 
         <FormInput v-model="newPurchase.notes" label="Notes" placeholder="Optional notes..." />
       </div>
+      <template #actions>
+        <button
+          type="button"
+          @click="showAddModal = false"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          :disabled="!canSubmitCreatePurchase || purchaseStore.loading"
+          class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Save
+        </button>
+      </template>
     </FormModal>
 
     <FormModal
@@ -455,11 +545,19 @@ onMounted(async () => {
     >
       <div v-if="purchaseStore.currentPurchase" class="space-y-5">
         <div class="grid grid-cols-2 gap-4">
-          <FormSelect v-model="editForm.supplierId" label="Supplier" :options="supplierOptions" />
-          <FormInput v-model="editForm.purchaseDate" type="date" label="Purchase Date" />
+          <FormSelect v-model="editForm.supplierId" label="Supplier" :options="supplierOptions" placeholder="Select supplier" />
+          <FormSelect v-model="editForm.accountId" label="Account" :options="accountOptions" placeholder="Select account" />
         </div>
         <div class="grid grid-cols-2 gap-4">
+          <FormInput v-model="editForm.purchaseDate" type="date" label="Purchase Date" />
           <FormInput v-model="editForm.invoiceNumber" label="Invoice Number" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <FormInput v-model.number="editForm.discountAmount" type="number" step="0.01" label="Discount" />
+          <FormInput v-model.number="editForm.taxAmount" type="number" step="0.01" label="Tax" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <FormInput v-model="editForm.notes" label="Notes" />
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <div class="h-10 px-3 border border-gray-300 rounded-lg flex items-center">
@@ -467,11 +565,6 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <FormInput v-model.number="editForm.discountAmount" type="number" step="0.01" label="Discount" />
-          <FormInput v-model.number="editForm.taxAmount" type="number" step="0.01" label="Tax" />
-        </div>
-        <FormInput v-model="editForm.notes" label="Notes" />
 
         <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
           <div class="text-sm font-medium text-gray-700 mb-2">Status Actions</div>
@@ -479,7 +572,7 @@ onMounted(async () => {
             <button
               type="button"
               class="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
-              :disabled="editForm.status !== 'DRAFT' || purchaseStore.loading"
+              :disabled="editForm.status !== 'DRAFT' || purchaseStore.loading || !editForm.accountId"
               @click="handleConfirmPurchase"
             >
               Confirm Purchase
@@ -487,7 +580,7 @@ onMounted(async () => {
             <button
               type="button"
               class="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
-              :disabled="editForm.status === 'CANCELLED' || purchaseStore.loading"
+              :disabled="editForm.status === 'CANCELLED' || purchaseStore.loading || !editForm.accountId"
               @click="handleCancelPurchase"
             >
               Cancel Purchase
