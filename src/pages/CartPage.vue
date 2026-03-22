@@ -55,7 +55,7 @@ const proceedToCheckout = () => {
                 <span v-if="item.selectedSize">Size: {{ item.selectedSize }}</span>
               </div>
 
-              <p class="mt-2 text-lg font-bold text-gray-900">${{ item.price.toFixed(2) }}</p>
+              <p class="mt-2 text-lg font-bold text-gray-900">৳{{ item.price.toFixed(2) }}</p>
             </div>
 
             <div class="flex flex-col items-end gap-3">

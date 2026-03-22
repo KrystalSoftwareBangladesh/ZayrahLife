@@ -220,7 +220,7 @@ const placeOrder = async () => {
                 <p class="text-sm font-medium text-gray-900 truncate">{{ item.name }}</p>
                 <p class="text-sm text-gray-500">Qty: {{ item.quantity }}</p>
               </div>
-              <p class="text-sm font-medium">${{ (item.price * item.quantity).toFixed(2) }}</p>
+              <p class="text-sm font-medium">৳{{ (item.price * item.quantity).toFixed(2) }}</p>
             </div>
           </div>
         </div>

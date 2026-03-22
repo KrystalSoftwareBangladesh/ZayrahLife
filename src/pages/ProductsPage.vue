@@ -102,7 +102,7 @@ const clearFilters = () => {
             <h4 class="text-sm font-medium text-gray-700 mb-3">Price Range</h4>
             <div class="space-y-3">
               <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-500">$</span>
+                <span class="text-sm text-gray-500">৳</span>
                 <input
                   type="number"
                   :value="priceRange.min"

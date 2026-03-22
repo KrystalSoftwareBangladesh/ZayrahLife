@@ -137,30 +137,30 @@ onMounted(() => {
                   <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ item.name }}</td>
                   <td class="px-6 py-4 text-sm text-gray-500">{{ item.variant || '-' }}</td>
                   <td class="px-6 py-4 text-sm text-gray-900 text-center">{{ item.quantity }}</td>
-                  <td class="px-6 py-4 text-sm text-gray-900 text-right">${{ item.price.toFixed(2) }}</td>
+                  <td class="px-6 py-4 text-sm text-gray-900 text-right">৳{{ item.price.toFixed(2) }}</td>
                   <td class="px-6 py-4 text-sm font-medium text-gray-900 text-right">
-                    ${{ (item.price * item.quantity).toFixed(2) }}
+                    ৳{{ (item.price * item.quantity).toFixed(2) }}
                   </td>
                 </tr>
               </tbody>
               <tfoot class="bg-gray-50">
                 <tr>
                   <td colspan="4" class="px-6 py-3 text-sm text-gray-500 text-right">Subtotal</td>
-                  <td class="px-6 py-3 text-sm text-gray-900 text-right">${{ order.subtotal.toFixed(2) }}</td>
+                  <td class="px-6 py-3 text-sm text-gray-900 text-right">৳{{ order.subtotal.toFixed(2) }}</td>
                 </tr>
                 <tr>
                   <td colspan="4" class="px-6 py-3 text-sm text-gray-500 text-right">Shipping</td>
                   <td class="px-6 py-3 text-sm text-gray-900 text-right">
-                    {{ order.shipping === 0 ? 'Free' : `$${order.shipping.toFixed(2)}` }}
+                    {{ order.shipping === 0 ? 'Free' : `৳${order.shipping.toFixed(2)}` }}
                   </td>
                 </tr>
                 <tr>
                   <td colspan="4" class="px-6 py-3 text-sm text-gray-500 text-right">Tax</td>
-                  <td class="px-6 py-3 text-sm text-gray-900 text-right">${{ order.tax.toFixed(2) }}</td>
+                  <td class="px-6 py-3 text-sm text-gray-900 text-right">৳{{ order.tax.toFixed(2) }}</td>
                 </tr>
                 <tr>
                   <td colspan="4" class="px-6 py-3 text-base font-bold text-gray-900 text-right">Total</td>
-                  <td class="px-6 py-3 text-base font-bold text-gray-900 text-right">${{ order.total.toFixed(2) }}</td>
+                  <td class="px-6 py-3 text-base font-bold text-gray-900 text-right">৳{{ order.total.toFixed(2) }}</td>
                 </tr>
               </tfoot>
             </table>
@@ -196,7 +196,7 @@ onMounted(() => {
               </div>
               <div>
                 <p class="text-sm text-gray-500">Amount</p>
-                <p class="font-bold text-xl text-gray-900">${{ order.total.toFixed(2) }}</p>
+                <p class="font-bold text-xl text-gray-900">৳{{ order.total.toFixed(2) }}</p>
               </div>
             </div>
           </div>
