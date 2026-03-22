@@ -673,7 +673,7 @@ export interface SaleItemCreateRequest {
 
 export interface SaleCreateRequest {
   customer: number
-  account_id: number
+  account_id?: number | null
   sale_date: string
   invoice_number?: string | null
   channel?: string

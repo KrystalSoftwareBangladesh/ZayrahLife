@@ -226,11 +226,25 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
 }
 
 function normalizeMockOrder(
-  order: Omit<AdminOrder, 'apiId' | 'isLocalOnly' | 'invoiceNumber'> & { invoiceNumber?: string | null }
+  order: Omit<AdminOrder, 'apiId' | 'isLocalOnly' | 'invoiceNumber' | 'saleDate' | 'accountId' | 'account' | 'accountingTransaction' | 'returnTransaction' | 'notes'> & {
+    invoiceNumber?: string | null
+    saleDate?: string
+    accountId?: number | null
+    account?: SaleAccount | null
+    accountingTransaction?: SaleLinkedTransaction | null
+    returnTransaction?: SaleLinkedTransaction | null
+    notes?: string | null
+  }
 ): AdminOrder {
   return {
     ...order,
     invoiceNumber: order.invoiceNumber ?? null,
+    saleDate: order.saleDate || toApiDate(order.createdAt),
+    accountId: order.accountId ?? null,
+    account: order.account ?? null,
+    accountingTransaction: order.accountingTransaction ?? null,
+    returnTransaction: order.returnTransaction ?? null,
+    notes: order.notes ?? null,
     apiId: String(order.id),
     isLocalOnly: true
   }
