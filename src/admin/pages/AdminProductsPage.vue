@@ -7,7 +7,7 @@ import FormModal from '@/components/admin/FormModal.vue'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import { useAdminProductStore } from '@/stores/admin/productStore'
 import { useCategoryStore } from '@/stores/admin/categoryStore'
-import type { ProductList, ProductUpdateRequest } from '@/api/types'
+import type { ProductList, ProductUpdateRequest, ProductVariantList } from '@/api/types'
 
 interface VariantForm {
   sku: string
@@ -31,10 +31,12 @@ const searchTimeout = ref<number | null>(null)
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
+const showEditVariantModal = ref(false)
 const showDeleteModal = ref(false)
 const showDeleteVariantModal = ref(false)
 
 const selectedProduct = ref<ProductList | null>(null)
+const selectedVariant = ref<ProductVariantList | null>(null)
 const selectedVariantId = ref<number | null>(null)
 
 const createForm = ref<ProductForm>({
@@ -51,6 +53,12 @@ const editForm = ref<Omit<ProductForm, 'variants'>>({
 })
 
 const newVariant = ref<VariantForm>({
+  sku: '',
+  color: '',
+  size: ''
+})
+
+const editVariantForm = ref<VariantForm>({
   sku: '',
   color: '',
   size: ''
@@ -234,6 +242,33 @@ const handleAddVariant = async () => {
   }
 }
 
+const openEditVariantModal = (variant: ProductVariantList) => {
+  selectedVariant.value = variant
+  editVariantForm.value = {
+    sku: variant.sku,
+    color: variant.color || '',
+    size: variant.size || ''
+  }
+  showEditVariantModal.value = true
+}
+
+const handleUpdateVariant = async () => {
+  if (!selectedProduct.value || !selectedVariant.value || !editVariantForm.value.sku.trim()) return
+
+  const payload = {
+    product: selectedProduct.value.id,
+    sku: editVariantForm.value.sku.trim(),
+    color: editVariantForm.value.color.trim() || null,
+    size: editVariantForm.value.size.trim() || null
+  }
+
+  const success = await productStore.updateVariant(selectedVariant.value.id, selectedProduct.value.id, payload)
+  if (success) {
+    showEditVariantModal.value = false
+    selectedVariant.value = null
+  }
+}
+
 const openDeleteVariantModal = (variantId: number) => {
   selectedVariantId.value = variantId
   showDeleteVariantModal.value = true
@@ -262,12 +297,13 @@ const handlePageChange = (page: number) => {
       </div>
       <button
         @click="openCreateModal"
-        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+        class="p-2 text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+        aria-label="Add product"
+        title="Add product"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
-        Add Product
       </button>
     </div>
 
@@ -315,15 +351,23 @@ const handlePageChange = (page: number) => {
         <div class="flex items-center gap-2">
           <button
             @click.stop="openEditModal(row)"
-            class="px-2 py-1 text-xs font-medium text-primary-700 bg-primary-50 rounded hover:bg-primary-100 transition-colors"
+            class="p-2 text-primary-700 bg-primary-50 rounded hover:bg-primary-100 transition-colors"
+            aria-label="Edit product"
+            title="Edit product"
           >
-            Edit
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
+            </svg>
           </button>
           <button
             @click.stop="openDeleteModal(row)"
-            class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+            class="p-2 text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+            aria-label="Delete product"
+            title="Delete product"
           >
-            Delete
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
           </button>
         </div>
       </template>
@@ -375,9 +419,13 @@ const handlePageChange = (page: number) => {
             <button
               type="button"
               @click="addVariantToCreate"
-              class="text-sm text-primary-600 hover:text-primary-700 font-medium"
+              class="p-2 text-primary-600 hover:text-primary-700 rounded transition-colors"
+              aria-label="Add variant"
+              title="Add variant"
             >
-              + Add Variant
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
             </button>
           </div>
           <div v-for="(variant, index) in createForm.variants" :key="index" class="p-3 bg-gray-50 rounded-lg mb-2">
@@ -440,13 +488,30 @@ const handlePageChange = (page: number) => {
                   {{ variant.color || '-' }} / {{ variant.size || '-' }} | Stock: {{ variant.current_stock }}
                 </div>
               </div>
-              <button
-                type="button"
-                @click="openDeleteVariantModal(variant.id)"
-                class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
-              >
-                Delete
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  @click="openEditVariantModal(variant)"
+                  class="p-2 text-primary-700 bg-primary-50 rounded hover:bg-primary-100 transition-colors"
+                  aria-label="Edit variant"
+                  title="Edit variant"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  @click="openDeleteVariantModal(variant.id)"
+                  class="p-2 text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                  aria-label="Delete variant"
+                  title="Delete variant"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -461,9 +526,13 @@ const handlePageChange = (page: number) => {
               <button
                 type="button"
                 @click="handleAddVariant"
-                class="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded hover:bg-primary-700"
+                class="p-2 text-white bg-primary-600 rounded hover:bg-primary-700 transition-colors"
+                aria-label="Add variant"
+                title="Add variant"
               >
-                Add Variant
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
               </button>
             </div>
           </div>
@@ -479,6 +548,22 @@ const handlePageChange = (page: number) => {
       @confirm="handleDeleteProduct"
       @cancel="showDeleteModal = false"
     />
+
+    <FormModal
+      :show="showEditVariantModal"
+      title="Edit Variant"
+      size="md"
+      @close="showEditVariantModal = false"
+      @submit="handleUpdateVariant"
+    >
+      <div class="space-y-4">
+        <FormInput v-model="editVariantForm.sku" label="SKU" placeholder="SKU" required />
+        <div class="grid grid-cols-2 gap-4">
+          <FormInput v-model="editVariantForm.color" label="Color" placeholder="Color" />
+          <FormInput v-model="editVariantForm.size" label="Size" placeholder="Size" />
+        </div>
+      </div>
+    </FormModal>
 
     <ConfirmModal
       :show="showDeleteVariantModal"
