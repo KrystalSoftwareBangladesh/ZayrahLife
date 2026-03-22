@@ -5,9 +5,12 @@ import { salesApi } from '@/api/sales'
 import type {
   ApiError,
   CustomerCreateRequest,
+  SaleAccount,
   SaleCreateRequest,
   SaleDetail,
+  SaleDetailRequest,
   SaleItemCreateRequest,
+  SaleLinkedTransaction,
   SaleList,
   SaleStatus,
   SaleStatusOption,
@@ -42,6 +45,7 @@ interface NewOrderItem {
 
 interface NewOrder {
   customerId: number
+  accountId: number
   customerName: string
   customerEmail: string
   channel: string
@@ -59,6 +63,7 @@ export interface AdminOrder {
   id: string
   apiId: string
   invoiceNumber: string | null
+  saleDate: string
   customerId: number
   customerName: string
   customerEmail: string
@@ -68,6 +73,11 @@ export interface AdminOrder {
   tax: number
   total: number
   status: string
+  accountId: number | null
+  account: SaleAccount | null
+  accountingTransaction: SaleLinkedTransaction | null
+  returnTransaction: SaleLinkedTransaction | null
+  notes: string | null
   channel: string
   paymentMethod: string
   shippingAddress: string
@@ -138,8 +148,42 @@ function getSaleCustomer(sale: Partial<SaleDetail & SaleList>) {
   }
 }
 
+function getSaleAccount(sale: Partial<SaleDetail & SaleList>): SaleAccount | null {
+  if (sale.account && typeof sale.account === 'object') {
+    return {
+      id: sale.account.id,
+      code: sale.account.code,
+      name: sale.account.name,
+      account_type: sale.account.account_type
+    }
+  }
+
+  return null
+}
+
+function formatApiErrorMessage(apiError: ApiError, fallbackMessage: string): string {
+  const payload = apiError.data
+  if (payload && typeof payload === 'object') {
+    const messages = Object.entries(payload as Record<string, unknown>).flatMap(([field, value]) => {
+      if (field === 'detail' || field === 'message') return []
+      if (Array.isArray(value)) {
+        return value.map(item => `${field}: ${String(item)}`)
+      }
+      if (typeof value === 'string') {
+        return [`${field}: ${value}`]
+      }
+      return []
+    })
+
+    if (messages.length > 0) return messages.join(' ')
+  }
+
+  return apiError.message || fallbackMessage
+}
+
 function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
   const customer = getSaleCustomer(sale)
+  const account = getSaleAccount(sale)
   const mappedItems: OrderItem[] = Array.isArray(sale.items)
     ? sale.items.map(item => ({
       productId: item.product_variant?.id ?? item.product_id ?? item.id ?? 0,
@@ -157,6 +201,7 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
     id: String(sale.order_number || sale.id || ''),
     apiId: String(sale.id || sale.order_number || ''),
     invoiceNumber: sale.invoice_number || null,
+    saleDate: sale.sale_date || createdAt.split('T')[0],
     customerId: customer.id,
     customerName: customer.name,
     customerEmail: customer.email,
@@ -166,6 +211,11 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
     tax: toNumber(sale.tax_amount),
     total: toNumber(sale.total_amount),
     status: String(sale.status || fallbackStatuses.default),
+    accountId: typeof sale.account_id === 'number' ? sale.account_id : account?.id || null,
+    account,
+    accountingTransaction: sale.accounting_transaction || null,
+    returnTransaction: sale.return_transaction || null,
+    notes: sale.notes || null,
     channel: sale.channel || 'WEBSITE',
     paymentMethod: sale.payment_method || 'CARD',
     shippingAddress: sale.shipping_address || '-',
@@ -200,6 +250,7 @@ function mapCreateItems(data: NewOrder): SaleItemCreateRequest[] {
 function buildCreatePayload(data: NewOrder, customerId: number, items: SaleItemCreateRequest[]): SaleCreateRequest {
   return {
     customer: customerId,
+    account_id: data.accountId,
     sale_date: toApiDate(),
     channel: data.channel,
     discount_amount: '0.00',
@@ -211,6 +262,7 @@ function buildCreatePayload(data: NewOrder, customerId: number, items: SaleItemC
 
 export const useOrderStore = defineStore('adminOrders', () => {
   const orders = ref<AdminOrder[]>(mockAdminOrders.map(order => normalizeMockOrder(order)))
+  const saleDetails = ref<Record<string, SaleDetail>>({})
   const loading = ref(false)
   const error = ref<string | null>(null)
   const walkInCustomerId = ref<number | null>(null)
@@ -264,6 +316,38 @@ export const useOrderStore = defineStore('adminOrders', () => {
 
   function getOrderById(identifier: string) {
     return orders.value.find(order => order.apiId === identifier || order.id === identifier)
+  }
+
+  function getSaleDetailById(identifier: string): SaleDetail | null {
+    const order = getOrderById(identifier)
+    if (!order) return saleDetails.value[identifier] || null
+
+    return (
+      saleDetails.value[order.apiId] ||
+      saleDetails.value[order.id] ||
+      null
+    )
+  }
+
+  function storeSaleDetail(detail: SaleDetail): void {
+    const id = String(detail.id)
+    saleDetails.value[id] = detail
+    if (detail.order_number) {
+      saleDetails.value[String(detail.order_number)] = detail
+    }
+  }
+
+  function upsertOrderFromSale(sale: Partial<SaleDetail & SaleList>): AdminOrder {
+    const normalized = normalizeSaleOrder(sale)
+    const existingIndex = orders.value.findIndex(order => order.apiId === normalized.apiId || order.id === normalized.id)
+
+    if (existingIndex >= 0) {
+      orders.value.splice(existingIndex, 1, normalized)
+    } else {
+      orders.value.unshift(normalized)
+    }
+
+    return normalized
   }
 
   function isPendingStatus(status: string): boolean {
@@ -363,7 +447,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
 
   async function fetchOrderById(identifier: string): Promise<AdminOrder | null> {
     const existing = getOrderById(identifier)
-    if (existing) return existing
+    if (existing?.isLocalOnly) return existing
+
+    if (existing && getSaleDetailById(identifier)) {
+      return existing
+    }
 
     loading.value = true
     error.value = null
@@ -371,9 +459,8 @@ export const useOrderStore = defineStore('adminOrders', () => {
     try {
       await fetchStatusMetadata()
       const detail = await salesApi.getById(identifier)
-      const normalized = normalizeSaleOrder(detail)
-      orders.value.unshift(normalized)
-      return normalized
+      storeSaleDetail(detail)
+      return upsertOrderFromSale(detail)
     } catch (err) {
       const apiError = err as ApiError
       error.value = apiError.message || 'Failed to fetch sale details'
@@ -405,14 +492,72 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
 
     try {
-      const payload: SaleUpdateRequest = { status: nextStatus as SaleStatus }
-      await salesApi.update(order.apiId, payload)
+      const isConfirmStatus =
+        statusValuesMatch(nextStatus, 'CONFIRMED') ||
+        statusValuesMatch(nextStatus, 'PROCESSING')
+      const isCancelStatus =
+        statusValuesMatch(nextStatus, 'CANCELLED') ||
+        statusValuesMatch(nextStatus, 'RETURNED')
+
+      if (isConfirmStatus && !order.accountId) {
+        throw { message: 'Select an asset account before confirming the sale.' } satisfies Partial<ApiError>
+      }
+
+      if (isConfirmStatus || isCancelStatus) {
+        const detail = getSaleDetailById(identifier) || await salesApi.getById(order.apiId)
+        storeSaleDetail(detail)
+
+        const customerId = typeof detail.customer === 'number' ? detail.customer : detail.customer?.id
+        const validItems = detail.items
+          .filter(item => typeof item.product_variant?.id === 'number' && item.product_variant.id > 0)
+          .map(item => ({
+            product_variant_id: item.product_variant!.id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            line_total: item.line_total
+          }))
+
+        if (!customerId || validItems.length === 0) {
+          throw { message: 'Unable to build the sale payload needed for this status change.' } satisfies Partial<ApiError>
+        }
+
+        const payload: SaleDetailRequest = {
+          customer: customerId,
+          account_id: order.accountId || detail.account_id || null,
+          items: validItems,
+          sale_date: detail.sale_date,
+          channel: detail.channel,
+          invoice_number: detail.invoice_number,
+          status: nextStatus as SaleStatus,
+          subtotal_amount: detail.subtotal_amount,
+          discount_amount: detail.discount_amount,
+          tax_amount: detail.tax_amount,
+          total_amount: detail.total_amount,
+          notes: detail.notes || null
+        }
+
+        const response = isConfirmStatus
+          ? await salesApi.confirm(order.apiId, payload)
+          : await salesApi.cancel(order.apiId, payload)
+
+        storeSaleDetail(response)
+        upsertOrderFromSale(response)
+        return true
+      }
+
+      const payload: SaleUpdateRequest = {
+        status: nextStatus as SaleStatus,
+        account_id: order.accountId
+      }
+      const response = await salesApi.update(order.apiId, payload)
+      storeSaleDetail(response)
+      upsertOrderFromSale(response)
       return true
     } catch (err) {
       const apiError = err as ApiError
       order.status = previousStatus
       order.updatedAt = previousUpdatedAt
-      error.value = apiError.message || 'Failed to update sale status'
+      error.value = formatApiErrorMessage(apiError, 'Failed to update sale status')
       return false
     }
   }
@@ -488,7 +633,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
-  async function addOrder(data: NewOrder): Promise<AdminOrder> {
+  async function addOrder(data: NewOrder): Promise<AdminOrder | null> {
     const orderNum = orders.value.length + 1
     const year = new Date().getFullYear()
     const subtotal = data.subtotal ?? data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
@@ -501,6 +646,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
       id: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
       apiId: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
       invoiceNumber: null,
+      saleDate: toApiDate(),
       customerId: data.customerId,
       customerName: data.customerName,
       customerEmail: data.customerEmail,
@@ -516,6 +662,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
       tax,
       total,
       status: initialStatus,
+      accountId: data.accountId,
+      account: null,
+      accountingTransaction: null,
+      returnTransaction: null,
+      notes: data.notes || null,
       channel: data.channel,
       paymentMethod: data.paymentMethod || 'Credit Card',
       shippingAddress: data.shippingAddress,
@@ -528,24 +679,55 @@ export const useOrderStore = defineStore('adminOrders', () => {
     const saleItems = mapCreateItems(data)
     const hasValidCustomer = typeof customerId === 'number' && customerId > 0
     const hasItems = saleItems.length === data.items.length && data.items.length > 0
+    const hasAccount = Number.isFinite(data.accountId) && data.accountId > 0
     if (!hasValidCustomer || !hasItems) {
       error.value = 'Order saved locally because customer or product variant mapping is incomplete.'
       orders.value.unshift(fallbackOrder)
       return fallbackOrder
+    }
+    if (!hasAccount) {
+      error.value = 'Select an asset account before creating the sale.'
+      return null
     }
 
     try {
       const created = await salesApi.create(
         buildCreatePayload({ ...data, customerId, subtotal, tax, shipping, total }, customerId, saleItems)
       )
-      const normalized = normalizeSaleOrder(created)
-      orders.value.unshift(normalized)
-      return normalized
+      storeSaleDetail(created)
+      return upsertOrderFromSale(created)
     } catch (err) {
       const apiError = err as ApiError
-      error.value = apiError.message || 'Failed to create sale order in API'
-      orders.value.unshift(fallbackOrder)
-      return fallbackOrder
+      error.value = formatApiErrorMessage(apiError, 'Failed to create sale order in API')
+      return null
+    }
+  }
+
+  async function updateOrderDetails(identifier: string, payload: SaleUpdateRequest): Promise<boolean> {
+    const order = getOrderById(identifier)
+    if (!order) return false
+
+    error.value = null
+
+    if (order.isLocalOnly) {
+      if (payload.account_id !== undefined) {
+        order.accountId = payload.account_id
+      }
+      if (payload.notes !== undefined) {
+        order.notes = payload.notes || null
+      }
+      return true
+    }
+
+    try {
+      const response = await salesApi.update(order.apiId, payload)
+      storeSaleDetail(response)
+      upsertOrderFromSale(response)
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = formatApiErrorMessage(apiError, 'Failed to update sale')
+      return false
     }
   }
 
@@ -575,8 +757,13 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
+  function clearError(): void {
+    error.value = null
+  }
+
   return {
     orders,
+    saleDetails,
     loading,
     error,
     statusLoading,
@@ -593,6 +780,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
     fetchOrders,
     fetchOrderById,
     getOrderById,
+    getSaleDetailById,
     isPendingStatus,
     canDeleteOrder,
     getStatusLabel,
@@ -600,11 +788,13 @@ export const useOrderStore = defineStore('adminOrders', () => {
     getTransitionLabels,
     canTransition,
     updateOrderStatus,
+    updateOrderDetails,
     confirmOrder,
     cancelOrder,
     filterOrders,
     addOrder,
     deleteOrder,
+    clearError,
     statusValuesMatch
   }
 })

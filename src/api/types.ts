@@ -591,6 +591,21 @@ export interface SaleProductVariant {
   size: string | null
 }
 
+export interface SaleAccount {
+  id: number
+  code: string
+  name: string
+  account_type: AccountType
+}
+
+export interface SaleLinkedTransaction {
+  id: number
+  transaction_no: string | null
+  transaction_type?: string | null
+  status?: string | null
+  reference?: string | null
+}
+
 export interface SaleItem {
   id: number
   product_variant: SaleProductVariant | null
@@ -605,10 +620,14 @@ export interface SaleItem {
 export interface SaleList {
   id: number | string
   customer: SaleCustomer | number | null
+  account?: SaleAccount | number | null
+  account_id?: number | null
   sale_date: string
   invoice_number: string | null
   status: SaleStatus
   total_amount: string
+  accounting_transaction?: SaleLinkedTransaction | null
+  return_transaction?: SaleLinkedTransaction | null
   created_at?: string
   order_number?: string | null
   customer_name?: string
@@ -619,6 +638,8 @@ export interface SaleList {
 export interface SaleDetail {
   id: number | string
   customer: SaleCustomer | number | null
+  account?: SaleAccount | number | null
+  account_id?: number | null
   items: SaleItem[]
   created_at: string
   updated_at: string
@@ -630,6 +651,8 @@ export interface SaleDetail {
   tax_amount: string
   total_amount: string
   notes: string | null
+  accounting_transaction?: SaleLinkedTransaction | null
+  return_transaction?: SaleLinkedTransaction | null
   order_number?: string | null
   customer_name?: string
   customer_email?: string | null
@@ -650,6 +673,7 @@ export interface SaleItemCreateRequest {
 
 export interface SaleCreateRequest {
   customer: number
+  account_id: number
   sale_date: string
   invoice_number?: string | null
   channel?: string
@@ -661,6 +685,7 @@ export interface SaleCreateRequest {
 
 export interface SaleUpdateRequest {
   customer?: number
+  account_id?: number | null
   sale_date?: string
   invoice_number?: string | null
   channel?: string
@@ -673,6 +698,7 @@ export interface SaleUpdateRequest {
 
 export interface SaleDetailRequest {
   customer: number | CustomerProfileDetailRequest
+  account_id?: number | null
   items: SaleItemCreateRequest[]
   sale_date: string
   channel?: string

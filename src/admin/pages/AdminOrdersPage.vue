@@ -3,7 +3,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormModal from '@/components/admin/FormModal.vue'
+import FormSelect from '@/components/admin/FormSelect.vue'
 import { salesApi } from '@/api/sales'
+import { useAccountStore } from '@/stores/admin/accountStore'
 import { useOrderStore } from '@/stores/admin/orderStore'
 import { useCustomerStore } from '@/stores/admin/customerStore'
 import { useInventoryStore } from '@/stores/admin/inventoryStore'
@@ -19,6 +21,7 @@ interface CartItem {
 }
 
 const router = useRouter()
+const accountStore = useAccountStore()
 const orderStore = useOrderStore()
 const customerStore = useCustomerStore()
 const inventoryStore = useInventoryStore()
@@ -42,10 +45,12 @@ const defaultChannelOptions = [
 const selectedChannel = ref('Walk-in')
 const channelOptions = ref(defaultChannelOptions)
 const selectedCustomerId = ref<number>(0)
+const selectedAccountId = ref('')
 const selectedPaymentMethod = ref('CASH')
 const cart = ref<CartItem[]>([])
 const orderNotes = ref('')
 const shippingAddress = ref('')
+const checkoutValidationMessage = ref('')
 
 const showCustomerModal = ref(false)
 const showCheckoutModal = ref(false)
@@ -124,6 +129,15 @@ const selectedCustomer = computed(() => {
   return customerStore.customers.find(c => c.id === selectedCustomerId.value)
 })
 
+const assetAccountOptions = computed(() => {
+  return accountStore.accountOptions
+    .filter(account => account.is_active && account.account_type === 'ASSET')
+    .map(account => ({
+      value: String(account.id),
+      label: `${account.code} - ${account.name}`
+    }))
+})
+
 const cartSubtotal = computed(() => {
   return cart.value.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 })
@@ -172,6 +186,9 @@ const clearCart = () => {
   orderNotes.value = ''
   shippingAddress.value = ''
   selectedCustomerId.value = 0
+  selectedAccountId.value = ''
+  checkoutValidationMessage.value = ''
+  orderStore.clearError()
 }
 
 const openCheckout = () => {
@@ -179,15 +196,25 @@ const openCheckout = () => {
   if (selectedCustomer.value) {
     shippingAddress.value = ''
   }
+  checkoutValidationMessage.value = ''
+  orderStore.clearError()
   showCheckoutModal.value = true
 }
 
 const completeOrder = async () => {
   if (cart.value.length === 0) return
+  if (!selectedAccountId.value) {
+    checkoutValidationMessage.value = 'Select an asset account before completing the sale.'
+    return
+  }
+
+  checkoutValidationMessage.value = ''
+  orderStore.clearError()
   
   const customer = selectedCustomer.value
   const orderData = {
     customerId: selectedCustomerId.value || 0,
+    accountId: Number(selectedAccountId.value),
     customerName: customer?.full_name || 'Walk-in Customer',
     customerEmail: customer?.email || '',
     channel: selectedChannel.value,
@@ -208,7 +235,9 @@ const completeOrder = async () => {
     }))
   }
   
-  await orderStore.addOrder(orderData)
+  const createdOrder = await orderStore.addOrder(orderData)
+  if (!createdOrder) return
+
   showCheckoutModal.value = false
   clearCart()
 }
@@ -325,6 +354,7 @@ const loadSalesChannels = async () => {
 onMounted(() => {
   void inventoryStore.fetchInventory()
   void customerStore.fetchCustomers({ page: 1, page_size: 100 })
+  void accountStore.fetchAccountOptions()
   void orderStore.fetchStatusMetadata()
   void orderStore.fetchOrders()
   void loadSalesChannels()
@@ -611,6 +641,7 @@ onMounted(() => {
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Account</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Channel</th>
@@ -632,6 +663,13 @@ onMounted(() => {
                   <span class="font-mono">{{ order.invoiceNumber || '-' }}</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-900">{{ order.customerName }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700">
+                  <div v-if="order.account">
+                    <div class="font-medium text-gray-900">{{ order.account.code }}</div>
+                    <div class="text-xs text-gray-500">{{ order.account.name }}</div>
+                  </div>
+                  <span v-else>-</span>
+                </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ order.items.length }}</td>
                 <td class="px-4 py-3">
                   <span class="font-medium">৳{{ order.total.toFixed(2) }}</span>
@@ -678,6 +716,23 @@ onMounted(() => {
     >
       <div class="grid grid-cols-2 gap-6">
         <div>
+          <div class="mb-4">
+            <FormSelect
+              v-model="selectedAccountId"
+              label="Receipt / Receivable Account"
+              :options="assetAccountOptions"
+              placeholder="Select an asset account"
+              :error="checkoutValidationMessage"
+              @update:model-value="checkoutValidationMessage = ''"
+            />
+            <p class="mt-2 text-xs text-gray-500">
+              Select the asset account that should receive this sale, such as cash, bank, or accounts receivable.
+            </p>
+            <p v-if="assetAccountOptions.length === 0" class="mt-2 text-xs text-amber-700">
+              No active asset accounts are available yet. Create one in Accounts before completing a sale.
+            </p>
+          </div>
+
           <h3 class="font-medium text-gray-900 mb-3">Payment Method</h3>
           <div class="grid grid-cols-2 gap-2">
             <button
@@ -741,12 +796,23 @@ onMounted(() => {
             <div class="text-xs text-gray-500 mb-1">Channel</div>
             <div class="font-medium">{{ channelOptions.find(c => c.value === selectedChannel)?.label }}</div>
           </div>
+
+          <div class="mt-2 p-3 bg-white rounded-lg border border-gray-200">
+            <div class="text-xs text-gray-500 mb-1">Account</div>
+            <div class="font-medium">
+              {{ assetAccountOptions.find(option => option.value === selectedAccountId)?.label || 'Not selected' }}
+            </div>
+          </div>
           
           <div v-if="selectedCustomer" class="mt-2 p-3 bg-white rounded-lg border border-gray-200">
             <div class="text-xs text-gray-500 mb-1">Customer</div>
             <div class="font-medium">{{ selectedCustomer.full_name }}</div>
             <div class="text-sm text-gray-600">{{ selectedCustomer.phone || selectedCustomer.email }}</div>
           </div>
+
+          <p v-if="orderStore.error" class="mt-3 text-sm text-red-600">
+            {{ orderStore.error }}
+          </p>
         </div>
       </div>
     </FormModal>
