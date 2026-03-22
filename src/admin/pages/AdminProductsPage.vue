@@ -22,6 +22,13 @@ interface ProductForm {
   variants: VariantForm[]
 }
 
+interface CategoryInlineForm {
+  name: string
+  slug: string
+  description: string
+  parent: string
+}
+
 const productStore = useAdminProductStore()
 const categoryStore = useCategoryStore()
 
@@ -32,6 +39,7 @@ const searchTimeout = ref<number | null>(null)
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showEditVariantModal = ref(false)
+const showCreateCategoryModal = ref(false)
 const showDeleteModal = ref(false)
 const showDeleteVariantModal = ref(false)
 
@@ -64,6 +72,13 @@ const editVariantForm = ref<VariantForm>({
   size: ''
 })
 
+const createCategoryForm = ref<CategoryInlineForm>({
+  name: '',
+  slug: '',
+  description: '',
+  parent: 'none'
+})
+
 const columns = [
   { key: 'name', label: 'Product' },
   { key: 'category', label: 'Category', width: '160px' },
@@ -81,6 +96,14 @@ const categoryFilterOptions = computed(() => [
 
 const productCategoryOptions = computed(() => [
   { value: 'none', label: 'No Category' },
+  ...categoryStore.categoryOptions.map(category => ({
+    value: String(category.id),
+    label: category.name
+  }))
+])
+
+const parentCategoryOptions = computed(() => [
+  { value: 'none', label: 'No Parent (Root Category)' },
   ...categoryStore.categoryOptions.map(category => ({
     value: String(category.id),
     label: category.name
@@ -129,6 +152,21 @@ const resetCreateForm = () => {
 const openCreateModal = () => {
   resetCreateForm()
   showCreateModal.value = true
+}
+
+const resetCreateCategoryForm = () => {
+  createCategoryForm.value = {
+    name: '',
+    slug: '',
+    description: '',
+    parent: 'none'
+  }
+}
+
+const openCreateCategoryModal = () => {
+  resetCreateCategoryForm()
+  categoryStore.clearError()
+  showCreateCategoryModal.value = true
 }
 
 const addVariantToCreate = () => {
@@ -214,6 +252,22 @@ const handleUpdateProduct = async () => {
   if (success) {
     showEditModal.value = false
     fetchProductList(productStore.pagination.page)
+  }
+}
+
+const handleCreateCategory = async () => {
+  if (!createCategoryForm.value.name.trim()) return
+
+  const created = await categoryStore.createCategory({
+    name: createCategoryForm.value.name.trim(),
+    slug: createCategoryForm.value.slug.trim() || undefined,
+    description: createCategoryForm.value.description.trim() || null,
+    parent: createCategoryForm.value.parent === 'none' ? null : Number(createCategoryForm.value.parent)
+  })
+
+  if (created) {
+    createForm.value.category_id = String(created.id)
+    showCreateCategoryModal.value = false
   }
 }
 
@@ -403,7 +457,22 @@ const handlePageChange = (page: number) => {
       <div class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <FormInput v-model="createForm.name" label="Product Name" placeholder="Enter product name" required />
-          <FormSelect v-model="createForm.category_id" label="Category" :options="productCategoryOptions" />
+          <div class="flex items-end gap-2">
+            <div class="flex-1">
+              <FormSelect v-model="createForm.category_id" label="Category" :options="productCategoryOptions" />
+            </div>
+            <button
+              type="button"
+              class="mb-0.5 inline-flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 transition-colors hover:bg-primary-50"
+              title="Create category"
+              aria-label="Create category"
+              @click="openCreateCategoryModal"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
         </div>
         <FormInput
           v-model="createForm.current_selling_price"
@@ -447,6 +516,42 @@ const handlePageChange = (page: number) => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </FormModal>
+
+    <FormModal
+      :show="showCreateCategoryModal"
+      title="Create Category"
+      @close="showCreateCategoryModal = false"
+      @submit="handleCreateCategory"
+    >
+      <div class="space-y-4">
+        <FormInput
+          v-model="createCategoryForm.name"
+          label="Name"
+          placeholder="Category name"
+          required
+        />
+        <FormInput
+          v-model="createCategoryForm.slug"
+          label="Slug"
+          placeholder="Optional slug"
+        />
+        <FormSelect
+          v-model="createCategoryForm.parent"
+          label="Parent Category"
+          :options="parentCategoryOptions"
+          placeholder="Select parent category"
+        />
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea
+            v-model="createCategoryForm.description"
+            rows="4"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            placeholder="Optional description..."
+          ></textarea>
         </div>
       </div>
     </FormModal>
