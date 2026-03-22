@@ -117,7 +117,7 @@ onMounted(() => {
         <StatCard
           title="Total Revenue"
           :value="`৳${totalSales.toLocaleString()}`"
-          icon="dollar"
+          icon="bdt"
           color="green"
           change="+12.5%"
         />
@@ -215,7 +215,7 @@ onMounted(() => {
 
     <div v-if="activeTab === 'sales'" class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Sales" :value="`৳${totalSales.toLocaleString()}`" icon="dollar" color="green" />
+        <StatCard title="Total Sales" :value="`৳${totalSales.toLocaleString()}`" icon="bdt" color="green" />
         <StatCard title="Average Order" :value="`৳${(totalSales / (orderStore.totalOrders || 1)).toFixed(2)}`" icon="chart" color="blue" />
         <StatCard title="Pending Orders" :value="orderStore.pendingOrders" icon="clock" color="yellow" />
         <StatCard title="Processing" :value="orderStore.processingOrders" icon="refresh" color="purple" />
@@ -258,7 +258,7 @@ onMounted(() => {
         <StatCard title="Total Products" :value="inventoryStore.totalProducts" icon="box" color="blue" />
         <StatCard title="Total Stock" :value="inventoryStore.totalStockCount.toLocaleString()" icon="stack" color="green" />
         <StatCard title="Low Stock Items" :value="lowStockProducts.length" icon="alert" color="red" />
-        <StatCard title="Inventory Value" :value="`৳${inventoryStore.inventoryValue.toLocaleString()}`" icon="dollar" color="purple" />
+        <StatCard title="Inventory Value" :value="`৳${inventoryStore.inventoryValue.toLocaleString()}`" icon="bdt" color="purple" />
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 p-6">
@@ -311,7 +311,7 @@ onMounted(() => {
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="Total Credits" :value="`৳${accountStore.totalCredits.toLocaleString()}`" icon="trending-up" color="green" />
         <StatCard title="Total Debits" :value="`৳${accountStore.totalDebits.toLocaleString()}`" icon="trending-down" color="red" />
-        <StatCard title="Net Movement" :value="`৳${accountStore.netMovement.toLocaleString()}`" icon="dollar" :color="accountStore.netMovement >= 0 ? 'green' : 'red'" />
+        <StatCard title="Net Movement" :value="`৳${accountStore.netMovement.toLocaleString()}`" icon="bdt" :color="accountStore.netMovement >= 0 ? 'green' : 'red'" />
         <StatCard title="Gross Profit" :value="`৳${grossProfit.toLocaleString()}`" icon="chart" color="blue" />
       </div>
 

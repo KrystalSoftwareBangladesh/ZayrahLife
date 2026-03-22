@@ -66,8 +66,8 @@ const confirmAdjustment = () => {
             <p class="text-gray-500 mt-1">{{ product.category }}</p>
           </div>
           <div class="text-right">
-            <p class="text-2xl font-bold text-gray-900">${{ product.price.toFixed(2) }}</p>
-            <p class="text-sm text-gray-500">Cost: ${{ product.cost.toFixed(2) }}</p>
+            <p class="text-2xl font-bold text-gray-900">৳{{ product.price.toFixed(2) }}</p>
+            <p class="text-sm text-gray-500">Cost: ৳{{ product.cost.toFixed(2) }}</p>
           </div>
         </div>
       </div>
@@ -85,11 +85,11 @@ const confirmAdjustment = () => {
           </div>
           <div>
             <p class="text-sm text-gray-500">Stock Value</p>
-            <p class="text-2xl font-bold text-gray-900">${{ (product.totalStock * product.cost).toFixed(2) }}</p>
+            <p class="text-2xl font-bold text-gray-900">৳{{ (product.totalStock * product.cost).toFixed(2) }}</p>
           </div>
           <div>
             <p class="text-sm text-gray-500">Potential Revenue</p>
-            <p class="text-2xl font-bold text-green-600">${{ (product.totalStock * product.price).toFixed(2) }}</p>
+            <p class="text-2xl font-bold text-green-600">৳{{ (product.totalStock * product.price).toFixed(2) }}</p>
           </div>
         </div>
       </div>

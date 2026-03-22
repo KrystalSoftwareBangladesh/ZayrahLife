@@ -399,7 +399,7 @@ const handlePageChange = (page: number) => {
         <span class="font-medium">{{ row.name }}</span>
       </template>
       <template #current_selling_price="{ value }">
-        <span class="font-medium">${{ Number(value).toFixed(2) }}</span>
+        <span class="font-medium">৳{{ Number(value).toFixed(2) }}</span>
       </template>
       <template #actions="{ row }">
         <div class="flex items-center gap-2">

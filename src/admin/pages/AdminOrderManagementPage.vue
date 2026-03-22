@@ -244,7 +244,7 @@ onMounted(async () => {
               <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div class="rounded-md bg-gray-50 border border-gray-200 p-2">
                   <p class="text-gray-500">Amount</p>
-                  <p class="font-semibold text-gray-900 mt-0.5">${{ order.total.toFixed(2) }}</p>
+                  <p class="font-semibold text-gray-900 mt-0.5">৳{{ order.total.toFixed(2) }}</p>
                 </div>
                 <div class="rounded-md bg-gray-50 border border-gray-200 p-2">
                   <p class="text-gray-500">Items</p>

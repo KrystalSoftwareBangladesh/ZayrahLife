@@ -109,7 +109,7 @@ onMounted(() => {
               </svg>
             </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">Free Shipping</h3>
-            <p class="text-gray-500">On orders over $100</p>
+            <p class="text-gray-500">On orders over ৳100</p>
           </div>
           <div class="p-6">
             <div class="w-16 h-16 mx-auto mb-4 bg-primary-100 rounded-full flex items-center justify-center">

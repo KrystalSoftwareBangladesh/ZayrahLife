@@ -73,19 +73,19 @@ const getStatusClass = (status) => {
           <div class="space-y-2 text-gray-600">
             <div class="flex justify-between">
               <span>Subtotal</span>
-              <span>${{ order.subtotal.toFixed(2) }}</span>
+              <span>৳{{ order.subtotal.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between">
               <span>Shipping</span>
-              <span>{{ order.shipping === 0 ? 'FREE' : `$${order.shipping.toFixed(2)}` }}</span>
+              <span>{{ order.shipping === 0 ? 'FREE' : `৳${order.shipping.toFixed(2)}` }}</span>
             </div>
             <div class="flex justify-between">
               <span>Tax</span>
-              <span>${{ order.tax.toFixed(2) }}</span>
+              <span>৳{{ order.tax.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between pt-2 border-t font-bold text-gray-900">
               <span>Total</span>
-              <span>${{ order.total.toFixed(2) }}</span>
+              <span>৳{{ order.total.toFixed(2) }}</span>
             </div>
           </div>
         </div>
@@ -119,8 +119,8 @@ const getStatusClass = (status) => {
               <p class="text-sm text-gray-500 mt-1">Quantity: {{ item.quantity }}</p>
             </div>
             <div class="text-right">
-              <p class="font-medium text-gray-900">${{ (item.price * item.quantity).toFixed(2) }}</p>
-              <p class="text-sm text-gray-500">${{ item.price.toFixed(2) }} each</p>
+              <p class="font-medium text-gray-900">৳{{ (item.price * item.quantity).toFixed(2) }}</p>
+              <p class="text-sm text-gray-500">৳{{ item.price.toFixed(2) }} each</p>
             </div>
           </div>
         </div>

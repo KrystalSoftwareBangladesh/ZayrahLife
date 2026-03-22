@@ -288,7 +288,7 @@ const handlePageChange = (page: number) => {
       <StatCard title="Total Suppliers" :value="supplierStore.totalSuppliers" icon="users" color="blue" />
       <StatCard title="COD Suppliers" :value="supplierStore.codSuppliers" icon="check" color="green" />
       <StatCard title="Credit Suppliers" :value="supplierStore.creditSuppliers" icon="clock" color="yellow" />
-      <StatCard title="Prepaid Suppliers" :value="supplierStore.prepaidSuppliers" icon="dollar" color="purple" />
+      <StatCard title="Prepaid Suppliers" :value="supplierStore.prepaidSuppliers" icon="bdt" color="purple" />
     </div>
 
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

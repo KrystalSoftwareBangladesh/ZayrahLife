@@ -81,7 +81,7 @@ onMounted(() => {
               <p class="text-sm text-gray-500 mt-1">Placed on {{ formatDate(order.date) }}</p>
             </div>
             <div class="text-right">
-              <p class="text-lg font-bold text-gray-900">${{ order.total.toFixed(2) }}</p>
+              <p class="text-lg font-bold text-gray-900">৳{{ order.total.toFixed(2) }}</p>
               <p class="text-sm text-gray-500">{{ order.items.length }} item(s)</p>
             </div>
           </div>

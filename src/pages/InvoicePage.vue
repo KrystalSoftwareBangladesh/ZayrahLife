@@ -97,9 +97,9 @@ const printInvoice = () => {
                   </p>
                 </td>
                 <td class="text-center py-4 px-2 text-gray-600">{{ item.quantity }}</td>
-                <td class="text-right py-4 px-2 text-gray-600">${{ item.price.toFixed(2) }}</td>
+                <td class="text-right py-4 px-2 text-gray-600">৳{{ item.price.toFixed(2) }}</td>
                 <td class="text-right py-4 px-2 font-medium text-gray-900">
-                  ${{ (item.price * item.quantity).toFixed(2) }}
+                  ৳{{ (item.price * item.quantity).toFixed(2) }}
                 </td>
               </tr>
             </tbody>
@@ -110,19 +110,19 @@ const printInvoice = () => {
           <div class="w-full max-w-xs">
             <div class="flex justify-between py-2 text-gray-600">
               <span>Subtotal</span>
-              <span>${{ order.subtotal.toFixed(2) }}</span>
+              <span>৳{{ order.subtotal.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between py-2 text-gray-600">
               <span>Shipping</span>
-              <span>{{ order.shipping === 0 ? 'FREE' : `$${order.shipping.toFixed(2)}` }}</span>
+              <span>{{ order.shipping === 0 ? 'FREE' : `৳${order.shipping.toFixed(2)}` }}</span>
             </div>
             <div class="flex justify-between py-2 text-gray-600">
               <span>Tax</span>
-              <span>${{ order.tax.toFixed(2) }}</span>
+              <span>৳{{ order.tax.toFixed(2) }}</span>
             </div>
             <div class="flex justify-between py-3 border-t-2 border-gray-200 text-lg font-bold text-gray-900">
               <span>Total</span>
-              <span>${{ order.total.toFixed(2) }}</span>
+              <span>৳{{ order.total.toFixed(2) }}</span>
             </div>
           </div>
         </div>
