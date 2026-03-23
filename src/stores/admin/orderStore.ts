@@ -10,7 +10,6 @@ import type {
   SaleAccount,
   SaleCreateRequest,
   SaleDetail,
-  SaleDetailRequest,
   SaleItemCreateRequest,
   SaleLinkedTransaction,
   SaleList,
@@ -591,82 +590,8 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
 
     try {
-      const isConfirmStatus =
-        statusValuesMatch(nextStatus, 'CONFIRMED') ||
-        statusValuesMatch(nextStatus, 'PROCESSING')
-      const isCancelStatus =
-        statusValuesMatch(nextStatus, 'CANCELLED') ||
-        statusValuesMatch(nextStatus, 'RETURNED')
-
-      if (isConfirmStatus && !order.paymentMethodId && !order.accountId) {
-        throw { message: 'Select a payment method or account before confirming the sale.' } satisfies Partial<ApiError>
-      }
-
-      if (isConfirmStatus || isCancelStatus) {
-        const detail = getSaleDetailById(identifier) || await salesApi.getById(order.apiId)
-        storeSaleDetail(detail)
-
-        const customerId = typeof detail.customer === 'number' ? detail.customer : detail.customer?.id
-        const validItems = detail.items
-          .filter(item => typeof item.product_variant?.id === 'number' && item.product_variant.id > 0)
-          .map(item => ({
-            product_variant_id: item.product_variant!.id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            line_total: item.line_total
-          }))
-
-        if (!customerId || validItems.length === 0) {
-          throw { message: 'Unable to build the sale payload needed for this status change.' } satisfies Partial<ApiError>
-        }
-
-        const payload: SaleDetailRequest = {
-          customer: customerId,
-          items: validItems,
-          sale_date: detail.sale_date,
-          channel: detail.channel,
-          invoice_number: detail.invoice_number,
-          status: nextStatus as SaleStatus,
-          subtotal_amount: detail.subtotal_amount,
-          discount_amount: detail.discount_amount,
-          tax_amount: detail.tax_amount,
-          total_amount: detail.total_amount,
-          notes: detail.notes || null
-        }
-
-        if (order.paymentMethodId) {
-          payload.payment_method_id = order.paymentMethodId
-        }
-
-        if (
-          (order.accountId && !order.paymentMethodId) ||
-          (order.accountId && order.paymentMethodConfig?.allow_account_override) ||
-          (order.accountId && order.paymentMethodConfig?.default_account_id !== order.accountId)
-        ) {
-          payload.account_id = order.accountId
-        }
-
-        const response = isConfirmStatus
-          ? await salesApi.confirm(order.apiId, payload)
-          : await salesApi.cancel(order.apiId, payload)
-
-        storeSaleDetail(response)
-        upsertOrderFromSale(response)
-        return true
-      }
-
       const payload: SaleUpdateRequest = {
         status: nextStatus as SaleStatus
-      }
-      if (order.paymentMethodId) {
-        payload.payment_method_id = order.paymentMethodId
-      }
-      if (
-        (order.accountId && !order.paymentMethodId) ||
-        (order.accountId && order.paymentMethodConfig?.allow_account_override) ||
-        (order.accountId && order.paymentMethodConfig?.default_account_id !== order.accountId)
-      ) {
-        payload.account_id = order.accountId
       }
       const response = await salesApi.update(order.apiId, payload)
       storeSaleDetail(response)

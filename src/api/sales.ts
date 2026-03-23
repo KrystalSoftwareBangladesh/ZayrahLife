@@ -4,7 +4,6 @@ import type {
   SaleChannelsResponse,
   SaleCreateRequest,
   SaleDetail,
-  SaleDetailRequest,
   SaleList,
   SaleListParams,
   SaleStatusesResponse,
@@ -59,14 +58,6 @@ export const salesApi = {
 
   async delete(id: number | string): Promise<void> {
     return http.delete(`/api/v1/sales/${id}/`)
-  },
-
-  async confirm(id: number | string, data: SaleDetailRequest): Promise<SaleDetail> {
-    return http.post<SaleDetail>(`/api/v1/sales/${id}/confirm/`, data)
-  },
-
-  async cancel(id: number | string, data: SaleDetailRequest): Promise<SaleDetail> {
-    return http.post<SaleDetail>(`/api/v1/sales/${id}/cancel/`, data)
   }
 }
 
