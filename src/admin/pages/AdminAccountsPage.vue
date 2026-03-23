@@ -9,6 +9,7 @@ import FormSelect from '@/components/admin/FormSelect.vue'
 import StatCard from '@/components/admin/StatCard.vue'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import { useAccountStore } from '@/stores/admin/accountStore'
+import { usePaymentMethodStore } from '@/stores/admin/paymentMethodStore'
 import { useTransactionTypesStore } from '@/stores/admin/transactionTypesStore'
 import type {
   AccountType,
@@ -18,6 +19,9 @@ import type {
   AccountingTransactionListParams,
   ChartOfAccountList,
   ChartOfAccountListParams,
+  PaymentMethodCreateUpdateRequest,
+  PaymentMethodListParams,
+  PaymentMethodListItem,
   TransactionStatus
 } from '@/api/types'
 
@@ -50,9 +54,19 @@ type TransactionFormState = {
   lines: TransactionLineFormState[]
 }
 
-type AccountingTab = 'accounts' | 'transactions' | 'roadmap'
+type AccountingTab = 'accounts' | 'transactions' | 'payment-methods' | 'roadmap'
 type AccountCreationContext = {
   accountType: AccountType | null
+}
+
+type PaymentMethodFormState = {
+  code: string
+  name: string
+  description: string
+  default_account_id: string
+  allow_account_override: boolean
+  is_active: boolean
+  sort_order: string
 }
 
 const BUSINESS_DATE = '2026-03-17'
@@ -60,6 +74,7 @@ const OPENING_BALANCE_PROMPT_TYPES: AccountType[] = ['ASSET', 'LIABILITY', 'EQUI
 const IMPORTANT_OPENING_BALANCE_KEYWORDS = ['bank', 'cash', 'inventory', 'payable', 'capital', 'owner']
 
 const accountStore = useAccountStore()
+const paymentMethodStore = usePaymentMethodStore()
 const transactionTypesStore = useTransactionTypesStore()
 const route = useRoute()
 const router = useRouter()
@@ -75,6 +90,11 @@ const showTransactionModal = ref(false)
 const showDeleteTransactionModal = ref(false)
 const editingTransactionId = ref<number | null>(null)
 const transactionPendingDelete = ref<AccountingTransactionList | null>(null)
+
+const showPaymentMethodModal = ref(false)
+const showDeletePaymentMethodModal = ref(false)
+const editingPaymentMethodId = ref<number | null>(null)
+const paymentMethodPendingDelete = ref<PaymentMethodListItem | null>(null)
 
 const accountFilters = ref<{
   search: string
@@ -100,16 +120,31 @@ const transactionFilters = ref<{
   transaction_date_max: ''
 })
 
+const paymentMethodFilters = ref<{
+  search: string
+  status: '' | 'true' | 'false'
+  allow_override: '' | 'true' | 'false'
+}>({
+  search: '',
+  status: '',
+  allow_override: ''
+})
+
 const accountForm = ref<AccountFormState>(createEmptyAccountForm())
 const transactionForm = ref<TransactionFormState>(createEmptyTransactionForm())
+const paymentMethodForm = ref<PaymentMethodFormState>(createEmptyPaymentMethodForm())
 const accountFormValidationMessage = ref('')
 const accountFormSuccessMessage = ref('')
+const paymentMethodFormValidationMessage = ref('')
+const paymentMethodFormSuccessMessage = ref('')
 const suppressAccountFilterWatch = ref(false)
 const suppressTransactionFilterWatch = ref(false)
+const suppressPaymentMethodFilterWatch = ref(false)
 const suppressRouteSync = ref(false)
 const accountCreationContext = ref<AccountCreationContext | null>(null)
 let accountSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let transactionSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let paymentMethodSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const accountColumns = [
   { key: 'code', label: 'Code', width: '120px' },
@@ -129,6 +164,15 @@ const transactionColumns = [
   { key: 'status', label: 'Status', width: '120px' },
   { key: 'total_debit', label: 'Debit', width: '120px' },
   { key: 'total_credit', label: 'Credit', width: '120px' }
+]
+
+const paymentMethodColumns = [
+  { key: 'name', label: 'Name' },
+  { key: 'code', label: 'Code', width: '140px' },
+  { key: 'default_account', label: 'Default Account', width: '250px' },
+  { key: 'allow_account_override', label: 'Override', width: '140px' },
+  { key: 'is_active', label: 'Status', width: '120px' },
+  { key: 'sort_order', label: 'Sort', width: '100px' }
 ]
 
 const accountTypeOptions = [
@@ -159,6 +203,18 @@ const accountStatusOptions = [
   { value: 'false', label: 'Inactive' }
 ]
 
+const paymentMethodStatusFilterOptions = [
+  { value: '', label: 'All statuses' },
+  { value: 'true', label: 'Active' },
+  { value: 'false', label: 'Inactive' }
+]
+
+const paymentMethodOverrideFilterOptions = [
+  { value: '', label: 'All override modes' },
+  { value: 'true', label: 'Override allowed' },
+  { value: 'false', label: 'Locked to default account' }
+]
+
 const transactionTypeOptions = computed(() => transactionTypesStore.typeOptions)
 
 const transactionTypePresets = computed(() => transactionTypesStore.typePresets)
@@ -175,6 +231,31 @@ const accountSelectOptions = computed(() => [
     label: `${account.code} - ${account.name}`
   }))
 ])
+
+const paymentMethodAccountOptions = computed(() => [
+  { value: '', label: 'No default account' },
+  ...accountStore.accountOptions
+    .filter(account => account.is_active && account.account_type === 'ASSET')
+    .map(account => ({
+      value: String(account.id),
+      label: `${account.code} - ${account.name}`
+    }))
+])
+
+const paymentMethodSummaryCards = computed(() => [
+  { label: 'Total Methods', value: paymentMethodStore.totalPaymentMethods },
+  { label: 'Active', value: paymentMethodStore.activePaymentMethods },
+  { label: 'Override Allowed', value: paymentMethodStore.overrideEnabledPaymentMethods },
+  { label: 'Linked Accounts', value: paymentMethodStore.mappedAccounts }
+])
+
+const paymentMethodMapByAccountId = computed(() => {
+  const entries = paymentMethodStore.paymentMethods
+    .filter(method => method.default_account_id)
+    .map(method => [String(method.default_account_id), method] as const)
+
+  return new Map(entries)
+})
 
 const parentOptions = computed(() => {
   const currentId = editingAccountId.value
@@ -503,6 +584,30 @@ function createEmptyTransactionForm(): TransactionFormState {
   }
 }
 
+function createEmptyPaymentMethodForm(): PaymentMethodFormState {
+  return {
+    code: '',
+    name: '',
+    description: '',
+    default_account_id: '',
+    allow_account_override: false,
+    is_active: true,
+    sort_order: ''
+  }
+}
+
+function createPaymentMethodFormFromDetail(detail: PaymentMethodListItem): PaymentMethodFormState {
+  return {
+    code: detail.code || '',
+    name: detail.name || '',
+    description: detail.description || '',
+    default_account_id: detail.default_account_id ? String(detail.default_account_id) : '',
+    allow_account_override: !!detail.allow_account_override,
+    is_active: detail.is_active !== false,
+    sort_order: detail.sort_order === null || detail.sort_order === undefined ? '' : String(detail.sort_order)
+  }
+}
+
 function createInitialTransactionLines(type: TransactionEntryType): TransactionLineFormState[] {
   return transactionTypesStore.getPresetByValue(type)
     ? createPresetLines()
@@ -638,7 +743,7 @@ function normalizeParentId(parentName: string): number | null {
 }
 
 function normalizeAccountingTab(value: unknown): AccountingTab {
-  return value === 'transactions' || value === 'roadmap' ? value : 'accounts'
+  return value === 'transactions' || value === 'payment-methods' || value === 'roadmap' ? value : 'accounts'
 }
 
 function parseQueryId(value: unknown): number | null {
@@ -683,6 +788,30 @@ async function syncRouteState(): Promise<void> {
   suppressRouteSync.value = true
   await router.replace({ query: nextQuery })
   suppressRouteSync.value = false
+}
+
+async function refreshPaymentMethods(params: PaymentMethodListParams = {}): Promise<void> {
+  const resolvedSearch = (params.search ?? paymentMethodFilters.value.search) || undefined
+  const resolvedIsActive =
+    params.is_active !== undefined
+      ? params.is_active
+      : paymentMethodFilters.value.status === ''
+        ? undefined
+        : paymentMethodFilters.value.status === 'true'
+  const resolvedAllowOverride =
+    params.allow_account_override !== undefined
+      ? params.allow_account_override
+      : paymentMethodFilters.value.allow_override === ''
+        ? undefined
+        : paymentMethodFilters.value.allow_override === 'true'
+
+  await paymentMethodStore.fetchPaymentMethods({
+    page: params.page || paymentMethodStore.pagination.page,
+    search: resolvedSearch,
+    is_active: resolvedIsActive,
+    allow_account_override: resolvedAllowOverride,
+    ordering: params.ordering || 'sort_order'
+  })
 }
 
 async function refreshAccounts(params: ChartOfAccountListParams = {}): Promise<void> {
@@ -738,6 +867,7 @@ async function loadPage(): Promise<void> {
   await Promise.all([
     refreshAccounts({ page: 1 }),
     refreshTransactions({ page: 1 }),
+    refreshPaymentMethods({ page: 1 }),
     accountStore.fetchAccountOptions(),
     accountStore.fetchTransactionStatuses(),
     transactionTypesStore.loadTypes()
@@ -757,6 +887,13 @@ function closeTransactionModal(): void {
   accountStore.clearCurrentTransaction()
 }
 
+function closePaymentMethodModal(): void {
+  showPaymentMethodModal.value = false
+  editingPaymentMethodId.value = null
+  paymentMethodForm.value = createEmptyPaymentMethodForm()
+  paymentMethodFormValidationMessage.value = ''
+}
+
 function setActiveTab(tab: AccountingTab): void {
   activeTab.value = tab
 
@@ -768,6 +905,11 @@ function setActiveTab(tab: AccountingTab): void {
   if (tab !== 'transactions') {
     showTransactionModal.value = false
     editingTransactionId.value = null
+  }
+
+  if (tab !== 'payment-methods') {
+    showPaymentMethodModal.value = false
+    editingPaymentMethodId.value = null
   }
 }
 
@@ -803,6 +945,29 @@ async function openEditAccountModal(account: ChartOfAccountList): Promise<void> 
   await openAccountDetailById(account.id)
 }
 
+function openCreatePaymentMethodModal(defaultAccountId = ''): void {
+  setActiveTab('payment-methods')
+  editingPaymentMethodId.value = null
+  paymentMethodStore.clearError()
+  paymentMethodFormSuccessMessage.value = ''
+  paymentMethodFormValidationMessage.value = ''
+  paymentMethodForm.value = {
+    ...createEmptyPaymentMethodForm(),
+    default_account_id: defaultAccountId
+  }
+  showPaymentMethodModal.value = true
+}
+
+async function openEditPaymentMethodModal(paymentMethod: PaymentMethodListItem): Promise<void> {
+  setActiveTab('payment-methods')
+  editingPaymentMethodId.value = paymentMethod.id
+  paymentMethodStore.clearError()
+  paymentMethodFormSuccessMessage.value = ''
+  paymentMethodFormValidationMessage.value = ''
+  paymentMethodForm.value = createPaymentMethodFormFromDetail(paymentMethod)
+  showPaymentMethodModal.value = true
+}
+
 function validateAccountForm(): boolean {
   accountFormValidationMessage.value = ''
 
@@ -829,6 +994,44 @@ function validateAccountForm(): boolean {
 
   if (isFutureBusinessDate(accountForm.value.opening_date)) {
     accountFormValidationMessage.value = `Opening balance date cannot be after ${BUSINESS_DATE}.`
+    return false
+  }
+
+  return true
+}
+
+function validatePaymentMethodForm(): boolean {
+  paymentMethodFormValidationMessage.value = ''
+
+  if (!paymentMethodForm.value.name.trim()) {
+    paymentMethodFormValidationMessage.value = 'Payment method name is required.'
+    return false
+  }
+
+  if (!paymentMethodForm.value.code.trim()) {
+    paymentMethodFormValidationMessage.value = 'Payment method code is required.'
+    return false
+  }
+
+  if (!paymentMethodForm.value.default_account_id) {
+    paymentMethodFormValidationMessage.value = 'Please choose a default asset account.'
+    return false
+  }
+
+  const account = accountStore.accountOptions.find(
+    item => String(item.id) === paymentMethodForm.value.default_account_id
+  )
+
+  if (!account || account.account_type !== 'ASSET' || !account.is_active) {
+    paymentMethodFormValidationMessage.value = 'Payment methods can only use active asset accounts.'
+    return false
+  }
+
+  if (
+    paymentMethodForm.value.sort_order.trim() &&
+    !Number.isInteger(Number(paymentMethodForm.value.sort_order))
+  ) {
+    paymentMethodFormValidationMessage.value = 'Sort order must be a whole number.'
     return false
   }
 
@@ -885,10 +1088,47 @@ async function handleSaveAccount(): Promise<void> {
   await refreshAccounts({ page: isEditingAccount ? currentAccountPage : 1 })
 }
 
+async function handleSavePaymentMethod(): Promise<void> {
+  if (!validatePaymentMethodForm()) return
+
+  const payload: PaymentMethodCreateUpdateRequest = {
+    code: paymentMethodForm.value.code.trim().toUpperCase(),
+    name: paymentMethodForm.value.name.trim(),
+    description: paymentMethodForm.value.description.trim() || null,
+    is_active: paymentMethodForm.value.is_active,
+    allow_account_override: paymentMethodForm.value.allow_account_override,
+    default_account_id: Number(paymentMethodForm.value.default_account_id),
+    sort_order: paymentMethodForm.value.sort_order.trim()
+      ? Number(paymentMethodForm.value.sort_order)
+      : null
+  }
+
+  const isEditingPaymentMethod = !!editingPaymentMethodId.value
+  const currentPaymentMethodPage = paymentMethodStore.pagination.page
+  const result = isEditingPaymentMethod && editingPaymentMethodId.value
+    ? await paymentMethodStore.updatePaymentMethod(editingPaymentMethodId.value, payload)
+    : await paymentMethodStore.createPaymentMethod(payload)
+
+  if (!result) return
+
+  paymentMethodFormSuccessMessage.value = isEditingPaymentMethod
+    ? 'Payment method updated successfully.'
+    : 'Payment method created successfully.'
+
+  closePaymentMethodModal()
+  await refreshPaymentMethods({ page: isEditingPaymentMethod ? currentPaymentMethodPage : 1 })
+}
+
 function promptDeleteAccount(account: ChartOfAccountList): void {
   showAccountModal.value = false
   accountPendingDelete.value = account
   showDeleteAccountModal.value = true
+}
+
+function promptDeletePaymentMethod(paymentMethod: PaymentMethodListItem): void {
+  showPaymentMethodModal.value = false
+  paymentMethodPendingDelete.value = paymentMethod
+  showDeletePaymentMethodModal.value = true
 }
 
 async function handleDeleteAccount(): Promise<void> {
@@ -899,6 +1139,16 @@ async function handleDeleteAccount(): Promise<void> {
 
   showDeleteAccountModal.value = false
   accountPendingDelete.value = null
+}
+
+async function handleDeletePaymentMethod(): Promise<void> {
+  if (!paymentMethodPendingDelete.value) return
+
+  const success = await paymentMethodStore.deletePaymentMethod(paymentMethodPendingDelete.value.id)
+  if (!success) return
+
+  showDeletePaymentMethodModal.value = false
+  paymentMethodPendingDelete.value = null
 }
 
 function openCreateTransactionModal(): void {
@@ -1077,6 +1327,26 @@ async function resetTransactionFilters(): Promise<void> {
   suppressTransactionFilterWatch.value = false
 }
 
+async function resetPaymentMethodFilters(): Promise<void> {
+  suppressPaymentMethodFilterWatch.value = true
+  if (paymentMethodSearchDebounceTimer) {
+    clearTimeout(paymentMethodSearchDebounceTimer)
+    paymentMethodSearchDebounceTimer = null
+  }
+  paymentMethodFilters.value = {
+    search: '',
+    status: '',
+    allow_override: ''
+  }
+  await refreshPaymentMethods({
+    page: 1,
+    search: undefined,
+    is_active: undefined,
+    allow_account_override: undefined
+  })
+  suppressPaymentMethodFilterWatch.value = false
+}
+
 async function showTransactionsForAccount(accountId: number): Promise<void> {
   suppressTransactionFilterWatch.value = true
   transactionFilters.value = {
@@ -1110,6 +1380,12 @@ async function goToTransactionPage(page: number): Promise<void> {
   if (page < 1) return
   accountStore.setTransactionPage(page)
   await refreshTransactions({ page })
+}
+
+async function goToPaymentMethodPage(page: number): Promise<void> {
+  if (page < 1) return
+  paymentMethodStore.pagination.page = page
+  await refreshPaymentMethods({ page })
 }
 
 async function applyRouteState(): Promise<void> {
@@ -1210,6 +1486,28 @@ watch(
 )
 
 watch(
+  () => paymentMethodFilters.value.search,
+  value => {
+    if (suppressPaymentMethodFilterWatch.value) return
+    if (paymentMethodSearchDebounceTimer) clearTimeout(paymentMethodSearchDebounceTimer)
+
+    paymentMethodSearchDebounceTimer = setTimeout(() => {
+      paymentMethodStore.pagination.page = 1
+      void refreshPaymentMethods({ page: 1, search: value || undefined })
+    }, 250)
+  }
+)
+
+watch(
+  () => [paymentMethodFilters.value.status, paymentMethodFilters.value.allow_override],
+  () => {
+    if (suppressPaymentMethodFilterWatch.value) return
+    paymentMethodStore.pagination.page = 1
+    void refreshPaymentMethods({ page: 1 })
+  }
+)
+
+watch(
   () => [
     transactionFilters.value.account,
     transactionFilters.value.status,
@@ -1283,6 +1581,12 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
           @click="() => openCreateAccountModal()"
         >
           Add Account
+        </button>
+        <button
+          class="px-4 py-2 text-sm font-medium text-primary-600 bg-white border border-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
+          @click="openCreatePaymentMethodModal()"
+        >
+          Add Payment Method
         </button>
         <button
           class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
@@ -1385,6 +1689,17 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
           <button
             :class="[
               'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+              activeTab === 'payment-methods'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ]"
+            @click="setActiveTab('payment-methods')"
+          >
+            Payment Methods
+          </button>
+          <button
+            :class="[
+              'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
               activeTab === 'roadmap'
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1467,6 +1782,28 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
             <span class="font-mono text-sm text-gray-600">{{ value }}</span>
           </template>
 
+          <template #name="{ value, row }">
+            <div class="space-y-1">
+              <div class="font-medium text-gray-900">{{ value }}</div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span
+                  v-if="paymentMethodMapByAccountId.has(String(row.id))"
+                  class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700"
+                >
+                  Payment method linked
+                </span>
+                <button
+                  v-else-if="row.account_type === 'ASSET' && row.is_active"
+                  type="button"
+                  class="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
+                  @click.stop="openCreatePaymentMethodModal(String(row.id))"
+                >
+                  Mark as payment method
+                </button>
+              </div>
+            </div>
+          </template>
+
           <template #account_type="{ value }">
             <StatusBadge :status="value" />
           </template>
@@ -1498,6 +1835,162 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
               class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="!accountStore.pagination.hasNext || accountStore.loading"
               @click="goToAccountPage(accountStore.pagination.page + 1)"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="activeTab === 'payment-methods'" class="p-6 space-y-6">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div
+            v-for="item in paymentMethodSummaryCards"
+            :key="item.label"
+            class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4"
+          >
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ item.label }}</p>
+            <p class="mt-2 text-2xl font-semibold text-gray-900">{{ item.value }}</p>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-900">
+          Configure customer-facing payment methods here. Each method must point to an active asset account so POS and sale flows can resolve accounting automatically.
+        </div>
+
+        <div
+          v-if="paymentMethodStore.error"
+          class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {{ paymentMethodStore.error }}
+        </div>
+
+        <div
+          v-if="paymentMethodFormSuccessMessage"
+          class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          {{ paymentMethodFormSuccessMessage }}
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr),180px,220px,auto]">
+          <FormInput
+            v-model="paymentMethodFilters.search"
+            label="Search"
+            placeholder="Search by code or payment method name"
+          />
+          <FormSelect
+            v-model="paymentMethodFilters.status"
+            label="Status"
+            :options="paymentMethodStatusFilterOptions"
+          />
+          <FormSelect
+            v-model="paymentMethodFilters.allow_override"
+            label="Override"
+            :options="paymentMethodOverrideFilterOptions"
+          />
+          <div class="flex items-end gap-2">
+            <button
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              @click="resetPaymentMethodFilters"
+            >
+              Reset
+            </button>
+            <button
+              class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+              @click="openCreatePaymentMethodModal()"
+            >
+              New Method
+            </button>
+          </div>
+        </div>
+
+        <DataTable
+          :columns="paymentMethodColumns"
+          :data="paymentMethodStore.paymentMethods"
+          :loading="paymentMethodStore.loading"
+          @row-click="openEditPaymentMethodModal"
+        >
+          <template #name="{ value, row }">
+            <div class="space-y-1">
+              <div class="font-medium text-gray-900">{{ value }}</div>
+              <div v-if="row.description" class="whitespace-normal text-xs text-gray-500">{{ row.description }}</div>
+            </div>
+          </template>
+
+          <template #code="{ value }">
+            <span class="font-mono text-sm text-gray-600">{{ value }}</span>
+          </template>
+
+          <template #default_account="{ row }">
+            <div v-if="row.default_account" class="whitespace-normal">
+              <div class="text-sm text-gray-900">{{ row.default_account.name }}</div>
+              <div class="text-xs text-gray-500">{{ row.default_account.code || 'No code' }}</div>
+            </div>
+            <span v-else class="text-sm text-amber-700">No default account</span>
+          </template>
+
+          <template #allow_account_override="{ value }">
+            <span
+              :class="value ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-700'"
+              class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
+            >
+              {{ value ? 'Allowed' : 'Locked' }}
+            </span>
+          </template>
+
+          <template #is_active="{ value }">
+            <StatusBadge :status="value ? 'ACTIVE' : 'INACTIVE'" size="sm" />
+          </template>
+
+          <template #sort_order="{ value, row }">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-sm text-gray-700">{{ value ?? '-' }}</span>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 transition-colors hover:bg-primary-50"
+                  title="Edit payment method"
+                  aria-label="Edit payment method"
+                  @click.stop="openEditPaymentMethodModal(row)"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 transition-colors hover:bg-red-50"
+                  title="Delete payment method"
+                  aria-label="Delete payment method"
+                  @click.stop="promptDeletePaymentMethod(row)"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </template>
+        </DataTable>
+
+        <div class="flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-gray-500">
+            Showing page {{ paymentMethodStore.pagination.page }} of
+            {{ Math.max(1, Math.ceil(paymentMethodStore.pagination.count / paymentMethodStore.pagination.pageSize)) }}
+          </p>
+
+          <div class="flex items-center gap-2">
+            <button
+              class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!paymentMethodStore.pagination.hasPrevious || paymentMethodStore.loading"
+              @click="goToPaymentMethodPage(paymentMethodStore.pagination.page - 1)"
+            >
+              Previous
+            </button>
+            <button
+              class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!paymentMethodStore.pagination.hasNext || paymentMethodStore.loading"
+              @click="goToPaymentMethodPage(paymentMethodStore.pagination.page + 1)"
             >
               Next
             </button>
@@ -1888,6 +2381,125 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
     </FormModal>
 
     <FormModal
+      :show="showPaymentMethodModal"
+      :title="editingPaymentMethodId ? 'Edit Payment Method' : 'Add Payment Method'"
+      @close="closePaymentMethodModal"
+      @submit="handleSavePaymentMethod"
+    >
+      <div class="space-y-4">
+        <div
+          v-if="paymentMethodFormValidationMessage"
+          class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {{ paymentMethodFormValidationMessage }}
+        </div>
+
+        <div
+          v-if="paymentMethodStore.error"
+          class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {{ paymentMethodStore.error }}
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormInput
+            v-model="paymentMethodForm.name"
+            label="Payment Method Name"
+            placeholder="e.g. Cash"
+          />
+          <FormInput
+            v-model="paymentMethodForm.code"
+            label="Code"
+            placeholder="e.g. CASH"
+          />
+        </div>
+
+        <FormInput
+          v-model="paymentMethodForm.description"
+          label="Description"
+          placeholder="Optional POS-facing description"
+        />
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormSelect
+            v-model="paymentMethodForm.default_account_id"
+            label="Default Asset Account"
+            :options="paymentMethodAccountOptions"
+          />
+          <FormInput
+            v-model="paymentMethodForm.sort_order"
+            label="Sort Order"
+            type="number"
+            step="1"
+            min="0"
+            placeholder="Optional display order"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <input
+              v-model="paymentMethodForm.allow_account_override"
+              type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            >
+            <div>
+              <p class="text-sm font-medium text-gray-900">Allow account override</p>
+              <p class="text-xs text-gray-500">Enable advanced sale flows to change the resolved account.</p>
+            </div>
+          </label>
+
+          <label class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <input
+              v-model="paymentMethodForm.is_active"
+              type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            >
+            <div>
+              <p class="text-sm font-medium text-gray-900">Active</p>
+              <p class="text-xs text-gray-500">Inactive methods stay hidden from normal sale entry.</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          Only active asset accounts can be linked here. Sales and POS flows will use this mapping to resolve the accounting account automatically.
+        </div>
+      </div>
+
+      <template #actions>
+        <div class="flex w-full justify-between gap-3">
+          <div>
+            <button
+              v-if="editingPaymentMethodId"
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+              @click="paymentMethodPendingDelete = paymentMethodStore.paymentMethods.find(method => method.id === editingPaymentMethodId) || null; paymentMethodPendingDelete && promptDeletePaymentMethod(paymentMethodPendingDelete)"
+            >
+              Delete Payment Method
+            </button>
+          </div>
+
+          <div class="flex gap-3">
+            <button
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              @click="closePaymentMethodModal"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              {{ editingPaymentMethodId ? 'Save Payment Method' : 'Create Payment Method' }}
+            </button>
+          </div>
+        </div>
+      </template>
+    </FormModal>
+
+    <FormModal
       :show="showTransactionModal"
       :title="editingTransactionId ? 'Edit Transaction' : 'Add Transaction'"
       size="xl"
@@ -2166,6 +2778,15 @@ function isAccountTypeFilterSelected(value: '' | AccountType): boolean {
       confirm-text="Delete"
       @cancel="showDeleteAccountModal = false"
       @confirm="handleDeleteAccount"
+    />
+
+    <ConfirmModal
+      :show="showDeletePaymentMethodModal"
+      title="Delete Payment Method"
+      :message="`Delete ${paymentMethodPendingDelete?.name || ''}? This cannot be undone.`"
+      confirm-text="Delete"
+      @cancel="showDeletePaymentMethodModal = false"
+      @confirm="handleDeletePaymentMethod"
     />
 
     <ConfirmModal

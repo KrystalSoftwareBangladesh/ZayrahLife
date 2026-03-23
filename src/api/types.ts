@@ -598,6 +598,13 @@ export interface SaleAccount {
   account_type: AccountType
 }
 
+export interface PaymentMethodAccount {
+  id: number
+  code: string | null
+  name: string
+  account_type: AccountType
+}
+
 export interface SalePaymentMethod {
   id: number
   code: string
@@ -761,12 +768,50 @@ export interface SaleStatusOption {
 
 export interface PaymentMethodListItem extends SalePaymentMethod {}
 
+export interface PaymentMethodDetail {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  is_active: boolean
+  sort_order: number | null
+  allow_account_override: boolean
+  default_account: PaymentMethodAccount | null
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface PaymentMethodCreateUpdateRequest {
+  code: string
+  name: string
+  description?: string | null
+  is_active?: boolean
+  sort_order?: number | null
+  allow_account_override?: boolean
+  default_account_id?: number | null
+}
+
+export interface PaymentMethodCreateUpdateResponse {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  is_active: boolean
+  sort_order: number | null
+  allow_account_override: boolean
+  default_account_id: number | null
+}
+
 export interface PaymentMethodListParams {
   page?: number
   page_size?: number
   search?: string
   ordering?: string
   is_active?: boolean
+  allow_account_override?: boolean
 }
 
 export interface SaleStatusesResponse {
