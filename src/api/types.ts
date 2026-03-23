@@ -598,6 +598,18 @@ export interface SaleAccount {
   account_type: AccountType
 }
 
+export interface SalePaymentMethod {
+  id: number
+  code: string
+  name: string
+  description?: string | null
+  is_active?: boolean
+  sort_order?: number | null
+  allow_account_override: boolean
+  default_account_id?: number | null
+  default_account?: SaleAccount | null
+}
+
 export interface SaleLinkedTransaction {
   id: number
   transaction_no: string | null
@@ -620,6 +632,8 @@ export interface SaleItem {
 export interface SaleList {
   id: number | string
   customer: SaleCustomer | number | null
+  payment_method?: SalePaymentMethod | string | null
+  payment_method_id?: number | null
   account?: SaleAccount | number | null
   account_id?: number | null
   sale_date: string
@@ -638,6 +652,8 @@ export interface SaleList {
 export interface SaleDetail {
   id: number | string
   customer: SaleCustomer | number | null
+  payment_method?: SalePaymentMethod | string | null
+  payment_method_id?: number | null
   account?: SaleAccount | number | null
   account_id?: number | null
   items: SaleItem[]
@@ -658,7 +674,6 @@ export interface SaleDetail {
   customer_email?: string | null
   customer_phone?: string | null
   channel?: string
-  payment_method?: string | null
   shipping_address?: string | null
   shipping_amount?: string
   tracking_number?: string | null
@@ -673,6 +688,7 @@ export interface SaleItemCreateRequest {
 
 export interface SaleCreateRequest {
   customer: number
+  payment_method_id?: number | null
   account_id?: number | null
   sale_date: string
   invoice_number?: string | null
@@ -685,6 +701,7 @@ export interface SaleCreateRequest {
 
 export interface SaleUpdateRequest {
   customer?: number
+  payment_method_id?: number | null
   account_id?: number | null
   sale_date?: string
   invoice_number?: string | null
@@ -698,6 +715,7 @@ export interface SaleUpdateRequest {
 
 export interface SaleDetailRequest {
   customer: number | CustomerProfileDetailRequest
+  payment_method_id?: number | null
   account_id?: number | null
   items: SaleItemCreateRequest[]
   sale_date: string
@@ -739,6 +757,16 @@ export interface SaleChannelsResponse {
 export interface SaleStatusOption {
   value: string
   label: string
+}
+
+export interface PaymentMethodListItem extends SalePaymentMethod {}
+
+export interface PaymentMethodListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  ordering?: string
+  is_active?: boolean
 }
 
 export interface SaleStatusesResponse {

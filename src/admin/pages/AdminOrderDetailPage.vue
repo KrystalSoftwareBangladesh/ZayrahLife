@@ -13,12 +13,42 @@ const orderStore = useOrderStore()
 const isDeleting = ref(false)
 const isUpdatingStatus = ref(false)
 const isSavingAccount = ref(false)
+const selectedPaymentMethodId = ref('')
 const selectedAccountId = ref('')
 const accountValidationMessage = ref('')
 
 const orderIdentifier = computed(() => String(route.params.id || ''))
 const order = computed(() => orderStore.getOrderById(orderIdentifier.value))
 const isEditableOrder = computed(() => !!order.value && orderStore.isPendingStatus(order.value.status))
+
+const paymentMethodOptions = computed(() => {
+  const options = orderStore.activePaymentMethods.map(method => ({
+    value: String(method.id),
+    label: method.name
+  }))
+
+  if (
+    order.value?.paymentMethodConfig &&
+    !options.some(option => option.value === String(order.value?.paymentMethodConfig?.id))
+  ) {
+    options.unshift({
+      value: String(order.value.paymentMethodConfig.id),
+      label: order.value.paymentMethodConfig.name
+    })
+  }
+
+  return options
+})
+
+const selectedPaymentMethod = computed(() =>
+  orderStore.getPaymentMethodById(selectedPaymentMethodId.value ? Number(selectedPaymentMethodId.value) : null) ||
+  order.value?.paymentMethodConfig ||
+  null
+)
+
+const canOverrideSelectedAccount = computed(() =>
+  !selectedPaymentMethodId.value || !!selectedPaymentMethod.value?.allow_account_override
+)
 
 const accountOptions = computed(() => {
   const options = accountStore.accountOptions
@@ -68,11 +98,25 @@ const canDeleteCurrentOrder = computed(() => {
 
 async function loadOrder(): Promise<void> {
   await orderStore.fetchStatusMetadata()
+  await orderStore.fetchPaymentMethods()
   await accountStore.fetchAccountOptions()
   await orderStore.fetchOrderById(orderIdentifier.value)
 
+  selectedPaymentMethodId.value = order.value?.paymentMethodId ? String(order.value.paymentMethodId) : ''
   selectedAccountId.value = order.value?.accountId ? String(order.value.accountId) : ''
   accountValidationMessage.value = ''
+}
+
+function applyPaymentMethodSelection(paymentMethodId: string): void {
+  selectedPaymentMethodId.value = paymentMethodId
+
+  const paymentMethod = orderStore.getPaymentMethodById(paymentMethodId ? Number(paymentMethodId) : null)
+  if (!paymentMethod) {
+    selectedAccountId.value = ''
+    return
+  }
+
+  selectedAccountId.value = paymentMethod.default_account_id ? String(paymentMethod.default_account_id) : ''
 }
 
 async function updateStatus(newStatus: string | number): Promise<void> {
@@ -84,13 +128,17 @@ async function updateStatus(newStatus: string | number): Promise<void> {
     orderStore.statusValuesMatch(nextStatus, 'CONFIRMED') ||
     orderStore.statusValuesMatch(nextStatus, 'PROCESSING')
 
-  if (requiresAccount && !selectedAccountId.value) {
-    accountValidationMessage.value = 'Select an asset account before confirming this sale.'
+  if (requiresAccount && !selectedPaymentMethodId.value && !selectedAccountId.value) {
+    accountValidationMessage.value = 'Select a payment method or account before confirming this sale.'
     return
   }
 
-  if (selectedAccountId.value && selectedAccountId.value !== String(order.value.accountId || '')) {
-    const saved = await saveAccountSelection()
+  const hasAccountingChanges =
+    selectedPaymentMethodId.value !== String(order.value.paymentMethodId || '') ||
+    selectedAccountId.value !== String(order.value.accountId || '')
+
+  if (hasAccountingChanges) {
+    const saved = await saveAccountingSelection()
     if (!saved) return
   }
 
@@ -100,21 +148,35 @@ async function updateStatus(newStatus: string | number): Promise<void> {
   isUpdatingStatus.value = false
 }
 
-async function saveAccountSelection(): Promise<boolean> {
+async function saveAccountingSelection(): Promise<boolean> {
   if (!order.value || isSavingAccount.value) return false
-  if (!selectedAccountId.value) {
-    accountValidationMessage.value = 'Select an asset account before saving.'
+  if (!selectedPaymentMethodId.value && !selectedAccountId.value) {
+    accountValidationMessage.value = 'Select a payment method or account before saving.'
     return false
   }
 
   accountValidationMessage.value = ''
   isSavingAccount.value = true
-  const saved = await orderStore.updateOrderDetails(order.value.apiId, {
-    account_id: Number(selectedAccountId.value)
-  })
+  const payload: Parameters<typeof orderStore.updateOrderDetails>[1] = {}
+
+  if (selectedPaymentMethodId.value) {
+    payload.payment_method_id = Number(selectedPaymentMethodId.value)
+  }
+
+  if (
+    selectedAccountId.value &&
+    (!selectedPaymentMethodId.value ||
+      canOverrideSelectedAccount.value ||
+      Number(selectedAccountId.value) !== Number(selectedPaymentMethod.value?.default_account_id || 0))
+  ) {
+    payload.account_id = Number(selectedAccountId.value)
+  }
+
+  const saved = await orderStore.updateOrderDetails(order.value.apiId, payload)
   isSavingAccount.value = false
 
   if (saved) {
+    selectedPaymentMethodId.value = order.value?.paymentMethodId ? String(order.value.paymentMethodId) : ''
     selectedAccountId.value = order.value?.accountId ? String(order.value.accountId) : selectedAccountId.value
   }
 
@@ -142,6 +204,7 @@ watch(() => route.params.id, () => {
 })
 
 watch(order, nextOrder => {
+  selectedPaymentMethodId.value = nextOrder?.paymentMethodId ? String(nextOrder.paymentMethodId) : ''
   selectedAccountId.value = nextOrder?.accountId ? String(nextOrder.accountId) : ''
 })
 
@@ -284,26 +347,46 @@ onMounted(() => {
             <div class="space-y-4">
               <div>
                 <FormSelect
+                  v-model="selectedPaymentMethodId"
+                  label="Payment Method"
+                  :options="paymentMethodOptions"
+                  placeholder="Select a payment method"
+                  :disabled="!isEditableOrder || isSavingAccount || isUpdatingStatus"
+                  :error="accountValidationMessage"
+                  @update:model-value="applyPaymentMethodSelection"
+                />
+                <p class="mt-2 text-xs text-gray-500">
+                  Payment method is the primary sale control. The backend resolves the default accounting account from it.
+                </p>
+              </div>
+
+              <div>
+                <FormSelect
                   v-model="selectedAccountId"
                   label="Receipt / Receivable Account"
                   :options="accountOptions"
                   placeholder="Select an asset account"
-                  :disabled="!isEditableOrder || isSavingAccount || isUpdatingStatus"
+                  :disabled="!isEditableOrder || isSavingAccount || isUpdatingStatus || (!!selectedPaymentMethodId && !canOverrideSelectedAccount)"
                   :error="accountValidationMessage"
                   @update:model-value="accountValidationMessage = ''"
                 />
                 <p class="mt-2 text-xs text-gray-500">
-                  Use an active asset account such as cash, bank, or accounts receivable.
+                  {{ canOverrideSelectedAccount
+                    ? 'Use an active asset account such as cash, bank, or accounts receivable.'
+                    : 'This account comes from the selected payment method and cannot be overridden.' }}
                 </p>
               </div>
 
               <button
                 v-if="isEditableOrder"
-                :disabled="isSavingAccount || !selectedAccountId || selectedAccountId === String(order.accountId || '')"
+                :disabled="isSavingAccount || (!selectedPaymentMethodId && !selectedAccountId) || (
+                  selectedPaymentMethodId === String(order.paymentMethodId || '') &&
+                  selectedAccountId === String(order.accountId || '')
+                )"
                 class="w-full rounded-md border border-primary-200 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-                @click="saveAccountSelection"
+                @click="saveAccountingSelection"
               >
-                {{ isSavingAccount ? 'Saving Account...' : 'Save Account' }}
+                {{ isSavingAccount ? 'Saving Changes...' : 'Save Accounting Settings' }}
               </button>
 
               <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">

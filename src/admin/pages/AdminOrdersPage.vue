@@ -45,8 +45,8 @@ const defaultChannelOptions = [
 const selectedChannel = ref('Walk-in')
 const channelOptions = ref(defaultChannelOptions)
 const selectedCustomerId = ref<number>(0)
+const selectedPaymentMethodId = ref('')
 const selectedAccountId = ref('')
-const selectedPaymentMethod = ref('CASH')
 const cart = ref<CartItem[]>([])
 const orderNotes = ref('')
 const shippingAddress = ref('')
@@ -106,14 +106,6 @@ const filteredVariants = computed(() => {
   return result
 })
 
-const paymentMethods = [
-  { value: 'CASH', label: 'Cash', icon: '💵' },
-  { value: 'CARD', label: 'Card', icon: '💳' },
-  { value: 'BKASH', label: 'bKash', icon: '📱' },
-  { value: 'NAGAD', label: 'Nagad', icon: '📱' },
-  { value: 'BANK', label: 'Bank Transfer', icon: '🏦' }
-]
-
 const customerOptions = computed(() => {
   return [
     { value: 0, label: 'Walk-in Customer' },
@@ -128,6 +120,38 @@ const selectedCustomer = computed(() => {
   if (selectedCustomerId.value === 0) return null
   return customerStore.customers.find(c => c.id === selectedCustomerId.value)
 })
+
+const paymentMethodOptions = computed(() => {
+  const iconMap: Record<string, string> = {
+    cash: '💵',
+    card: '💳',
+    bank: '🏦',
+    banktransfer: '🏦',
+    bkash: '📱',
+    nagad: '📱',
+    rocket: '📱',
+    due: '🧾',
+    receivable: '🧾'
+  }
+
+  return orderStore.activePaymentMethods.map(method => ({
+    value: String(method.id),
+    label: method.name,
+    icon: iconMap[method.code.toLowerCase().replace(/[_\s-]/g, '')] || '🧾'
+  }))
+})
+
+const selectedPaymentMethod = computed(() =>
+  orderStore.getPaymentMethodById(selectedPaymentMethodId.value ? Number(selectedPaymentMethodId.value) : null)
+)
+
+const canOverrideSelectedAccount = computed(() => !!selectedPaymentMethod.value?.allow_account_override)
+const selectedPaymentMethodDefaultAccountId = computed(() => selectedPaymentMethod.value?.default_account_id || null)
+const isAccountOverrideActive = computed(() =>
+  !!selectedPaymentMethod.value?.allow_account_override &&
+  !!selectedAccountId.value &&
+  Number(selectedAccountId.value) !== Number(selectedPaymentMethodDefaultAccountId.value || 0)
+)
 
 const assetAccountOptions = computed(() => {
   return accountStore.accountOptions
@@ -186,7 +210,7 @@ const clearCart = () => {
   orderNotes.value = ''
   shippingAddress.value = ''
   selectedCustomerId.value = 0
-  selectedAccountId.value = ''
+  applyPaymentMethodSelection(selectedPaymentMethodId.value || paymentMethodOptions.value[0]?.value || '')
   checkoutValidationMessage.value = ''
   orderStore.clearError()
 }
@@ -201,10 +225,22 @@ const openCheckout = () => {
   showCheckoutModal.value = true
 }
 
+const applyPaymentMethodSelection = (paymentMethodId: string) => {
+  selectedPaymentMethodId.value = paymentMethodId
+
+  const paymentMethod = orderStore.getPaymentMethodById(paymentMethodId ? Number(paymentMethodId) : null)
+  if (!paymentMethod) {
+    selectedAccountId.value = ''
+    return
+  }
+
+  selectedAccountId.value = paymentMethod.default_account_id ? String(paymentMethod.default_account_id) : ''
+}
+
 const completeOrder = async () => {
   if (cart.value.length === 0) return
-  if (!selectedAccountId.value) {
-    checkoutValidationMessage.value = 'Select an asset account before completing the sale.'
+  if (!selectedPaymentMethodId.value && !selectedAccountId.value) {
+    checkoutValidationMessage.value = 'Select a payment method or account before completing the sale.'
     return
   }
 
@@ -214,12 +250,14 @@ const completeOrder = async () => {
   const customer = selectedCustomer.value
   const orderData = {
     customerId: selectedCustomerId.value || 0,
-    accountId: Number(selectedAccountId.value),
+    paymentMethodId: selectedPaymentMethodId.value ? Number(selectedPaymentMethodId.value) : null,
+    accountId: selectedAccountId.value ? Number(selectedAccountId.value) : null,
+    accountOverrideSelected: isAccountOverrideActive.value,
     customerName: customer?.full_name || 'Walk-in Customer',
     customerEmail: customer?.email || '',
     channel: selectedChannel.value,
     shippingAddress: shippingAddress.value,
-    paymentMethod: selectedPaymentMethod.value,
+    paymentMethod: selectedPaymentMethod.value?.name || '',
     notes: orderNotes.value,
     subtotal: cartSubtotal.value,
     tax: cartTax.value,
@@ -358,6 +396,11 @@ onMounted(() => {
   void orderStore.fetchStatusMetadata()
   void orderStore.fetchOrders()
   void loadSalesChannels()
+  void orderStore.fetchPaymentMethods().then(() => {
+    if (!selectedPaymentMethodId.value && paymentMethodOptions.value.length > 0) {
+      applyPaymentMethodSelection(paymentMethodOptions.value[0].value)
+    }
+  })
 })
 </script>
 
@@ -641,6 +684,7 @@ onMounted(() => {
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Account</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
@@ -661,8 +705,12 @@ onMounted(() => {
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-700">
                   <span class="font-mono">{{ order.invoiceNumber || '-' }}</span>
+                  <div v-if="order.accountingTransaction?.transaction_no" class="text-xs text-gray-500 mt-1">
+                    Txn: {{ order.accountingTransaction.transaction_no }}
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-900">{{ order.customerName }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700">{{ order.paymentMethod || '-' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-700">
                   <div v-if="order.account">
                     <div class="font-medium text-gray-900">{{ order.account.code }}</div>
@@ -717,39 +765,47 @@ onMounted(() => {
       <div class="grid grid-cols-2 gap-6">
         <div>
           <div class="mb-4">
+            <h3 class="font-medium text-gray-900 mb-3">Payment Method</h3>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                v-for="method in paymentMethodOptions"
+                :key="method.value"
+                @click="applyPaymentMethodSelection(method.value)"
+                type="button"
+                :class="[
+                  'p-3 rounded-lg border transition-all flex items-center gap-2',
+                  selectedPaymentMethodId === method.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                ]"
+              >
+                <span class="text-xl">{{ method.icon }}</span>
+                <span class="font-medium">{{ method.label }}</span>
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">
+              Payment method is the primary sale control. The backend will resolve the accounting account from it unless you override.
+            </p>
+            <p v-if="paymentMethodOptions.length === 0" class="mt-2 text-xs text-amber-700">
+              No active payment methods are available yet. Add one in the backend before completing a sale.
+            </p>
+          </div>
+
+          <div class="mb-4">
             <FormSelect
               v-model="selectedAccountId"
-              label="Receipt / Receivable Account"
+              label="Resolved Account"
               :options="assetAccountOptions"
               placeholder="Select an asset account"
+              :disabled="!!selectedPaymentMethodId && !canOverrideSelectedAccount"
               :error="checkoutValidationMessage"
               @update:model-value="checkoutValidationMessage = ''"
             />
             <p class="mt-2 text-xs text-gray-500">
-              Select the asset account that should receive this sale, such as cash, bank, or accounts receivable.
+              {{ canOverrideSelectedAccount
+                ? 'This payment method allows an account override if you need a different asset account.'
+                : 'This account comes from the selected payment method and cannot be changed here.' }}
             </p>
-            <p v-if="assetAccountOptions.length === 0" class="mt-2 text-xs text-amber-700">
-              No active asset accounts are available yet. Create one in Accounts before completing a sale.
-            </p>
-          </div>
-
-          <h3 class="font-medium text-gray-900 mb-3">Payment Method</h3>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              v-for="method in paymentMethods"
-              :key="method.value"
-              @click="selectedPaymentMethod = method.value"
-              type="button"
-              :class="[
-                'p-3 rounded-lg border transition-all flex items-center gap-2',
-                selectedPaymentMethod === method.value
-                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                  : 'border-gray-200 hover:border-gray-300 text-gray-600'
-              ]"
-            >
-              <span class="text-xl">{{ method.icon }}</span>
-              <span class="font-medium">{{ method.label }}</span>
-            </button>
           </div>
 
           <div class="mt-4">
@@ -798,9 +854,25 @@ onMounted(() => {
           </div>
 
           <div class="mt-2 p-3 bg-white rounded-lg border border-gray-200">
+            <div class="text-xs text-gray-500 mb-1">Payment Method</div>
+            <div class="font-medium">
+              {{ selectedPaymentMethod?.name || 'Not selected' }}
+            </div>
+            <div v-if="selectedPaymentMethod?.description" class="text-sm text-gray-600 mt-1">
+              {{ selectedPaymentMethod.description }}
+            </div>
+          </div>
+
+          <div class="mt-2 p-3 bg-white rounded-lg border border-gray-200">
             <div class="text-xs text-gray-500 mb-1">Account</div>
             <div class="font-medium">
               {{ assetAccountOptions.find(option => option.value === selectedAccountId)?.label || 'Not selected' }}
+            </div>
+            <div v-if="selectedPaymentMethod && !canOverrideSelectedAccount" class="text-sm text-gray-600 mt-1">
+              Default account from {{ selectedPaymentMethod.name }}
+            </div>
+            <div v-else-if="isAccountOverrideActive" class="text-sm text-gray-600 mt-1">
+              Manual override will be submitted with the sale.
             </div>
           </div>
           
