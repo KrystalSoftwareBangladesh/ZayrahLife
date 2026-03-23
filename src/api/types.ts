@@ -591,6 +591,40 @@ export interface SaleProductVariant {
   size: string | null
 }
 
+export interface SaleAccount {
+  id: number
+  code: string
+  name: string
+  account_type: AccountType
+}
+
+export interface PaymentMethodAccount {
+  id: number
+  code: string | null
+  name: string
+  account_type: AccountType
+}
+
+export interface SalePaymentMethod {
+  id: number
+  code: string
+  name: string
+  description?: string | null
+  is_active?: boolean
+  sort_order?: number | null
+  allow_account_override: boolean
+  default_account_id?: number | null
+  default_account?: SaleAccount | null
+}
+
+export interface SaleLinkedTransaction {
+  id: number
+  transaction_no: string | null
+  transaction_type?: string | null
+  status?: string | null
+  reference?: string | null
+}
+
 export interface SaleItem {
   id: number
   product_variant: SaleProductVariant | null
@@ -605,10 +639,16 @@ export interface SaleItem {
 export interface SaleList {
   id: number | string
   customer: SaleCustomer | number | null
+  payment_method?: SalePaymentMethod | string | null
+  payment_method_id?: number | null
+  account?: SaleAccount | number | null
+  account_id?: number | null
   sale_date: string
   invoice_number: string | null
   status: SaleStatus
   total_amount: string
+  accounting_transaction?: SaleLinkedTransaction | null
+  return_transaction?: SaleLinkedTransaction | null
   created_at?: string
   order_number?: string | null
   customer_name?: string
@@ -619,6 +659,10 @@ export interface SaleList {
 export interface SaleDetail {
   id: number | string
   customer: SaleCustomer | number | null
+  payment_method?: SalePaymentMethod | string | null
+  payment_method_id?: number | null
+  account?: SaleAccount | number | null
+  account_id?: number | null
   items: SaleItem[]
   created_at: string
   updated_at: string
@@ -630,12 +674,13 @@ export interface SaleDetail {
   tax_amount: string
   total_amount: string
   notes: string | null
+  accounting_transaction?: SaleLinkedTransaction | null
+  return_transaction?: SaleLinkedTransaction | null
   order_number?: string | null
   customer_name?: string
   customer_email?: string | null
   customer_phone?: string | null
   channel?: string
-  payment_method?: string | null
   shipping_address?: string | null
   shipping_amount?: string
   tracking_number?: string | null
@@ -650,6 +695,8 @@ export interface SaleItemCreateRequest {
 
 export interface SaleCreateRequest {
   customer: number
+  payment_method_id?: number | null
+  account_id?: number | null
   sale_date: string
   invoice_number?: string | null
   channel?: string
@@ -661,6 +708,8 @@ export interface SaleCreateRequest {
 
 export interface SaleUpdateRequest {
   customer?: number
+  payment_method_id?: number | null
+  account_id?: number | null
   sale_date?: string
   invoice_number?: string | null
   channel?: string
@@ -673,6 +722,8 @@ export interface SaleUpdateRequest {
 
 export interface SaleDetailRequest {
   customer: number | CustomerProfileDetailRequest
+  payment_method_id?: number | null
+  account_id?: number | null
   items: SaleItemCreateRequest[]
   sale_date: string
   channel?: string
@@ -713,6 +764,54 @@ export interface SaleChannelsResponse {
 export interface SaleStatusOption {
   value: string
   label: string
+}
+
+export interface PaymentMethodListItem extends SalePaymentMethod {}
+
+export interface PaymentMethodDetail {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  is_active: boolean
+  sort_order: number | null
+  allow_account_override: boolean
+  default_account: PaymentMethodAccount | null
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface PaymentMethodCreateUpdateRequest {
+  code: string
+  name: string
+  description?: string | null
+  is_active?: boolean
+  sort_order?: number | null
+  allow_account_override?: boolean
+  default_account_id?: number | null
+}
+
+export interface PaymentMethodCreateUpdateResponse {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  is_active: boolean
+  sort_order: number | null
+  allow_account_override: boolean
+  default_account_id: number | null
+}
+
+export interface PaymentMethodListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  ordering?: string
+  is_active?: boolean
+  allow_account_override?: boolean
 }
 
 export interface SaleStatusesResponse {

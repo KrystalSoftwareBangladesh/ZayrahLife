@@ -1,14 +1,19 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { customersApi } from '@/api/customers'
+import { paymentMethodsApi } from '@/api/paymentMethods'
 import { salesApi } from '@/api/sales'
 import type {
   ApiError,
   CustomerCreateRequest,
+  PaymentMethodListItem,
+  SaleAccount,
   SaleCreateRequest,
   SaleDetail,
   SaleItemCreateRequest,
+  SaleLinkedTransaction,
   SaleList,
+  SalePaymentMethod,
   SaleStatus,
   SaleStatusOption,
   SaleStatusesResponse,
@@ -42,6 +47,9 @@ interface NewOrderItem {
 
 interface NewOrder {
   customerId: number
+  paymentMethodId?: number | null
+  accountId?: number | null
+  accountOverrideSelected?: boolean
   customerName: string
   customerEmail: string
   channel: string
@@ -59,6 +67,7 @@ export interface AdminOrder {
   id: string
   apiId: string
   invoiceNumber: string | null
+  saleDate: string
   customerId: number
   customerName: string
   customerEmail: string
@@ -68,6 +77,13 @@ export interface AdminOrder {
   tax: number
   total: number
   status: string
+  paymentMethodId: number | null
+  paymentMethodConfig: SalePaymentMethod | null
+  accountId: number | null
+  account: SaleAccount | null
+  accountingTransaction: SaleLinkedTransaction | null
+  returnTransaction: SaleLinkedTransaction | null
+  notes: string | null
   channel: string
   paymentMethod: string
   shippingAddress: string
@@ -138,8 +154,61 @@ function getSaleCustomer(sale: Partial<SaleDetail & SaleList>) {
   }
 }
 
+function getSaleAccount(sale: Partial<SaleDetail & SaleList>): SaleAccount | null {
+  if (sale.account && typeof sale.account === 'object') {
+    return {
+      id: sale.account.id,
+      code: sale.account.code,
+      name: sale.account.name,
+      account_type: sale.account.account_type
+    }
+  }
+
+  return null
+}
+
+function getSalePaymentMethod(sale: Partial<SaleDetail & SaleList>): SalePaymentMethod | null {
+  if (sale.payment_method && typeof sale.payment_method === 'object') {
+    return {
+      id: sale.payment_method.id,
+      code: sale.payment_method.code,
+      name: sale.payment_method.name,
+      description: sale.payment_method.description || null,
+      is_active: sale.payment_method.is_active,
+      sort_order: sale.payment_method.sort_order ?? null,
+      allow_account_override: !!sale.payment_method.allow_account_override,
+      default_account_id: sale.payment_method.default_account_id ?? null,
+      default_account: sale.payment_method.default_account || null
+    }
+  }
+
+  return null
+}
+
+function formatApiErrorMessage(apiError: ApiError, fallbackMessage: string): string {
+  const payload = apiError.data
+  if (payload && typeof payload === 'object') {
+    const messages = Object.entries(payload as Record<string, unknown>).flatMap(([field, value]) => {
+      if (field === 'detail' || field === 'message') return []
+      if (Array.isArray(value)) {
+        return value.map(item => `${field}: ${String(item)}`)
+      }
+      if (typeof value === 'string') {
+        return [`${field}: ${value}`]
+      }
+      return []
+    })
+
+    if (messages.length > 0) return messages.join(' ')
+  }
+
+  return apiError.message || fallbackMessage
+}
+
 function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
   const customer = getSaleCustomer(sale)
+  const paymentMethod = getSalePaymentMethod(sale)
+  const account = getSaleAccount(sale)
   const mappedItems: OrderItem[] = Array.isArray(sale.items)
     ? sale.items.map(item => ({
       productId: item.product_variant?.id ?? item.product_id ?? item.id ?? 0,
@@ -157,6 +226,7 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
     id: String(sale.order_number || sale.id || ''),
     apiId: String(sale.id || sale.order_number || ''),
     invoiceNumber: sale.invoice_number || null,
+    saleDate: sale.sale_date || createdAt.split('T')[0],
     customerId: customer.id,
     customerName: customer.name,
     customerEmail: customer.email,
@@ -166,8 +236,15 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
     tax: toNumber(sale.tax_amount),
     total: toNumber(sale.total_amount),
     status: String(sale.status || fallbackStatuses.default),
+    paymentMethodId: typeof sale.payment_method_id === 'number' ? sale.payment_method_id : paymentMethod?.id || null,
+    paymentMethodConfig: paymentMethod,
+    accountId: typeof sale.account_id === 'number' ? sale.account_id : account?.id || null,
+    account,
+    accountingTransaction: sale.accounting_transaction || null,
+    returnTransaction: sale.return_transaction || null,
+    notes: sale.notes || null,
     channel: sale.channel || 'WEBSITE',
-    paymentMethod: sale.payment_method || 'CARD',
+    paymentMethod: paymentMethod?.name || (typeof sale.payment_method === 'string' ? sale.payment_method : 'CARD'),
     shippingAddress: sale.shipping_address || '-',
     createdAt,
     updatedAt: sale.updated_at || createdAt,
@@ -176,11 +253,29 @@ function normalizeSaleOrder(sale: Partial<SaleDetail & SaleList>): AdminOrder {
 }
 
 function normalizeMockOrder(
-  order: Omit<AdminOrder, 'apiId' | 'isLocalOnly' | 'invoiceNumber'> & { invoiceNumber?: string | null }
+  order: Omit<AdminOrder, 'apiId' | 'isLocalOnly' | 'invoiceNumber' | 'saleDate' | 'paymentMethodId' | 'paymentMethodConfig' | 'accountId' | 'account' | 'accountingTransaction' | 'returnTransaction' | 'notes'> & {
+    invoiceNumber?: string | null
+    saleDate?: string
+    paymentMethodId?: number | null
+    paymentMethodConfig?: SalePaymentMethod | null
+    accountId?: number | null
+    account?: SaleAccount | null
+    accountingTransaction?: SaleLinkedTransaction | null
+    returnTransaction?: SaleLinkedTransaction | null
+    notes?: string | null
+  }
 ): AdminOrder {
   return {
     ...order,
     invoiceNumber: order.invoiceNumber ?? null,
+    saleDate: order.saleDate || toApiDate(order.createdAt),
+    paymentMethodId: order.paymentMethodId ?? null,
+    paymentMethodConfig: order.paymentMethodConfig ?? null,
+    accountId: order.accountId ?? null,
+    account: order.account ?? null,
+    accountingTransaction: order.accountingTransaction ?? null,
+    returnTransaction: order.returnTransaction ?? null,
+    notes: order.notes ?? null,
     apiId: String(order.id),
     isLocalOnly: true
   }
@@ -198,7 +293,7 @@ function mapCreateItems(data: NewOrder): SaleItemCreateRequest[] {
 }
 
 function buildCreatePayload(data: NewOrder, customerId: number, items: SaleItemCreateRequest[]): SaleCreateRequest {
-  return {
+  const payload: SaleCreateRequest = {
     customer: customerId,
     sale_date: toApiDate(),
     channel: data.channel,
@@ -207,11 +302,24 @@ function buildCreatePayload(data: NewOrder, customerId: number, items: SaleItemC
     notes: data.notes || null,
     items
   }
+
+  if (typeof data.paymentMethodId === 'number' && data.paymentMethodId > 0) {
+    payload.payment_method_id = data.paymentMethodId
+  }
+
+  if (typeof data.accountId === 'number' && data.accountId > 0 && (data.accountOverrideSelected || !payload.payment_method_id)) {
+    payload.account_id = data.accountId
+  }
+
+  return payload
 }
 
 export const useOrderStore = defineStore('adminOrders', () => {
   const orders = ref<AdminOrder[]>(mockAdminOrders.map(order => normalizeMockOrder(order)))
+  const saleDetails = ref<Record<string, SaleDetail>>({})
+  const paymentMethods = ref<PaymentMethodListItem[]>([])
   const loading = ref(false)
+  const paymentMethodsLoading = ref(false)
   const error = ref<string | null>(null)
   const walkInCustomerId = ref<number | null>(null)
   const statusLoading = ref(false)
@@ -230,6 +338,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
     return merged
   })
   const apiStatusOptions = computed(() => [...configuredStatusOptions.value])
+  const activePaymentMethods = computed(() =>
+    [...paymentMethods.value]
+      .filter(method => method.is_active !== false)
+      .sort((left, right) => (left.sort_order ?? 9999) - (right.sort_order ?? 9999))
+  )
 
   const totalOrders = computed(() => orders.value.length)
   const totalRevenue = computed(() => orders.value.reduce((sum, order) => sum + order.total, 0))
@@ -264,6 +377,43 @@ export const useOrderStore = defineStore('adminOrders', () => {
 
   function getOrderById(identifier: string) {
     return orders.value.find(order => order.apiId === identifier || order.id === identifier)
+  }
+
+  function getPaymentMethodById(id: number | null | undefined): PaymentMethodListItem | null {
+    if (!id) return null
+    return paymentMethods.value.find(method => method.id === id) || null
+  }
+
+  function getSaleDetailById(identifier: string): SaleDetail | null {
+    const order = getOrderById(identifier)
+    if (!order) return saleDetails.value[identifier] || null
+
+    return (
+      saleDetails.value[order.apiId] ||
+      saleDetails.value[order.id] ||
+      null
+    )
+  }
+
+  function storeSaleDetail(detail: SaleDetail): void {
+    const id = String(detail.id)
+    saleDetails.value[id] = detail
+    if (detail.order_number) {
+      saleDetails.value[String(detail.order_number)] = detail
+    }
+  }
+
+  function upsertOrderFromSale(sale: Partial<SaleDetail & SaleList>): AdminOrder {
+    const normalized = normalizeSaleOrder(sale)
+    const existingIndex = orders.value.findIndex(order => order.apiId === normalized.apiId || order.id === normalized.id)
+
+    if (existingIndex >= 0) {
+      orders.value.splice(existingIndex, 1, normalized)
+    } else {
+      orders.value.unshift(normalized)
+    }
+
+    return normalized
   }
 
   function isPendingStatus(status: string): boolean {
@@ -345,6 +495,38 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
+  async function fetchPaymentMethods(force = false): Promise<void> {
+    if (paymentMethods.value.length > 0 && !force) return
+
+    paymentMethodsLoading.value = true
+
+    try {
+      const items: PaymentMethodListItem[] = []
+      let page = 1
+      let hasNext = true
+
+      while (hasNext && page <= 20) {
+        const response = await paymentMethodsApi.list({
+          page,
+          page_size: 100,
+          ordering: 'sort_order',
+          is_active: true
+        })
+        items.push(...response.results)
+        hasNext = !!response.next
+        page += 1
+      }
+
+      paymentMethods.value = items
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = formatApiErrorMessage(apiError, 'Failed to fetch payment methods')
+      paymentMethods.value = []
+    } finally {
+      paymentMethodsLoading.value = false
+    }
+  }
+
   async function fetchOrders(): Promise<void> {
     loading.value = true
     error.value = null
@@ -363,7 +545,11 @@ export const useOrderStore = defineStore('adminOrders', () => {
 
   async function fetchOrderById(identifier: string): Promise<AdminOrder | null> {
     const existing = getOrderById(identifier)
-    if (existing) return existing
+    if (existing?.isLocalOnly) return existing
+
+    if (existing && getSaleDetailById(identifier)) {
+      return existing
+    }
 
     loading.value = true
     error.value = null
@@ -371,9 +557,8 @@ export const useOrderStore = defineStore('adminOrders', () => {
     try {
       await fetchStatusMetadata()
       const detail = await salesApi.getById(identifier)
-      const normalized = normalizeSaleOrder(detail)
-      orders.value.unshift(normalized)
-      return normalized
+      storeSaleDetail(detail)
+      return upsertOrderFromSale(detail)
     } catch (err) {
       const apiError = err as ApiError
       error.value = apiError.message || 'Failed to fetch sale details'
@@ -405,14 +590,18 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
 
     try {
-      const payload: SaleUpdateRequest = { status: nextStatus as SaleStatus }
-      await salesApi.update(order.apiId, payload)
+      const payload: SaleUpdateRequest = {
+        status: nextStatus as SaleStatus
+      }
+      const response = await salesApi.update(order.apiId, payload)
+      storeSaleDetail(response)
+      upsertOrderFromSale(response)
       return true
     } catch (err) {
       const apiError = err as ApiError
       order.status = previousStatus
       order.updatedAt = previousUpdatedAt
-      error.value = apiError.message || 'Failed to update sale status'
+      error.value = formatApiErrorMessage(apiError, 'Failed to update sale status')
       return false
     }
   }
@@ -488,7 +677,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
-  async function addOrder(data: NewOrder): Promise<AdminOrder> {
+  async function addOrder(data: NewOrder): Promise<AdminOrder | null> {
     const orderNum = orders.value.length + 1
     const year = new Date().getFullYear()
     const subtotal = data.subtotal ?? data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
@@ -501,6 +690,7 @@ export const useOrderStore = defineStore('adminOrders', () => {
       id: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
       apiId: `ORD-${year}-${String(orderNum).padStart(3, '0')}`,
       invoiceNumber: null,
+      saleDate: toApiDate(),
       customerId: data.customerId,
       customerName: data.customerName,
       customerEmail: data.customerEmail,
@@ -516,6 +706,13 @@ export const useOrderStore = defineStore('adminOrders', () => {
       tax,
       total,
       status: initialStatus,
+      paymentMethodId: data.paymentMethodId || null,
+      paymentMethodConfig: null,
+      accountId: data.accountId || null,
+      account: null,
+      accountingTransaction: null,
+      returnTransaction: null,
+      notes: data.notes || null,
       channel: data.channel,
       paymentMethod: data.paymentMethod || 'Credit Card',
       shippingAddress: data.shippingAddress,
@@ -528,24 +725,62 @@ export const useOrderStore = defineStore('adminOrders', () => {
     const saleItems = mapCreateItems(data)
     const hasValidCustomer = typeof customerId === 'number' && customerId > 0
     const hasItems = saleItems.length === data.items.length && data.items.length > 0
+    const hasPaymentMethod = Number.isFinite(data.paymentMethodId) && Number(data.paymentMethodId) > 0
+    const hasAccount = Number.isFinite(data.accountId) && Number(data.accountId) > 0
     if (!hasValidCustomer || !hasItems) {
       error.value = 'Order saved locally because customer or product variant mapping is incomplete.'
       orders.value.unshift(fallbackOrder)
       return fallbackOrder
+    }
+    if (!hasPaymentMethod && !hasAccount) {
+      error.value = 'Select a payment method or account before creating the sale.'
+      return null
     }
 
     try {
       const created = await salesApi.create(
         buildCreatePayload({ ...data, customerId, subtotal, tax, shipping, total }, customerId, saleItems)
       )
-      const normalized = normalizeSaleOrder(created)
-      orders.value.unshift(normalized)
-      return normalized
+      storeSaleDetail(created)
+      return upsertOrderFromSale(created)
     } catch (err) {
       const apiError = err as ApiError
-      error.value = apiError.message || 'Failed to create sale order in API'
-      orders.value.unshift(fallbackOrder)
-      return fallbackOrder
+      error.value = formatApiErrorMessage(apiError, 'Failed to create sale order in API')
+      return null
+    }
+  }
+
+  async function updateOrderDetails(identifier: string, payload: SaleUpdateRequest): Promise<boolean> {
+    const order = getOrderById(identifier)
+    if (!order) return false
+
+    error.value = null
+
+    if (order.isLocalOnly) {
+      if (payload.payment_method_id !== undefined) {
+        order.paymentMethodId = payload.payment_method_id ?? null
+        const paymentMethod = getPaymentMethodById(order.paymentMethodId)
+        order.paymentMethodConfig = paymentMethod
+        order.paymentMethod = paymentMethod?.name || order.paymentMethod
+      }
+      if (payload.account_id !== undefined) {
+        order.accountId = payload.account_id
+      }
+      if (payload.notes !== undefined) {
+        order.notes = payload.notes || null
+      }
+      return true
+    }
+
+    try {
+      const response = await salesApi.update(order.apiId, payload)
+      storeSaleDetail(response)
+      upsertOrderFromSale(response)
+      return true
+    } catch (err) {
+      const apiError = err as ApiError
+      error.value = formatApiErrorMessage(apiError, 'Failed to update sale')
+      return false
     }
   }
 
@@ -575,9 +810,16 @@ export const useOrderStore = defineStore('adminOrders', () => {
     }
   }
 
+  function clearError(): void {
+    error.value = null
+  }
+
   return {
     orders,
+    saleDetails,
+    paymentMethods,
     loading,
+    paymentMethodsLoading,
     error,
     statusLoading,
     statusOptions,
@@ -589,10 +831,14 @@ export const useOrderStore = defineStore('adminOrders', () => {
     pendingOrders,
     processingOrders,
     ordersByStatus,
+    activePaymentMethods,
     fetchStatusMetadata,
+    fetchPaymentMethods,
     fetchOrders,
     fetchOrderById,
     getOrderById,
+    getPaymentMethodById,
+    getSaleDetailById,
     isPendingStatus,
     canDeleteOrder,
     getStatusLabel,
@@ -600,11 +846,13 @@ export const useOrderStore = defineStore('adminOrders', () => {
     getTransitionLabels,
     canTransition,
     updateOrderStatus,
+    updateOrderDetails,
     confirmOrder,
     cancelOrder,
     filterOrders,
     addOrder,
     deleteOrder,
+    clearError,
     statusValuesMatch
   }
 })

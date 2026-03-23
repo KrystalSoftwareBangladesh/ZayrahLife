@@ -3,16 +3,73 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FormSelect from '@/components/admin/FormSelect.vue'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
+import { useAccountStore } from '@/stores/admin/accountStore'
 import { useOrderStore } from '@/stores/admin/orderStore'
 
 const route = useRoute()
 const router = useRouter()
+const accountStore = useAccountStore()
 const orderStore = useOrderStore()
 const isDeleting = ref(false)
 const isUpdatingStatus = ref(false)
+const isSavingAccount = ref(false)
+const selectedPaymentMethodId = ref('')
+const selectedAccountId = ref('')
+const accountValidationMessage = ref('')
 
 const orderIdentifier = computed(() => String(route.params.id || ''))
 const order = computed(() => orderStore.getOrderById(orderIdentifier.value))
+const isEditableOrder = computed(() => !!order.value && orderStore.isPendingStatus(order.value.status))
+
+const paymentMethodOptions = computed(() => {
+  const options = orderStore.activePaymentMethods.map(method => ({
+    value: String(method.id),
+    label: method.name
+  }))
+
+  if (
+    order.value?.paymentMethodConfig &&
+    !options.some(option => option.value === String(order.value?.paymentMethodConfig?.id))
+  ) {
+    options.unshift({
+      value: String(order.value.paymentMethodConfig.id),
+      label: order.value.paymentMethodConfig.name
+    })
+  }
+
+  return options
+})
+
+const selectedPaymentMethod = computed(() =>
+  orderStore.getPaymentMethodById(selectedPaymentMethodId.value ? Number(selectedPaymentMethodId.value) : null) ||
+  order.value?.paymentMethodConfig ||
+  null
+)
+
+const canOverrideSelectedAccount = computed(() =>
+  !selectedPaymentMethodId.value || !!selectedPaymentMethod.value?.allow_account_override
+)
+
+const accountOptions = computed(() => {
+  const options = accountStore.accountOptions
+    .filter(account => account.is_active && account.account_type === 'ASSET')
+    .map(account => ({
+      value: String(account.id),
+      label: `${account.code} - ${account.name}`
+    }))
+
+  if (
+    order.value?.account &&
+    !options.some(option => option.value === String(order.value?.account?.id))
+  ) {
+    options.unshift({
+      value: String(order.value.account.id),
+      label: `${order.value.account.code} - ${order.value.account.name}`
+    })
+  }
+
+  return options
+})
 
 const availableStatusOptions = computed(() => {
   if (!order.value) return orderStore.apiStatusOptions
@@ -41,16 +98,89 @@ const canDeleteCurrentOrder = computed(() => {
 
 async function loadOrder(): Promise<void> {
   await orderStore.fetchStatusMetadata()
+  await orderStore.fetchPaymentMethods()
+  await accountStore.fetchAccountOptions()
   await orderStore.fetchOrderById(orderIdentifier.value)
+
+  selectedPaymentMethodId.value = order.value?.paymentMethodId ? String(order.value.paymentMethodId) : ''
+  selectedAccountId.value = order.value?.accountId ? String(order.value.accountId) : ''
+  accountValidationMessage.value = ''
+}
+
+function applyPaymentMethodSelection(paymentMethodId: string): void {
+  selectedPaymentMethodId.value = paymentMethodId
+
+  const paymentMethod = orderStore.getPaymentMethodById(paymentMethodId ? Number(paymentMethodId) : null)
+  if (!paymentMethod) {
+    selectedAccountId.value = ''
+    return
+  }
+
+  selectedAccountId.value = paymentMethod.default_account_id ? String(paymentMethod.default_account_id) : ''
 }
 
 async function updateStatus(newStatus: string | number): Promise<void> {
   if (!order.value || isUpdatingStatus.value) return
   if (orderStore.statusValuesMatch(order.value.status, String(newStatus))) return
 
+  const nextStatus = String(newStatus)
+  const requiresAccount =
+    orderStore.statusValuesMatch(nextStatus, 'CONFIRMED') ||
+    orderStore.statusValuesMatch(nextStatus, 'PROCESSING')
+
+  if (requiresAccount && !selectedPaymentMethodId.value && !selectedAccountId.value) {
+    accountValidationMessage.value = 'Select a payment method or account before confirming this sale.'
+    return
+  }
+
+  const hasAccountingChanges =
+    selectedPaymentMethodId.value !== String(order.value.paymentMethodId || '') ||
+    selectedAccountId.value !== String(order.value.accountId || '')
+
+  if (hasAccountingChanges) {
+    const saved = await saveAccountingSelection()
+    if (!saved) return
+  }
+
   isUpdatingStatus.value = true
-  await orderStore.updateOrderStatus(order.value.apiId, String(newStatus))
+  await orderStore.updateOrderStatus(order.value.apiId, nextStatus)
+  selectedAccountId.value = order.value?.accountId ? String(order.value.accountId) : selectedAccountId.value
   isUpdatingStatus.value = false
+}
+
+async function saveAccountingSelection(): Promise<boolean> {
+  if (!order.value || isSavingAccount.value) return false
+  if (!selectedPaymentMethodId.value && !selectedAccountId.value) {
+    accountValidationMessage.value = 'Select a payment method or account before saving.'
+    return false
+  }
+
+  accountValidationMessage.value = ''
+  isSavingAccount.value = true
+  const payload: Parameters<typeof orderStore.updateOrderDetails>[1] = {}
+
+  if (selectedPaymentMethodId.value) {
+    payload.payment_method_id = Number(selectedPaymentMethodId.value)
+  }
+
+  if (
+    selectedAccountId.value &&
+    (!selectedPaymentMethodId.value ||
+      canOverrideSelectedAccount.value ||
+      Number(selectedAccountId.value) !== Number(selectedPaymentMethod.value?.default_account_id || 0))
+  ) {
+    payload.account_id = Number(selectedAccountId.value)
+  }
+
+  const saved = await orderStore.updateOrderDetails(order.value.apiId, payload)
+  isSavingAccount.value = false
+
+  if (saved) {
+    selectedPaymentMethodId.value = order.value?.paymentMethodId ? String(order.value.paymentMethodId) : ''
+    selectedAccountId.value = order.value?.accountId ? String(order.value.accountId) : selectedAccountId.value
+  }
+
+  return saved
 }
 
 async function deleteCurrentOrder(): Promise<void> {
@@ -71,6 +201,11 @@ async function deleteCurrentOrder(): Promise<void> {
 
 watch(() => route.params.id, () => {
   void loadOrder()
+})
+
+watch(order, nextOrder => {
+  selectedPaymentMethodId.value = nextOrder?.paymentMethodId ? String(nextOrder.paymentMethodId) : ''
+  selectedAccountId.value = nextOrder?.accountId ? String(nextOrder.accountId) : ''
 })
 
 onMounted(() => {
@@ -195,8 +330,87 @@ onMounted(() => {
                 <p class="font-medium text-gray-900">{{ order.paymentMethod }}</p>
               </div>
               <div>
+                <p class="text-sm text-gray-500">Account</p>
+                <p class="font-medium text-gray-900">
+                  {{ order.account ? `${order.account.code} - ${order.account.name}` : '-' }}
+                </p>
+              </div>
+              <div>
                 <p class="text-sm text-gray-500">Amount</p>
                 <p class="font-bold text-xl text-gray-900">৳{{ order.total.toFixed(2) }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Accounting</h3>
+            <div class="space-y-4">
+              <div>
+                <FormSelect
+                  v-model="selectedPaymentMethodId"
+                  label="Payment Method"
+                  :options="paymentMethodOptions"
+                  placeholder="Select a payment method"
+                  :disabled="!isEditableOrder || isSavingAccount || isUpdatingStatus"
+                  :error="accountValidationMessage"
+                  @update:model-value="applyPaymentMethodSelection"
+                />
+                <p class="mt-2 text-xs text-gray-500">
+                  Payment method is the primary sale control. The backend resolves the default accounting account from it.
+                </p>
+              </div>
+
+              <div>
+                <FormSelect
+                  v-model="selectedAccountId"
+                  label="Receipt / Receivable Account"
+                  :options="accountOptions"
+                  placeholder="Select an asset account"
+                  :disabled="!isEditableOrder || isSavingAccount || isUpdatingStatus || (!!selectedPaymentMethodId && !canOverrideSelectedAccount)"
+                  :error="accountValidationMessage"
+                  @update:model-value="accountValidationMessage = ''"
+                />
+                <p class="mt-2 text-xs text-gray-500">
+                  {{ canOverrideSelectedAccount
+                    ? 'Use an active asset account such as cash, bank, or accounts receivable.'
+                    : 'This account comes from the selected payment method and cannot be overridden.' }}
+                </p>
+              </div>
+
+              <button
+                v-if="isEditableOrder"
+                :disabled="isSavingAccount || (!selectedPaymentMethodId && !selectedAccountId) || (
+                  selectedPaymentMethodId === String(order.paymentMethodId || '') &&
+                  selectedAccountId === String(order.accountId || '')
+                )"
+                class="w-full rounded-md border border-primary-200 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+                @click="saveAccountingSelection"
+              >
+                {{ isSavingAccount ? 'Saving Changes...' : 'Save Accounting Settings' }}
+              </button>
+
+              <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p class="text-xs uppercase tracking-wide text-gray-500">Accounting Transaction</p>
+                <p class="mt-1 font-medium text-gray-900">
+                  {{ order.accountingTransaction?.transaction_no || 'Not generated yet' }}
+                </p>
+                <p v-if="order.accountingTransaction" class="mt-1 text-sm text-gray-600">
+                  {{ order.accountingTransaction.transaction_type || 'Transaction' }}
+                  <span v-if="order.accountingTransaction.status">• {{ order.accountingTransaction.status }}</span>
+                  <span v-if="order.accountingTransaction.reference">• Ref: {{ order.accountingTransaction.reference }}</span>
+                </p>
+              </div>
+
+              <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p class="text-xs uppercase tracking-wide text-gray-500">Return / Reversal Transaction</p>
+                <p class="mt-1 font-medium text-gray-900">
+                  {{ order.returnTransaction?.transaction_no || 'Not generated yet' }}
+                </p>
+                <p v-if="order.returnTransaction" class="mt-1 text-sm text-gray-600">
+                  {{ order.returnTransaction.transaction_type || 'Transaction' }}
+                  <span v-if="order.returnTransaction.status">• {{ order.returnTransaction.status }}</span>
+                  <span v-if="order.returnTransaction.reference">• Ref: {{ order.returnTransaction.reference }}</span>
+                </p>
               </div>
             </div>
           </div>
