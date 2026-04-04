@@ -1,5 +1,5 @@
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
@@ -9,10 +9,33 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 
 const mobileMenuOpen = ref(false)
+const isScrolled = ref(false)
 
 const cartCount = computed(() => cartStore.itemCount)
 const isLoggedIn = computed(() => authStore.isAuthenticated)
 const userName = computed(() => authStore.user?.name || '')
+
+const headerClasses = computed(() => [
+  'sticky top-0 z-40 transition-all duration-500 ease-out',
+  isScrolled.value
+    ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-white/20'
+    : 'bg-white shadow-sm'
+])
+
+const desktopNavClasses = computed(() => [
+  'hidden md:flex items-center gap-8 transition-all duration-500 ease-out',
+  isScrolled.value ? 'gap-6' : 'gap-8'
+])
+
+const headerInnerClasses = computed(() => [
+  'flex items-center justify-between transition-all duration-500 ease-out',
+  isScrolled.value ? 'h-14' : 'h-16'
+])
+
+const logoClasses = computed(() => [
+  'w-auto transition-all duration-500 ease-out',
+  isScrolled.value ? 'h-10' : 'h-12'
+])
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
@@ -26,26 +49,39 @@ const logout = () => {
   authStore.logout()
   closeMobileMenu()
 }
+
+const handleScroll = () => {
+  isScrolled.value = window.scrollY > 24
+}
+
+onMounted(() => {
+  handleScroll()
+  window.addEventListener('scroll', handleScroll, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
 </script>
 
 <template>
-  <header class="bg-white shadow-sm sticky top-0 z-40">
+  <header :class="headerClasses">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
+      <div :class="headerInnerClasses">
         <RouterLink to="/" class="flex items-center gap-2" @click="closeMobileMenu">
-          <img src="/logo.png" alt="ZayrahLife" class="h-12 w-auto" />
+          <img src="/logo.png" alt="ZayrahLife" :class="logoClasses" />
         </RouterLink>
         
-        <nav class="hidden md:flex items-center gap-8">
+        <nav :class="desktopNavClasses">
           <RouterLink
             to="/"
-            class="text-gray-600 hover:text-primary-700 transition-colors font-medium"
+            class="nav-link text-gray-600 hover:text-primary-700 font-medium"
           >
             Home
           </RouterLink>
           <RouterLink
             to="/products"
-            class="text-gray-600 hover:text-primary-700 transition-colors font-medium"
+            class="nav-link text-gray-600 hover:text-primary-700 font-medium"
           >
             Products
           </RouterLink>
@@ -56,7 +92,7 @@ const logout = () => {
 
           <RouterLink
             to="/cart"
-            class="relative p-2 text-gray-600 hover:text-primary-700 transition-colors"
+            class="nav-action relative p-2 text-gray-600 hover:text-primary-700"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -72,13 +108,13 @@ const logout = () => {
           <template v-if="isLoggedIn">
             <RouterLink
               to="/orders"
-              class="hidden md:block text-gray-600 hover:text-primary-700 transition-colors font-medium"
+              class="nav-link hidden md:block text-gray-600 hover:text-primary-700 font-medium"
             >
               Orders
             </RouterLink>
             <RouterLink
               to="/profile"
-              class="hidden md:flex items-center gap-2 text-gray-600 hover:text-primary-700 transition-colors"
+              class="nav-action hidden md:flex items-center gap-2 text-gray-600 hover:text-primary-700"
             >
               <div class="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center text-primary-900 text-sm font-bold">
                 {{ userName.charAt(0).toUpperCase() }}
@@ -89,20 +125,20 @@ const logout = () => {
           <template v-else>
             <RouterLink
               to="/login"
-              class="hidden md:block px-4 py-2 text-primary-700 hover:text-primary-800 font-medium"
+              class="nav-action hidden md:block px-4 py-2 text-primary-700 hover:text-primary-800 font-medium"
             >
               Login
             </RouterLink>
             <RouterLink
               to="/register"
-              class="hidden md:block px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800 font-medium"
+              class="hidden md:block px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800 font-medium transition-all duration-300 hover:-translate-y-0.5"
             >
               Sign Up
             </RouterLink>
           </template>
           
           <button
-            class="md:hidden p-2 text-gray-600"
+            class="nav-action md:hidden p-2 text-gray-600"
             @click="toggleMobileMenu"
           >
             <svg v-if="!mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,14 +214,27 @@ const logout = () => {
 </template>
 
 <style scoped>
+.nav-link,
+.nav-action {
+  transition:
+    color 0.3s ease,
+    transform 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.nav-link:hover,
+.nav-action:hover {
+  transform: translateY(-1px);
+}
+
 .slide-enter-active,
 .slide-leave-active {
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .slide-enter-from,
 .slide-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(-12px);
 }
 </style>
