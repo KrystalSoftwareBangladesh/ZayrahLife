@@ -4,20 +4,14 @@ import DataTable from '@/components/admin/DataTable.vue'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormSelect from '@/components/admin/FormSelect.vue'
+import SupplierFormModal from '@/components/admin/SupplierFormModal.vue'
 import FormModal from '@/components/admin/FormModal.vue'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import StatCard from '@/components/admin/StatCard.vue'
 import { useAccountStore } from '@/stores/admin/accountStore'
 import { useSupplierStore } from '@/stores/admin/supplierStore'
 import { usePurchaseStore } from '@/stores/admin/purchaseStore'
-import type {
-  ChartOfAccountList,
-  PurchaseDetail,
-  PurchaseStatus,
-  PurchaseUpdateRequest,
-  SupplierList,
-  SupplierPaymentType
-} from '@/api/types'
+import type { ChartOfAccountList, PurchaseDetail, PurchaseStatus, PurchaseUpdateRequest, SupplierList, SupplierPaymentType } from '@/api/types'
 
 interface PurchaseItemForm {
   productId: number
@@ -98,12 +92,6 @@ const statusOptions = [
   { value: 'DRAFT', label: 'Draft' },
   { value: 'CONFIRMED', label: 'Confirmed' },
   { value: 'CANCELLED', label: 'Cancelled' }
-]
-
-const createPaymentTypeOptions = [
-  { value: 'COD', label: 'Cash on Delivery' },
-  { value: 'CREDIT', label: 'Credit' },
-  { value: 'PREPAID', label: 'Prepaid' }
 ]
 
 const supplierOptions = computed(() =>
@@ -309,6 +297,11 @@ const handleCreateSupplier = async () => {
     }
     showCreateSupplierModal.value = false
   }
+}
+
+const handleCreateSupplierModalSubmit = (payload: SupplierInlineForm) => {
+  createSupplierForm.value = payload
+  void handleCreateSupplier()
 }
 
 const openPurchaseDetail = async (row: { id: number }) => {
@@ -731,37 +724,13 @@ onMounted(async () => {
       </div>
     </FormModal>
 
-    <FormModal
+    <SupplierFormModal
       :show="showCreateSupplierModal"
       title="Create Supplier"
+      :initial-values="createSupplierForm"
       @close="showCreateSupplierModal = false"
-      @submit="handleCreateSupplier"
-    >
-      <div class="space-y-4">
-        <FormInput v-model="createSupplierForm.name" label="Supplier Name" placeholder="Company name" required />
-        <div class="grid grid-cols-2 gap-4">
-          <FormInput v-model="createSupplierForm.contact_person" label="Contact Person" placeholder="Contact name" />
-          <FormInput v-model="createSupplierForm.phone" label="Phone" placeholder="Phone number" />
-        </div>
-        <FormInput v-model="createSupplierForm.email" label="Email" type="email" placeholder="Email address" />
-        <FormInput v-model="createSupplierForm.address" label="Address" placeholder="Business address" />
-        <div class="grid grid-cols-2 gap-4">
-          <FormSelect
-            v-model="createSupplierForm.payment_type"
-            label="Payment Type"
-            :options="createPaymentTypeOptions"
-          />
-          <FormInput
-            v-model="createSupplierForm.credit_days"
-            type="number"
-            label="Credit Days"
-            placeholder="Only for Credit payment"
-            :disabled="createSupplierForm.payment_type !== 'CREDIT'"
-          />
-        </div>
-        <FormInput v-model="createSupplierForm.notes" label="Notes" placeholder="Optional notes..." />
-      </div>
-    </FormModal>
+      @submit="handleCreateSupplierModalSubmit"
+    />
 
     <ConfirmModal
       :show="showDeleteModal"
