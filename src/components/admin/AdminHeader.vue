@@ -18,7 +18,7 @@ const logout = () => {
 </script>
 
 <template>
-  <header class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+  <header class="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200 px-6 py-4">
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-lg font-semibold text-gray-900">Admin Panel</h1>
