@@ -19,6 +19,7 @@ vite.config.d.ts
 *.njsproj
 *.sln
 *.sw?
+.codex
 
 # Logs
 logs
