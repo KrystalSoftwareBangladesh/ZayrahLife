@@ -27,6 +27,13 @@ interface SupplierForm {
   category_id: string
 }
 
+interface CategoryInlineForm {
+  name: string
+  slug: string
+  description: string
+  parent: string
+}
+
 const supplierStore = useSupplierStore()
 const categoryStore = useCategoryStore()
 
@@ -36,6 +43,7 @@ const searchTimeout = ref<number | null>(null)
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
+const showCreateCategoryModal = ref(false)
 const showDeleteModal = ref(false)
 
 const selectedSupplier = ref<SupplierList | null>(null)
@@ -65,6 +73,13 @@ const editForm = ref<SupplierForm>({
   category_id: 'none'
 })
 
+const createCategoryForm = ref<CategoryInlineForm>({
+  name: '',
+  slug: '',
+  description: '',
+  parent: 'none'
+})
+
 const columns = [
   { key: 'name', label: 'Supplier Name' },
   { key: 'contact_person', label: 'Contact', width: '170px' },
@@ -89,6 +104,16 @@ const createPaymentTypeOptions = [
 
 const categoryOptions = computed(() => [
   { value: 'none', label: 'No Category' },
+  ...categoryStore.categoryOptions.map(category => ({
+    value: String(category.id),
+    label: category.name
+  }))
+])
+
+const hasCategoryOptions = computed(() => categoryStore.categoryOptions.length > 0)
+
+const parentCategoryOptions = computed(() => [
+  { value: 'none', label: 'No Parent (Root Category)' },
   ...categoryStore.categoryOptions.map(category => ({
     value: String(category.id),
     label: category.name
@@ -155,6 +180,21 @@ const openCreateModal = () => {
   showCreateModal.value = true
 }
 
+const resetCreateCategoryForm = () => {
+  createCategoryForm.value = {
+    name: '',
+    slug: '',
+    description: '',
+    parent: 'none'
+  }
+}
+
+const openCreateCategoryModal = () => {
+  resetCreateCategoryForm()
+  categoryStore.clearError()
+  showCreateCategoryModal.value = true
+}
+
 const openEditModal = async (supplier: SupplierList) => {
   selectedSupplier.value = supplier
   const detail = await supplierStore.getSupplierById(supplier.id)
@@ -201,6 +241,26 @@ const handleCreateSupplier = async () => {
   if (success) {
     showCreateModal.value = false
     fetchSupplierList(1)
+  }
+}
+
+const handleCreateCategory = async () => {
+  if (!createCategoryForm.value.name.trim()) return
+
+  const created = await categoryStore.createCategory({
+    name: createCategoryForm.value.name.trim(),
+    slug: createCategoryForm.value.slug.trim() || undefined,
+    description: createCategoryForm.value.description.trim() || null,
+    parent: createCategoryForm.value.parent === 'none' ? null : Number(createCategoryForm.value.parent)
+  })
+
+  if (created) {
+    if (showEditModal.value) {
+      editForm.value.category_id = String(created.id)
+    } else {
+      createForm.value.category_id = String(created.id)
+    }
+    showCreateCategoryModal.value = false
   }
 }
 
@@ -403,6 +463,21 @@ const handlePageChange = (page: number) => {
           />
         </div>
         <FormSelect v-model="createForm.category_id" label="Category" :options="categoryOptions" />
+        <div
+          v-if="!hasCategoryOptions"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <span>No categories found. Add one before assigning a supplier category.</span>
+            <button
+              type="button"
+              @click="openCreateCategoryModal"
+              class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
+            >
+              Add Category
+            </button>
+          </div>
+        </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
           <textarea
@@ -440,6 +515,21 @@ const handlePageChange = (page: number) => {
           />
         </div>
         <FormSelect v-model="editForm.category_id" label="Change Category (Optional)" :options="categoryOptions" />
+        <div
+          v-if="!hasCategoryOptions"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <span>No categories found. Add one before assigning a supplier category.</span>
+            <button
+              type="button"
+              @click="openCreateCategoryModal"
+              class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
+            >
+              Add Category
+            </button>
+          </div>
+        </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
           <textarea
@@ -447,6 +537,42 @@ const handlePageChange = (page: number) => {
             rows="3"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             placeholder="Additional notes..."
+          ></textarea>
+        </div>
+      </div>
+    </FormModal>
+
+    <FormModal
+      :show="showCreateCategoryModal"
+      title="Create Category"
+      @close="showCreateCategoryModal = false"
+      @submit="handleCreateCategory"
+    >
+      <div class="space-y-4">
+        <FormInput
+          v-model="createCategoryForm.name"
+          label="Name"
+          placeholder="Category name"
+          required
+        />
+        <FormInput
+          v-model="createCategoryForm.slug"
+          label="Slug"
+          placeholder="Optional slug"
+        />
+        <FormSelect
+          v-model="createCategoryForm.parent"
+          label="Parent Category"
+          :options="parentCategoryOptions"
+          placeholder="Select parent category"
+        />
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea
+            v-model="createCategoryForm.description"
+            rows="4"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="Optional description..."
           ></textarea>
         </div>
       </div>
