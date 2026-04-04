@@ -9,6 +9,7 @@ import FormModal from '@/components/admin/FormModal.vue'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import StatCard from '@/components/admin/StatCard.vue'
 import { useAccountStore } from '@/stores/admin/accountStore'
+import { useCategoryStore } from '@/stores/admin/categoryStore'
 import { useSupplierStore } from '@/stores/admin/supplierStore'
 import { usePurchaseStore } from '@/stores/admin/purchaseStore'
 import type { ChartOfAccountList, PurchaseDetail, PurchaseStatus, PurchaseUpdateRequest, SupplierList, SupplierPaymentType } from '@/api/types'
@@ -30,8 +31,10 @@ interface SupplierInlineForm {
   notes: string
   payment_type: SupplierPaymentType
   credit_days: string
+  category_id: string
 }
 
+const categoryStore = useCategoryStore()
 const supplierStore = useSupplierStore()
 const accountStore = useAccountStore()
 const purchaseStore = usePurchaseStore()
@@ -74,7 +77,8 @@ const createSupplierForm = ref<SupplierInlineForm>({
   address: '',
   notes: '',
   payment_type: 'COD',
-  credit_days: ''
+  credit_days: '',
+  category_id: 'none'
 })
 
 const columns = [
@@ -102,6 +106,12 @@ const supplierOptions = computed(() =>
 )
 
 const hasSupplierOptions = computed(() => supplierStore.activeSuppliers.length > 0)
+const categoryOptions = computed(() =>
+  categoryStore.categoryOptions.map(category => ({
+    value: String(category.id),
+    label: category.name
+  }))
+)
 
 const accountOptions = computed(() =>
   accountStore.accountOptions.map(account => ({
@@ -202,7 +212,8 @@ const resetCreateSupplierForm = () => {
     address: '',
     notes: '',
     payment_type: 'COD',
-    credit_days: ''
+    credit_days: '',
+    category_id: 'none'
   }
 }
 
@@ -283,7 +294,8 @@ const handleCreateSupplier = async () => {
     credit_days:
       createSupplierForm.value.payment_type === 'CREDIT' && createSupplierForm.value.credit_days
         ? Number(createSupplierForm.value.credit_days)
-        : null
+        : null,
+    categories: createSupplierForm.value.category_id !== 'none' ? [Number(createSupplierForm.value.category_id)] : []
   })
 
   if (success) {
@@ -424,6 +436,7 @@ const handlePageChange = (page: number) => {
 onMounted(async () => {
   await Promise.all([
     accountStore.fetchAccountOptions(),
+    categoryStore.fetchCategoryOptions(),
     supplierStore.fetchSuppliers({ page_size: 100 }),
     purchaseStore.fetchProductOptions(),
     purchaseStore.fetchPurchases()
@@ -728,6 +741,9 @@ onMounted(async () => {
       :show="showCreateSupplierModal"
       title="Create Supplier"
       :initial-values="createSupplierForm"
+      :category-options="categoryOptions"
+      show-category
+      category-label="Category"
       @close="showCreateSupplierModal = false"
       @submit="handleCreateSupplierModalSubmit"
     />
