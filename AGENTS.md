@@ -72,6 +72,10 @@
 - Prefer TypeScript-safe changes over quick template-only patches.
 - Preserve the public/admin split. Do not mix admin concerns into storefront components.
 - Reuse existing components in [`src/components/common`](/home/shaon/Desktop/ZayrahLife/src/components/common) and [`src/components/admin`](/home/shaon/Desktop/ZayrahLife/src/components/admin) before adding new primitives.
+- Do not duplicate component UI, modal markup, or form logic for the same feature in multiple pages.
+- If the same create/edit flow appears in more than one place, extract and reuse one shared component instead of copying the implementation.
+- If repeated submit/validation logic is needed by multiple screens, move it into a shared composable or helper rather than duplicating page-level code.
+- Prefer extending an existing shared component over creating a second component with nearly identical fields and behavior.
 - Keep route components lazy-loaded following current router patterns.
 - Use the `@/` alias for imports from `src`.
 - Match the existing Vue style: `<script setup>`, Composition API, and computed refs over ad hoc inline logic.
