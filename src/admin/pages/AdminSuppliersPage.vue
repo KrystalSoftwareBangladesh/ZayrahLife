@@ -474,7 +474,7 @@ const handlePageChange = (page: number) => {
               @click="openCreateCategoryModal"
               class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
             >
-              Add Category
+              Add First Category
             </button>
           </div>
         </div>
@@ -526,7 +526,7 @@ const handlePageChange = (page: number) => {
               @click="openCreateCategoryModal"
               class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
             >
-              Add Category
+              Add First Category
             </button>
           </div>
         </div>
