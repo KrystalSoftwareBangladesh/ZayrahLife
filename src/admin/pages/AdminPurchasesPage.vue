@@ -4,13 +4,15 @@ import DataTable from '@/components/admin/DataTable.vue'
 import StatusBadge from '@/components/admin/StatusBadge.vue'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormSelect from '@/components/admin/FormSelect.vue'
+import SupplierFormModal from '@/components/admin/SupplierFormModal.vue'
 import FormModal from '@/components/admin/FormModal.vue'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import StatCard from '@/components/admin/StatCard.vue'
 import { useAccountStore } from '@/stores/admin/accountStore'
+import { useCategoryStore } from '@/stores/admin/categoryStore'
 import { useSupplierStore } from '@/stores/admin/supplierStore'
 import { usePurchaseStore } from '@/stores/admin/purchaseStore'
-import type { ChartOfAccountList, PurchaseDetail, PurchaseStatus, PurchaseUpdateRequest, SupplierList } from '@/api/types'
+import type { ChartOfAccountList, PurchaseDetail, PurchaseStatus, PurchaseUpdateRequest, SupplierList, SupplierPaymentType } from '@/api/types'
 
 interface PurchaseItemForm {
   productId: number
@@ -20,6 +22,19 @@ interface PurchaseItemForm {
   unitCost: number
 }
 
+interface SupplierInlineForm {
+  name: string
+  contact_person: string
+  phone: string
+  email: string
+  address: string
+  notes: string
+  payment_type: SupplierPaymentType
+  credit_days: string
+  category_id: string
+}
+
+const categoryStore = useCategoryStore()
 const supplierStore = useSupplierStore()
 const accountStore = useAccountStore()
 const purchaseStore = usePurchaseStore()
@@ -28,6 +43,7 @@ const searchQuery = ref('')
 const statusFilter = ref<PurchaseStatus | ''>('')
 const showAddModal = ref(false)
 const showDetailModal = ref(false)
+const showCreateSupplierModal = ref(false)
 const showDeleteModal = ref(false)
 const selectedPurchaseId = ref<number | null>(null)
 
@@ -53,6 +69,18 @@ const editForm = ref({
   status: 'DRAFT' as PurchaseStatus
 })
 
+const createSupplierForm = ref<SupplierInlineForm>({
+  name: '',
+  contact_person: '',
+  phone: '',
+  email: '',
+  address: '',
+  notes: '',
+  payment_type: 'COD',
+  credit_days: '',
+  category_id: 'none'
+})
+
 const columns = [
   { key: 'id', label: 'Purchase ID' },
   { key: 'supplier', label: 'Supplier' },
@@ -74,6 +102,14 @@ const supplierOptions = computed(() =>
   supplierStore.activeSuppliers.map(supplier => ({
     value: supplier.id,
     label: supplier.name
+  }))
+)
+
+const hasSupplierOptions = computed(() => supplierStore.activeSuppliers.length > 0)
+const categoryOptions = computed(() =>
+  categoryStore.categoryOptions.map(category => ({
+    value: String(category.id),
+    label: category.name
   }))
 )
 
@@ -167,6 +203,26 @@ const openAddModal = () => {
   showAddModal.value = true
 }
 
+const resetCreateSupplierForm = () => {
+  createSupplierForm.value = {
+    name: '',
+    contact_person: '',
+    phone: '',
+    email: '',
+    address: '',
+    notes: '',
+    payment_type: 'COD',
+    credit_days: '',
+    category_id: 'none'
+  }
+}
+
+const openCreateSupplierModal = () => {
+  resetCreateSupplierForm()
+  supplierStore.clearError()
+  showCreateSupplierModal.value = true
+}
+
 const addItem = () => {
   newPurchase.value.items.push({ productId: 0, variantId: 0, sku: '', quantity: 1, unitCost: 0 })
 }
@@ -222,6 +278,42 @@ const handleCreatePurchase = async () => {
     showAddModal.value = false
     fetchPurchaseList(1)
   }
+}
+
+const handleCreateSupplier = async () => {
+  if (!createSupplierForm.value.name.trim()) return
+
+  const success = await supplierStore.createSupplier({
+    name: createSupplierForm.value.name.trim(),
+    contact_person: createSupplierForm.value.contact_person.trim() || null,
+    phone: createSupplierForm.value.phone.trim() || null,
+    email: createSupplierForm.value.email.trim() || null,
+    address: createSupplierForm.value.address.trim() || null,
+    notes: createSupplierForm.value.notes.trim() || null,
+    payment_type: createSupplierForm.value.payment_type,
+    credit_days:
+      createSupplierForm.value.payment_type === 'CREDIT' && createSupplierForm.value.credit_days
+        ? Number(createSupplierForm.value.credit_days)
+        : null,
+    categories: createSupplierForm.value.category_id !== 'none' ? [Number(createSupplierForm.value.category_id)] : []
+  })
+
+  if (success) {
+    const createdSupplier = supplierStore.activeSuppliers[0]
+    if (createdSupplier) {
+      if (showDetailModal.value) {
+        editForm.value.supplierId = createdSupplier.id
+      } else {
+        newPurchase.value.supplierId = createdSupplier.id
+      }
+    }
+    showCreateSupplierModal.value = false
+  }
+}
+
+const handleCreateSupplierModalSubmit = (payload: SupplierInlineForm) => {
+  createSupplierForm.value = payload
+  void handleCreateSupplier()
 }
 
 const openPurchaseDetail = async (row: { id: number }) => {
@@ -344,6 +436,7 @@ const handlePageChange = (page: number) => {
 onMounted(async () => {
   await Promise.all([
     accountStore.fetchAccountOptions(),
+    categoryStore.fetchCategoryOptions(),
     supplierStore.fetchSuppliers({ page_size: 100 }),
     purchaseStore.fetchProductOptions(),
     purchaseStore.fetchPurchases()
@@ -467,6 +560,21 @@ onMounted(async () => {
           <FormSelect v-model="newPurchase.supplierId" label="Supplier" :options="supplierOptions" placeholder="Select supplier" />
           <FormSelect v-model="newPurchase.accountId" label="Account" :options="accountOptions" placeholder="Select account" />
         </div>
+        <div
+          v-if="!hasSupplierOptions"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <span>No suppliers found. Add one before creating the purchase.</span>
+            <button
+              type="button"
+              @click="openCreateSupplierModal"
+              class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
+            >
+              Add First Supplier
+            </button>
+          </div>
+        </div>
         <div class="grid grid-cols-2 gap-4">
           <FormInput v-model="newPurchase.purchaseDate" type="date" label="Purchase Date" />
           <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500">
@@ -541,6 +649,21 @@ onMounted(async () => {
           <FormSelect v-model="editForm.supplierId" label="Supplier" :options="supplierOptions" placeholder="Select supplier" />
           <FormSelect v-model="editForm.accountId" label="Account" :options="accountOptions" placeholder="Select account" />
         </div>
+        <div
+          v-if="!hasSupplierOptions"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <span>No suppliers found. Add one before updating the purchase.</span>
+            <button
+              type="button"
+              @click="openCreateSupplierModal"
+              class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
+            >
+              Add First Supplier
+            </button>
+          </div>
+        </div>
         <div class="grid grid-cols-2 gap-4">
           <FormInput v-model="editForm.purchaseDate" type="date" label="Purchase Date" />
           <div>
@@ -613,6 +736,17 @@ onMounted(async () => {
         </div>
       </div>
     </FormModal>
+
+    <SupplierFormModal
+      :show="showCreateSupplierModal"
+      title="Create Supplier"
+      :initial-values="createSupplierForm"
+      :category-options="categoryOptions"
+      show-category
+      category-label="Category"
+      @close="showCreateSupplierModal = false"
+      @submit="handleCreateSupplierModalSubmit"
+    />
 
     <ConfirmModal
       :show="showDeleteModal"

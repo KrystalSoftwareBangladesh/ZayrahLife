@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import DataTable from '@/components/admin/DataTable.vue'
 import FormInput from '@/components/admin/FormInput.vue'
 import FormSelect from '@/components/admin/FormSelect.vue'
+import SupplierFormModal from '@/components/admin/SupplierFormModal.vue'
 import FormModal from '@/components/admin/FormModal.vue'
 import ConfirmModal from '@/components/admin/ConfirmModal.vue'
 import StatCard from '@/components/admin/StatCard.vue'
@@ -96,14 +97,7 @@ const paymentTypeOptions = [
   { value: 'PREPAID', label: 'Prepaid' }
 ]
 
-const createPaymentTypeOptions = [
-  { value: 'COD', label: 'Cash on Delivery' },
-  { value: 'CREDIT', label: 'Credit' },
-  { value: 'PREPAID', label: 'Prepaid' }
-]
-
 const categoryOptions = computed(() => [
-  { value: 'none', label: 'No Category' },
   ...categoryStore.categoryOptions.map(category => ({
     value: String(category.id),
     label: category.name
@@ -319,6 +313,16 @@ const handleDeleteSupplier = async () => {
 const handlePageChange = (page: number) => {
   fetchSupplierList(page)
 }
+
+const handleCreateSupplierModalSubmit = (payload: SupplierForm) => {
+  createForm.value = payload
+  void handleCreateSupplier()
+}
+
+const handleUpdateSupplierModalSubmit = (payload: SupplierForm) => {
+  editForm.value = payload
+  void handleUpdateSupplier()
+}
 </script>
 
 <template>
@@ -438,109 +442,37 @@ const handlePageChange = (page: number) => {
       </button>
     </div>
 
-    <FormModal
+    <SupplierFormModal
       :show="showCreateModal"
       title="Create Supplier"
+      submit-text="Save"
+      :initial-values="createForm"
+      :category-options="categoryOptions"
+      show-category
+      category-label="Category"
+      :show-empty-category-state="!hasCategoryOptions"
+      empty-category-message="No categories found. Add one before assigning a supplier category."
+      empty-category-button-text="Add First Category"
       @close="showCreateModal = false"
-      @submit="handleCreateSupplier"
-    >
-      <div class="space-y-4">
-        <FormInput v-model="createForm.name" label="Supplier Name" placeholder="Company name" required />
-        <div class="grid grid-cols-2 gap-4">
-          <FormInput v-model="createForm.contact_person" label="Contact Person" placeholder="Contact name" />
-          <FormInput v-model="createForm.phone" label="Phone" placeholder="Phone number" />
-        </div>
-        <FormInput v-model="createForm.email" label="Email" type="email" placeholder="Email address" />
-        <FormInput v-model="createForm.address" label="Address" placeholder="Business address" />
-        <div class="grid grid-cols-2 gap-4">
-          <FormSelect v-model="createForm.payment_type" label="Payment Type" :options="createPaymentTypeOptions" />
-          <FormInput
-            v-model="createForm.credit_days"
-            type="number"
-            label="Credit Days"
-            placeholder="Only for Credit payment"
-            :disabled="createForm.payment_type !== 'CREDIT'"
-          />
-        </div>
-        <FormSelect v-model="createForm.category_id" label="Category" :options="categoryOptions" />
-        <div
-          v-if="!hasCategoryOptions"
-          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <span>No categories found. Add one before assigning a supplier category.</span>
-            <button
-              type="button"
-              @click="openCreateCategoryModal"
-              class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
-            >
-              Add Category
-            </button>
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <textarea
-            v-model="createForm.notes"
-            rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            placeholder="Additional notes..."
-          ></textarea>
-        </div>
-      </div>
-    </FormModal>
+      @create-category="openCreateCategoryModal"
+      @submit="handleCreateSupplierModalSubmit"
+    />
 
-    <FormModal
+    <SupplierFormModal
       :show="showEditModal"
       title="Edit Supplier"
+      submit-text="Save"
+      :initial-values="editForm"
+      :category-options="categoryOptions"
+      show-category
+      category-label="Change Category (Optional)"
+      :show-empty-category-state="!hasCategoryOptions"
+      empty-category-message="No categories found. Add one before assigning a supplier category."
+      empty-category-button-text="Add First Category"
       @close="showEditModal = false"
-      @submit="handleUpdateSupplier"
-    >
-      <div class="space-y-4">
-        <FormInput v-model="editForm.name" label="Supplier Name" placeholder="Company name" required />
-        <div class="grid grid-cols-2 gap-4">
-          <FormInput v-model="editForm.contact_person" label="Contact Person" placeholder="Contact name" />
-          <FormInput v-model="editForm.phone" label="Phone" placeholder="Phone number" />
-        </div>
-        <FormInput v-model="editForm.email" label="Email" type="email" placeholder="Email address" />
-        <FormInput v-model="editForm.address" label="Address" placeholder="Business address" />
-        <div class="grid grid-cols-2 gap-4">
-          <FormSelect v-model="editForm.payment_type" label="Payment Type" :options="createPaymentTypeOptions" />
-          <FormInput
-            v-model="editForm.credit_days"
-            type="number"
-            label="Credit Days"
-            placeholder="Only for Credit payment"
-            :disabled="editForm.payment_type !== 'CREDIT'"
-          />
-        </div>
-        <FormSelect v-model="editForm.category_id" label="Change Category (Optional)" :options="categoryOptions" />
-        <div
-          v-if="!hasCategoryOptions"
-          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <span>No categories found. Add one before assigning a supplier category.</span>
-            <button
-              type="button"
-              @click="openCreateCategoryModal"
-              class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 font-medium text-white transition-colors hover:bg-primary-700"
-            >
-              Add Category
-            </button>
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <textarea
-            v-model="editForm.notes"
-            rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            placeholder="Additional notes..."
-          ></textarea>
-        </div>
-      </div>
-    </FormModal>
+      @create-category="openCreateCategoryModal"
+      @submit="handleUpdateSupplierModalSubmit"
+    />
 
     <FormModal
       :show="showCreateCategoryModal"
