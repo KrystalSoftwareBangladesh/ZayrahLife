@@ -98,13 +98,23 @@ const adminRoutes = [
 
 export function setupAdminGuard(router: Router) {
   router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
-    if (to.path.startsWith('/admin') && to.path !== '/admin/login') {
+    if (to.path.startsWith('/admin')) {
       const adminAuth = useAdminAuthStore()
-      if (!adminAuth.isAuthenticated) {
+
+      if (to.path === '/admin/login' && adminAuth.isAuthenticated) {
+        next({ name: 'admin-dashboard' })
+        return
+      }
+
+      if (to.path !== '/admin/login' && !adminAuth.isAuthenticated) {
         next({ name: 'admin-login' })
         return
       }
+
+      next()
+      return
     }
+
     next()
   })
 }
